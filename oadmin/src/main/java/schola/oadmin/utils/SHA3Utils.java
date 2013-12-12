@@ -1,4 +1,4 @@
-package schola.oadmin.util;
+package schola.oadmin.utils;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;

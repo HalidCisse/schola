@@ -1,113 +1,169 @@
 package schola
 package oadmin
 
-package object plans {
+import org.clapper.avsl.Logger
+
+object Plans extends oadmin.Plans(Façade)
+
+class Plans(val factory: HandlerFactory) {
+
+  val log = Logger("oadmin.plans")
 
   import oauth2._
-  import unfiltered.request.{Path => UFPath, _}
+  import unfiltered.request._
+  import unfiltered.filter.request.ContextPath
   import unfiltered.response._
 
-  private object ResourceOwner {
+  import scala.util.control.Exception.allCatch
 
-    import javax.servlet.http.HttpServletRequest
-
-    def unapply[T <: HttpServletRequest](request: HttpRequest[T]): Option[unfiltered.oauth2.ResourceOwner] =
-      request.underlying.getAttribute(unfiltered.oauth2.OAuth2.XAuthorizedIdentity) match {
-        case sId: String => Some(new unfiltered.oauth2.ResourceOwner { val id = sId; val password = None })
-        case _ => None
-      }
-  }
+  import unfiltered.filter.request.{MultiPart, MultiPartParams}
 
   val routes = unfiltered.filter.Planify {
-    case ResourceOwner(user) & req =>
+    case req =>
+
+      val routeHandler = factory(req)
 
       type Intent = unfiltered.filter.Plan.Intent
 
-      val users: Intent = {
+      val usersIntent: Intent = {
 
-        case POST(UFPath(Seg("api" :: "users" :: Nil))) =>
+        case GET(ContextPath(_, Seg("user" :: userId :: "avatars" :: Nil))) =>
 
-          ResponseString(s"user: ${user.id}")
+          routeHandler.downloadAvatar(userId)
 
-        case GET(UFPath(Seg("api" :: "users" :: Nil))) =>
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "avatars" :: Nil))) =>
 
-          ResponseString(s"user: ${user.id}")
+          routeHandler.purgeAvatar(userId)
 
-        case GET(UFPath(Seg("api" :: "session" :: Nil))) =>
+        case POST(ContextPath(_, Seg("user" :: userId :: "avatars" :: Nil))) & MultiPart(_) =>
+          val fs = MultiPartParams.Memory(req).files("f")
 
-          ResponseString(s"user: ${user.id}")
+          fs match {
+            case Seq(f, _*) =>
 
-        case GET(UFPath(Seg("api" :: "user" :: userId :: Nil))) =>
+              routeHandler.uploadAvatar(userId, domain.AvatarInfo(f.contentType), f.bytes)
 
-          ResponseString(s"user: ${user.id}")
+            case _ => BadRequest
+          }
 
-        case PUT(UFPath(Seg("api" :: "user" :: userId :: Nil))) =>
 
-          ResponseString(s"user: ${user.id}")
+        case POST(ContextPath(_, "/users")) =>
 
-        case DELETE(UFPath(Seg("api" :: "user" :: userId :: Nil))) =>
+          routeHandler.addUser()
 
-          ResponseString(s"user: ${user.id}")
+        case GET(ContextPath(_, "/users")) =>
 
-        case GET(UFPath(Seg("api" :: "user" :: userId :: "exists" :: Nil))) =>
+          routeHandler.getUsers
 
-          ResponseString(s"user: ${user.id}")
+        case GET(ContextPath(_, Seg("users" :: "trash" :: Nil))) =>
+
+          routeHandler.getTrash
+
+        case GET(ContextPath(_, Seg("userexists" :: Nil))) & Params(params) =>
+
+          allCatch.opt {
+            params("email")(0)
+          } match {
+            case Some(email) => routeHandler.userExists(email)
+            case _ => BadRequest
+          }
+
+        case GET(ContextPath(_, "/session")) =>
+
+          routeHandler.getUserSession
+
+        case GET(ContextPath(_, Seg("user" :: userId :: Nil))) =>
+
+          routeHandler.getUser(userId)
+
+        case PUT(ContextPath(_, Seg("user" :: userId :: Nil))) =>
+
+          routeHandler.updateUser(userId)
+
+        case DELETE(ContextPath(_, Seg("user" :: userId :: Nil))) =>
+
+          routeHandler.removeUser(userId)
+
+        case GET(ContextPath(_, Seg("user" :: userId :: "roles" :: Nil))) =>
+
+          routeHandler.getUserRoles(userId)
+
+        case PUT(ContextPath(_, Seg("user" :: userId :: "roles" :: Nil))) & Params(p) =>
+
+          routeHandler.grantRoles(userId, p("roles[]").toSet)
+
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "roles" :: Nil))) & Params(p) =>
+
+          routeHandler.revokeRoles(userId, p("roles[]").toSet)
+
+        case PUT(ContextPath(_, Seg("user" :: userId :: "contacts" :: Nil))) =>
+
+          routeHandler.addContacts(userId)
+
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "contacts" :: Nil))) =>
+
+          routeHandler.removeContacts(userId)
+
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "purge" :: Nil))) =>
+
+          routeHandler.purgeUsers(Set(userId))
       }
 
-      val roles: Intent = {
-        case POST(UFPath(Seg("api" :: "roles" :: Nil))) =>
+      val rolesIntent: Intent = {
+        case POST(ContextPath(_, "/roles")) =>
 
-          ResponseString(s"user: ${user.id}")
+          routeHandler.addRole()
 
-        case POST(UFPath(Seg("api" :: "permissions" :: Nil))) =>
+        case GET(ContextPath(_, Seg("role_exists" :: Nil))) & Params(params) =>
 
-          ResponseString(s"user: ${user.id}")
+          allCatch.opt {
+            params("name")(0)
+          } match {
+            case Some(name) => routeHandler.roleExists(name)
+            case _ => BadRequest
+          }
 
-        case GET(UFPath(Seg("api" :: "roles" :: Nil))) =>
+        case PUT(ContextPath(_, Seg("role" :: name :: Nil))) =>
 
-          ResponseString(s"user: ${user.id}")
+          routeHandler.updateRole(name)
 
-        case GET(UFPath(Seg("api" :: "role" :: name :: Nil))) =>
+        case GET(ContextPath(_, "/permissions")) =>
 
-          ResponseString(s"user: ${user.id}")
+          routeHandler.getPermissions
 
-        case PUT(UFPath(Seg("api" :: "role" :: name :: Nil))) =>
+        case GET(ContextPath(_, Seg("role" :: name :: "permissions" :: Nil))) =>
 
-          ResponseString(s"user: ${user.id}")
+          routeHandler.getRolePermissions(name)
 
-        case DELETE(UFPath(Seg("api" :: "role" :: name :: Nil))) =>
+        case PUT(ContextPath(_, Seg("role" :: name :: "permissions[]" :: Nil))) & Params(p) =>
 
-          ResponseString(s"user: ${user.id}")
+          routeHandler.grantPermissions(name, p("permissions").toSet)
+
+        case DELETE(ContextPath(_, Seg("role" :: name :: "permissions[]" :: Nil))) & Params(p) =>
+
+          routeHandler.revokePermissions(name, p("permissions").toSet)
+
+        case GET(ContextPath(_, "/roles")) =>
+
+          routeHandler.getRoles
+
+        case GET(ContextPath(_, Seg("role" :: name :: Nil))) =>
+
+          routeHandler.getRole(name)
+
+        case DELETE(ContextPath(_, Seg("role" :: name :: Nil))) =>
+
+          routeHandler.purgeRoles(Set(name))
       }
 
-      val auth: Intent = {
+      val authIntent: Intent = {
 
-        case GET(UFPath(Seg("api" :: "login" :: Nil))) =>
+        case ContextPath(_, "/logout") & Token(token) =>
 
-          ResponseString(s"user: ${user.id}")
-
-        case UFPath(Seg("api" :: "logout" :: Nil)) & Token(token) =>
-
-          façade.oauthService.revokeToken(token)
-          ResponseString("Logout success")
+          routeHandler.logout(token)
       }
 
-      val accesscontrol: Intent = {
-
-        case POST(UFPath(Seg("api" :: "roles" :: userId :: Nil))) =>
-
-          ResponseString(s"user: ${user.id}")
-
-        case GET(UFPath(Seg("api" :: "permissions" :: roleName :: Nil))) =>
-
-          ResponseString(s"user: ${user.id}")
-
-        case GET(UFPath(Seg("api" :: "accesscontrol" :: userId :: Nil))) =>
-
-          ResponseString(s"user: ${user.id}")
-      }
-
-      val app = users orElse roles orElse auth orElse accesscontrol
+      val app = usersIntent orElse rolesIntent orElse authIntent
       app(req)
   }
 }

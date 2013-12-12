@@ -1,33 +1,36 @@
 package schola
 package oadmin
+package test
 
 object JsonSpec extends org.specs.Specification {
 
   import conversions.json._
 
-  val userId = SuperUser.id
+  val userId = SuperUser.id.get
 
-  def initialize() = façade.init(userId)
+  def initialize() = Façade.init(userId)
 
-  def drop() = façade.drop()
+  def drop() = Façade.drop()
 
   "domain objects" should {
 
     "convert user to json" in {
 
-      val o = façade.oauthService.saveUser(
+      val o = Façade.oauthService.saveUser(
         "username0",
         "amsayk.0",
         "Amadou",
         "Cisse",
-        Some(SuperUser.id.toString),
+        Some(userId.toString),
         domain.Gender.Female,
         Some(domain.AddressInfo("RABAT", "Morocco", "10032", "Imm. B, Appt. 23, Cite Mabella, Mabella")),
         Some(domain.AddressInfo("RABAT", "Morocco", "10000", "5, Appt. 23, Rue Jabal Tazaka")),
         Set[domain.ContactInfo](
-          domain.HomeContactInfo(domain.PhoneNumber("+212600793159"), primary = true),
-          domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com"))
-        )
+          domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
+          domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com")),
+          domain.MobileContactInfo(domain.PhoneNumber("+212600793159"))
+        ),
+        passwordValid = true
       )
 
       o must not be empty
@@ -36,7 +39,7 @@ object JsonSpec extends org.specs.Specification {
 
     "convert to json" in {
 
-      val o = façade.accessControlService
+      val o = Façade.accessControlService
 
       println(tojson (o.getRoles))
       println(tojson (o.getUserRoles(userId.toString)))

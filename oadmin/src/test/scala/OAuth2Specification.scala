@@ -1,8 +1,8 @@
 package schola
 package oadmin
+package test
 
 import oauth2._
-import schema._
 
 import unfiltered.oauth2._
 
@@ -10,11 +10,12 @@ object OAuth2Specification extends org.specs.Specification
   with unfiltered.spec.jetty.Served {
 
   import dispatch.classic._
+  import unfiltered.request.&
 
   import scala.util.parsing.json.JSON
 
   val token = host / "oauth" / "token"
-  val api = host / "api"
+  val api = host / "api" / "v1"
 
   val client = domain.OAuthClient(
     "oadmin", "oadmin",
@@ -22,26 +23,27 @@ object OAuth2Specification extends org.specs.Specification
   )
 
   val sPassword = config.getString("super-user-password")
-  val owner = new ResourceOwner { val id = SuperUser.username; val password = Some(sPassword) }
+  val owner = new ResourceOwner { val id = SuperUser.email; val password = Some(sPassword) }
 
   def setup = { server =>
     try drop() catch { case _: Throwable => }
     initialize()
 
-    val authProvider = new AuthServerProvider
-
     server.context("/oauth") {
-      _.filter(OAuthorization(authProvider.auth))
+      _.filter(unfiltered.filter.Planify{
+        case unfiltered.request.UserAgent(uA) & req =>
+          OAuthorization(new AuthServerProvider(uA).auth).intent(req) // Too much objects created !?
+      })
     }
-    .context("/api") {
+    .context("/api/v1") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-      .filter(plans.routes)
+      .filter(utils.ValidatePasswd(Plans.routes))
     }
   }
 
-  def initialize() = façade.init(SuperUser.id)
+  def initialize() = Façade.init(SuperUser.id.get)
 
-  def drop() = façade.drop()
+  def drop() = Façade.drop()
 
   // turning off redirects for validation
   override def http[T](handler: Handler[T]): T = {
@@ -83,7 +85,7 @@ object OAuth2Specification extends org.specs.Specification
         "client_secret" -> client.secret,
         "username" -> owner.id,
         "password" -> sPassword
-      ) >+ { r => (r >:> { h => r }, r as_str ) })
+      ) <:< Map("User-Agent" -> "Chrome") >+ { r => (r >:> { h => r }, r as_str ) })
       json(body) { map =>
         map must haveKey("access_token")
       }
@@ -96,25 +98,28 @@ object OAuth2Specification extends org.specs.Specification
         "client_secret" -> client.secret,
         "username" -> owner.id,
         "password" -> sPassword
-      ) >+ { r => (r >:> { h => r }, r as_str ) })
+      ) <:< Map("User-Agent" -> "Chrome") >+ { r => (r >:> { h => r }, r as_str ) })
 
       json(body) { map =>
         map must haveKey("access_token")
 
-        def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${util.randomString(4)}"
+        def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
         val (key, nonce, method,  uri, hostname, hport) = (
-          map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/session",  "localhost", port)
+          map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/v1/session",  "localhost", port)
 
         val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
         unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
           fail(_)
         }, { mac =>
-          val auth = Map("Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac))
+          val auth = Map(
+            "Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac),
+            "User-Agent" -> "Chrome"
+          )
 
           val rres = http(api / "session" <:< auth as_str)
 
-          rres mustMatch "user: *"
+          rres startsWith  """{"key":"""
         })
       }
     }
@@ -126,26 +131,29 @@ object OAuth2Specification extends org.specs.Specification
         "client_secret" -> client.secret,
         "username" -> owner.id,
         "password" -> sPassword
-      ) >+ { r => (r >:> { h => r }, r as_str ) })
+      ) <:< Map("User-Agent" -> "Chrome") >+ { r => (r >:> { h => r }, r as_str ) })
 
       json(body) { map : Map[String, Any] =>
         map must haveKey("access_token")
 
-        def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${util.randomString(8)}"
+        def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(8)}"
 
         {
           val (key, nonce, method,  uri, hostname, hport) = (
-            map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/logout",  "localhost", port)
+            map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/v1/logout",  "localhost", port)
 
           val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
           unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
             fail(_)
           }, { mac =>
-            val auth = Map("Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac))
+            val auth = Map(
+              "Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac),
+              "User-Agent" -> "Chrome"
+            )
 
             val rres = http(api / "logout" <:< auth as_str)
 
-            rres mustEqual "Logout success"
+            rres mustEqual """{"success": true}"""
           })
 
           {
@@ -156,7 +164,11 @@ object OAuth2Specification extends org.specs.Specification
             unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
               fail(_)
             }, { mac =>
-              val auth = Map("Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac))
+              val auth = Map(
+                "Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac),
+                "User-Agent" -> "Chrome"
+              )
+
               val rres2 = http(api / "session" <:< auth as_str)
 
               rres2 must be equalTo "error=\"invalid token\""
@@ -174,7 +186,7 @@ object OAuth2Specification extends org.specs.Specification
         "client_secret" -> client.secret,
         "username" -> owner.id,
         "password" -> sPassword
-      ) >:> { h => h })
+      ) <:< Map("User-Agent" -> "Chrome") >:> { h => h })
       headers must haveKey("Cache-Control")
       headers must haveKey("Pragma")
       headers("Cache-Control") must be_==(Set("no-store"))
@@ -189,7 +201,7 @@ object OAuth2Specification extends org.specs.Specification
         "client_secret" -> client.secret,
         "username" -> owner.id,
         "password" -> sPassword
-      ) as_!(client.id, client.secret)
+      ) <:< Map("User-Agent" -> "Chrome") as_!(client.id, client.secret)
 
       // requesting access token
       val (header, ares) =
@@ -210,7 +222,7 @@ object OAuth2Specification extends org.specs.Specification
           "client_id" -> client.id,
           "client_secret" -> client.secret,
           "refresh_token" -> map("refresh_token").toString
-        ) as_str)
+        ) <:< Map("User-Agent" -> "Chrome") as_str)
         json(rres) { map2  =>
           map2 must haveKey("access_token")
           map2 must haveKey("expires_in")
@@ -219,7 +231,7 @@ object OAuth2Specification extends org.specs.Specification
           map2("refresh_token") must not be equalTo(map("refresh_token"))
           map2("access_token") must not be equalTo(map("access_token"))
 
-          def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${util.randomString(8)}"
+          def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(8)}"
 
           // old access token should be revoked
           {
@@ -230,8 +242,12 @@ object OAuth2Specification extends org.specs.Specification
             unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
               fail(_)
             }, { mac =>
-              val auth = Map("Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac))
-              val rres = http(api / "user" <:< auth as_str)
+              val auth = Map(
+                "Authorization" -> """MAC id="%s",nonce="%s",mac="%s" """.format(map("access_token"), nonce, mac),
+                "User-Agent" -> "Chrome"
+              )
+
+              val rres = http(api / "session" <:< auth as_str)
 
               rres must be equalTo "error=\"invalid token\""
             })

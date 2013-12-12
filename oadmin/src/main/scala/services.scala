@@ -1,7 +1,7 @@
 package schola
 package oadmin
 
-trait OAuthServicesComponent[M[_]] {
+trait OAuthServicesComponent {
   val oauthService: OAuthServices
 
   trait OAuthServices {
@@ -13,6 +13,7 @@ trait OAuthServicesComponent[M[_]] {
       val userId: java.util.UUID
       val refreshToken: Option[String]
       val macKey: String
+      val uA: String
       val expiresIn: Option[Long]
       val refreshExpiresIn: Option[Long]
       val createdAt: Long
@@ -27,31 +28,9 @@ trait OAuthServicesComponent[M[_]] {
       val redirectUri: String
     }
 
-/*    type HasId = {
-      def id: Int
-    }
-
-    type ContactValueLike = {
-      val _type: String
-      val value: String
-    }
-
-    type ContactInfoLike = {
-      val _type: HasId
-      val value: ContactValueLike
-      val primary: Boolean
-    }
-
-    type AddressInfoLike = {
-      val city: String
-      val country: String
-      val zipCode: String
-      val addressLine: String
-    }*/
-
     type UserLike = {
-      val id: java.util.UUID
-      val username: String
+      val id: Option[java.util.UUID]
+      val email: String
       val password: String
       val firstname: String
       val lastname: String
@@ -59,47 +38,69 @@ trait OAuthServicesComponent[M[_]] {
       val createdBy: Option[java.util.UUID]
       val lastModifiedAt: Option[Long]
       val lastModifiedBy: Option[java.util.UUID]
-//      val gender: HasId
-//      val homeAddress: Option[AddressInfoLike]
-//      val workAddress: Option[AddressInfoLike]
-//      val contacts: Set[ContactInfoLike]
       val gender: domain.Gender.Value
       val homeAddress: Option[domain.AddressInfo]
       val workAddress: Option[domain.AddressInfo]
       val contacts: Set[domain.ContactInfo]
+      val avatar: Option[domain.AvatarInfo]
       val _deleted: Boolean
+      val passwordValid: Boolean
     }
 
-    def getUsers: M[List[UserLike]]
+    type SessionLike = {
+      val key: String
+      val secret: String
+      val clientId: String
+      val issuedTime: Long
+      val expiresIn: Option[Long]
+      val refresh: Option[String]
+      val lastAccessTime: Long
+      val user: UserLike
+      val roles: Set[String]
+      val permissions: Map[String, Boolean]
+      val scopes: Set[String]
+    }
 
-    def getUser(id: String): M[Option[UserLike]]
+    def getUsers: List[UserLike]
 
-    def removeUser(id: String): M[Boolean]
+    def getUser(id: String): Option[UserLike]
 
-    def getPurgedUsers: M[List[UserLike]]
+    def removeUser(id: String): Boolean
+
+    def getPurgedUsers: List[UserLike]
 
     def purgeUsers(users: Set[String])
 
-    def getToken(bearerToken: String): M[Option[TokenLike]]
+    def getToken(bearerToken: String): Option[TokenLike]
 
-    def getTokenSecret(accessToken: String): M[Option[String]]
+    def getTokenSecret(accessToken: String): Option[String]
 
-    def getRefreshToken(refreshToken: String): M[Option[TokenLike]]
+    def getRefreshToken(refreshToken: String): Option[TokenLike]
 
-    def exchangeRefreshToken(refreshToken: String): M[Option[TokenLike]]
+    def exchangeRefreshToken(refreshToken: String): Option[TokenLike]
 
     def revokeToken(accessToken: String)
 
-    def getClient(id: String, secret: String): M[Option[ClientLike]]
+    def getUserTokens(userId: String): List[TokenLike]
 
-    def authUser(username: String, password: String): M[Option[UserLike]]
+    def getUserSession(params: Map[String, String]): Option[SessionLike]
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): M[Option[TokenLike]]
+    def getClient(id: String, secret: String): Option[ClientLike]
 
-    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo]): M[Option[UserLike]]
+    def authUser(username: String, password: String): Option[String]
+
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
+
+    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean): Option[UserLike]
+
+    def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
+
+    def getAvatar(id: String): Option[(domain.AvatarInfo, Array[Byte])]
+
+    def emailExists(email: String): Boolean
   }
 
-  trait OAuthServicesDelegate extends OAuthServices {
+  trait OAuthServicesDelegate extends OAuthServices { self =>
     protected val delegate: OAuthServices
 
     def getUsers = delegate.getUsers
@@ -122,60 +123,76 @@ trait OAuthServicesComponent[M[_]] {
 
     def revokeToken(accessToken: String) = delegate.revokeToken(accessToken)
 
+    def getUserTokens(userId: String) = delegate.getUserTokens(userId)
+
+    def getUserSession(params: Map[String, String]) = delegate.getUserSession(params)
+
     def getClient(id: String, secret: String) = delegate.getClient(id, secret)
 
     def authUser(username: String, password: String) = delegate.authUser(username, password)
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
-      delegate.saveToken(accessToken, refreshToken, macKey, clientId, redirectUri, userId, expiresIn, refreshExpiresIn, scopes)
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
+      delegate.saveToken(accessToken, refreshToken, macKey, uA, clientId, redirectUri, userId, expiresIn, refreshExpiresIn, scopes)
 
-    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo]) = delegate.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts)
+    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) = delegate.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid)
+
+    def updateUser(id: String, spec: utils.UserSpec) = delegate.updateUser(id, spec)
+
+    def getAvatar(id: String) = delegate.getAvatar(id)
+
+    def emailExists(email: String) = delegate.emailExists(email)
   }
 
 }
 
-trait OAuthServicesRepoComponent[M[_]] {
-  self: OAuthServicesComponent[M] =>
-  protected val oauthServiceRepo: OAuthServicesRepo  
+trait OAuthServicesRepoComponent {
+  self: OAuthServicesComponent =>
+  protected val oauthServiceRepo: OAuthServicesRepo    
 
-  trait OAuthServicesRepo {
+  trait OAuthServicesRepo { 
+    import oauthService._   
 
-    import oauthService._
+    def getUsers: List[UserLike]
 
-    def getUsers: M[List[UserLike]]
+    def getUser(id: String): Option[UserLike]
 
-    def getUser(id: String): M[Option[UserLike]]
+    def removeUser(id: String): Boolean
 
-    def removeUser(id: String): M[Boolean]
-
-    def getPurgedUsers: M[List[UserLike]]
+    def getPurgedUsers: List[UserLike]
 
     def purgeUsers(users: Set[String])
 
-    def getToken(bearerToken: String): M[Option[TokenLike]]
+    def getToken(bearerToken: String): Option[TokenLike]
 
-    def getTokenSecret(accessToken: String): M[Option[String]]
+    def getTokenSecret(accessToken: String): Option[String]
 
-    def getRefreshToken(refreshToken: String): M[Option[TokenLike]]
+    def getRefreshToken(refreshToken: String): Option[TokenLike]
 
-    def exchangeRefreshToken(refreshToken: String): M[Option[TokenLike]]
+    def exchangeRefreshToken(refreshToken: String): Option[TokenLike]
 
     def revokeToken(accessToken: String)
 
-    def getClient(id: String, secret: String): M[Option[ClientLike]]
+    def getUserTokens(userId: String): List[TokenLike]
 
-    def authUser(username: String, password: String): M[Option[UserLike]]
+    def getUserSession(params: Map[String, String]): Option[SessionLike]
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): M[Option[TokenLike]]
+    def getClient(id: String, secret: String): Option[ClientLike]
 
-    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo]): M[Option[UserLike]]
+    def authUser(username: String, password: String): Option[String]
 
-    //    def updateUser(id: String, updateSpec: ...): Option[UserLike]
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
+
+    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean): Option[UserLike]
+
+    def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
+
+    def getAvatar(id: String): Option[(domain.AvatarInfo, Array[Byte])]
+
+    def emailExists(email: String): Boolean
   }
-
 }
 
-trait AccessControlServicesComponent[M[_]] {
+trait AccessControlServicesComponent {
   val accessControlService: AccessControlServices
 
   trait AccessControlServices {
@@ -207,19 +224,21 @@ trait AccessControlServicesComponent[M[_]] {
       val grantedBy: Option[java.util.UUID]
     }
 
-    def getRoles: M[List[RoleLike]]
+    def getRoles: List[RoleLike]
 
-    def getUserRoles(userId: String): M[List[UserRoleLike]]
+    def getRole(name: String): Option[RoleLike]
 
-    def getPermissions: M[List[PermissionLike]]
+    def getUserRoles(userId: String): List[UserRoleLike]
 
-    def getRolePermissions(role: String): M[List[RolePermissionLike]]
+    def getPermissions: List[PermissionLike]
 
-    def getUserPermissions(userId: String): M[Set[String]]
+    def getRolePermissions(role: String): List[RolePermissionLike]
 
-    def getClientPermissions(clientId: String): M[List[PermissionLike]]
+    def getUserPermissions(userId: String): Set[String]
 
-    def saveRole(name: String, parent: Option[String], createdBy: Option[String]): M[Option[RoleLike]]
+    def getClientPermissions(clientId: String): List[PermissionLike]
+
+    def saveRole(name: String, parent: Option[String], createdBy: Option[String]): Option[RoleLike]
 
     def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String])
 
@@ -231,15 +250,21 @@ trait AccessControlServicesComponent[M[_]] {
 
     def purgeRoles(roles: Set[String])
 
-    def userHasRole(userId: String, role: String): M[Boolean]
+    def userHasRole(userId: String, role: String): Boolean
 
-    def roleHasPermission(role: String, permissions: Set[String]): M[Boolean]
+    def roleHasPermission(role: String, permissions: Set[String]): Boolean
+
+    def roleExists(role: String): Boolean
+
+    def updateRole(name: String, newName: String, parent: Option[String]): Boolean
   }
 
   trait AccessControlServicesDelegate extends AccessControlServices {
     val delegate: AccessControlServices
 
     def getRoles = delegate.getRoles
+
+    def getRole(name: String) = delegate.getRole(name)
 
     def getUserRoles(userId: String) = delegate.getUserRoles(userId)
 
@@ -266,31 +291,36 @@ trait AccessControlServicesComponent[M[_]] {
     def userHasRole(userId: String, role: String) = delegate.userHasRole(userId, role)
 
     def roleHasPermission(role: String, permissions: Set[String]) = delegate.roleHasPermission(role, permissions)
+
+    def roleExists(role: String) = delegate.roleExists(role)
+
+    def updateRole(name: String, newName: String, parent: Option[String]) = delegate.updateRole(name, newName, parent)
   }
 
 }
 
-trait AccessControlServicesRepoComponent[M[_]] {
-  self: AccessControlServicesComponent[M] =>
+trait AccessControlServicesRepoComponent {
+  self: AccessControlServicesComponent =>
   protected val accessControlServiceRepo: AccessControlServiceRepo
 
   trait AccessControlServiceRepo {
-
     import accessControlService._
 
-    def getRoles: M[List[RoleLike]]
+    def getRoles: List[RoleLike]
 
-    def getUserRoles(userId: String): M[List[UserRoleLike]]
+    def getRole(name: String): Option[RoleLike]
 
-    def getPermissions: M[List[PermissionLike]]
+    def getUserRoles(userId: String): List[UserRoleLike]
 
-    def getRolePermissions(role: String): M[List[RolePermissionLike]]
+    def getPermissions: List[PermissionLike]
 
-    def getUserPermissions(userId: String): M[Set[String]]
+    def getRolePermissions(role: String): List[RolePermissionLike]
 
-    def getClientPermissions(clientId: String): M[List[PermissionLike]]
+    def getUserPermissions(userId: String): Set[String]
 
-    def saveRole(name: String, parent: Option[String], createdBy: Option[String]): M[Option[RoleLike]]
+    def getClientPermissions(clientId: String): List[PermissionLike]
+
+    def saveRole(name: String, parent: Option[String], createdBy: Option[String]): Option[RoleLike]
 
     def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String])
 
@@ -302,9 +332,13 @@ trait AccessControlServicesRepoComponent[M[_]] {
 
     def purgeRoles(roles: Set[String])
 
-    def userHasRole(userId: String, role: String): M[Boolean]
+    def userHasRole(userId: String, role: String): Boolean
 
-    def roleHasPermission(role: String, permissions: Set[String]): M[Boolean]
+    def roleHasPermission(role: String, permissions: Set[String]): Boolean
+
+    def roleExists(name: String): Boolean
+
+    def updateRole(name: String, newName: String, parent: Option[String]): Boolean
   }
 
 }

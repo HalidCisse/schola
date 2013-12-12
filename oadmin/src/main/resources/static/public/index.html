@@ -2,11 +2,29 @@
 <html>
 <head>
   <meta charset=utf-8>
-  <title>App</title>
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schola</title>
+
+  <!-- Bootstrap -->
+  <link href="/css/bootstrap.css" rel="stylesheet" type="text/css" charset="utf-8">
+  <link href="/css/bootstrap-theme.css" rel="stylesheet" type="text/css" charset="utf-8">
   <link rel="stylesheet" href="/application.css" type="text/css" charset="utf-8">
+  
   <script src="/application.js" type="text/javascript" charset="utf-8"></script>
+  <script src="/javascripts/crypto/hmac-sha1.js" type="text/javascript" charset="utf-8"></script>
+  <script src="/javascripts/crypto/enc-base64-min.js" type="text/javascript" charset="utf-8"></script>
+  <script src="/javascripts/crypto/mac.js" type="text/javascript" charset="utf-8"></script>
+
   <script type="text/javascript" charset="utf-8">
     var jQuery  = require("jqueryify");
+  </script>  
+
+  <script src="/javascripts/jquery.upload.js"></script>
+  <script src="/javascripts/bootstrap.js"></script>
+  
+  <script type="text/javascript" charset="utf-8">
     var exports = this;
     jQuery(function(){
       var App = require("index");

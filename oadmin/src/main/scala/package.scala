@@ -1,6 +1,9 @@
 package schola
 
 package object oadmin {
+  lazy val system = akka.actor.ActorSystem("ScholaSystem")
+
+  lazy val avatars = system.actorOf(akka.actor.Props(new utils.Avatars))
 
   lazy val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
@@ -12,20 +15,10 @@ package object oadmin {
 
   lazy val Q = scala.slick.driver.PostgresDriver.simple
 
-  lazy val SuperUser = {
-    val passwords = webcrank.password.Passwords.pbkdf2(digest = webcrank.password.SHA1)
+  val SuperUser = domain.U.SuperUser
 
-    domain.User(
-      java.util.UUID.fromString(config.getString("super-user-id")),
-      config.getString("super-user-username"),
-      passwords crypt config.getString("super-user-password"),
-      config.getString("super-user-firstname"),
-      config.getString("super-user-lastname"), createdAt = 0L, createdBy = None)
-  }
-
-  lazy val SuperUserR = domain.Role(config.getString("super-user-role-name"), None, createdAt = 0L, createdBy = None, public = false)
-
-  lazy val AdministratorR = domain.Role(config.getString("administrator-role-name"), Some(SuperUserR.name), createdAt = 0L, createdBy = None, public = false)
+  val SuperUserR = domain.R.SuperUserR
+  val AdministratorR = domain.R.AdministratorR
 
   lazy val MacAlgo = config.getString("oauth2-mac-algo")
 
@@ -44,4 +37,6 @@ package object oadmin {
 
     val MinPoolSize = config.getInt("db.database-min-pool-size")
   }
+
+  //  java.security.Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider)
 }

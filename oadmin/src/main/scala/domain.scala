@@ -3,6 +3,21 @@ package oadmin
 
 package domain {
 
+  case class Session(
+    key: String,
+    secret: String,
+    clientId: String,
+    issuedTime: Long,
+    expiresIn: Option[Long],
+    refresh: Option[String],
+    lastAccessTime: Long,
+    user: User,
+    userAgent: String,
+    roles: Set[String] = Set(),
+    permissions: Map[String, Boolean] = Map(),
+    scopes: Set[String] = Set()
+  )
+
   case class OAuthToken(
      accessToken: String,
      clientId: String,
@@ -10,6 +25,7 @@ package domain {
      userId: java.util.UUID,
      refreshToken: Option[String],
      macKey: String,
+     uA: String,
      expiresIn: Option[Long],
      refreshExpiresIn: Option[Long],
      createdAt: Long = System.currentTimeMillis,
@@ -36,15 +52,17 @@ package domain {
 
   sealed trait ContactInfo
 
-  case class HomeContactInfo(home: ContactValue, primary: Boolean = false) extends ContactInfo
-  case class WorkContactInfo(work: ContactValue, primary: Boolean = false) extends ContactInfo
-  case class MobileContactInfo(mobile: ContactValue, primary: Boolean = false) extends ContactInfo
+  case class HomeContactInfo(home: ContactValue) extends ContactInfo
+  case class WorkContactInfo(work: ContactValue) extends ContactInfo
+  case class MobileContactInfo(mobile: PhoneNumber) extends ContactInfo
 
   case class AddressInfo(city: String, country: String, zipCode: String, addressLine: String)
 
+  case class AvatarInfo(contentType: String, created: Long = System.currentTimeMillis)
+
   case class User(
-     id: java.util.UUID,
-     username: String,
+     id: Option[java.util.UUID],
+     email: String,
      password: String,
      firstname: String,
      lastname: String,
@@ -56,9 +74,11 @@ package domain {
      homeAddress: Option[AddressInfo] = None,
      workAddress: Option[AddressInfo] = None,
      contacts: Set[ContactInfo] = Set(),
-     _deleted: Boolean = false)
+     avatar: Option[AvatarInfo] = None,
+     _deleted: Boolean = false,
+     passwordValid: Boolean = false)
 
-  case class Role(name: String, parent: Option[String], createdAt: Long, createdBy: Option[java.util.UUID], public: Boolean = true)
+  case class Role(name: String, parent: Option[String], createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID], public: Boolean = true)
 
   case class Permission(name: String, clientId: String)
 
@@ -77,6 +97,44 @@ package domain {
 
     val GrantPermission = Permission("permission.grant", Clients.OADMIN)
     val RevokePermission = Permission("permission.revoke", Clients.OADMIN)
+
+    val all = Set(
+      ViewUser,
+      ChangeUser,
+      DeleteUser,
+      PurgeUser,
+
+      ViewRole,
+      ChangeRole,
+      PurgeRole,
+
+      GrantRole,
+      RevokeRole,
+
+      GrantPermission,
+      RevokePermission
+     )
+  }
+
+  object R {
+    val SuperUserR = Role(config.getString("super-user-role-name"), None, createdAt = 0L, createdBy = None, public = false)
+
+    val AdministratorR = Role(config.getString("administrator-role-name"), Some(SuperUserR.name), createdAt = 0L, createdBy = None, public = false)
+
+    val all = Set(SuperUserR, AdministratorR)
+  }
+
+  object U {
+    val SuperUser =
+      User(
+        Some(java.util.UUID.fromString(config.getString("super-user-id"))),
+        config.getString("super-user-email"),
+        passwords crypt config.getString("super-user-password"),
+        config.getString("super-user-firstname"),
+        config.getString("super-user-lastname"), createdAt = 0L, createdBy = None,
+        passwordValid = true)
+
+    val all = Set(SuperUser)
   }
 
   case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID])

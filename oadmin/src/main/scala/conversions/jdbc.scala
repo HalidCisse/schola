@@ -67,4 +67,10 @@ package object jdbc {
       ts => write(ts),
       read[Set[ContactInfo]]
     )
+
+  implicit val avatarTypeMapper =
+    MappedJdbcType.base[AvatarInfo, String](
+      ts => write(ts),
+      read[AvatarInfo]
+    )
 }
