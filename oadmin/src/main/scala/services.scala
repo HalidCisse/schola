@@ -56,7 +56,10 @@ trait OAuthServicesComponent {
       val refresh: Option[String]
       val lastAccessTime: Long
       val user: UserLike
+<<<<<<< HEAD
       val userAgent: String
+=======
+>>>>>>> 32f31336eeccbeb06cb34896c3a9378f152ed90c
       val roles: Set[String]
       val permissions: Map[String, Boolean]
       val scopes: Set[String]
