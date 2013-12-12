@@ -19,6 +19,8 @@ package object schema {
 
     def macKey = column[String]("secret", O.NotNull)
 
+    def uA = column[String]("user_agent", O.NotNull, O.DBType("text"))
+
     def expiresIn = column[Option[Long]]("expires_in")
 
     def refreshExpiresIn = column[Option[Long]]("refresh_expires_in")
@@ -31,7 +33,7 @@ package object schema {
 
     def scopes = column[Set[String]]("scopes", O.NotNull, O.Default(Set()))
 
-    def * = (accessToken, clientId, redirectUri, userId, refreshToken, macKey, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, scopes) <>(OAuthToken.tupled, OAuthToken.unapply)
+    def * = (accessToken, clientId, redirectUri, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, scopes) <>(OAuthToken.tupled, OAuthToken.unapply)
 
     def user = foreignKey("TOKEN_USER_FK", userId, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.Cascade)
 
@@ -59,7 +61,7 @@ package object schema {
   class Users(tag: Tag) extends Table[User](tag, "users") {
     def id = column[java.util.UUID]("id", O.DBType("uuid"), O.PrimaryKey)
 
-    def username = column[String]("username", O.NotNull)
+    def email = column[String]("email", O.NotNull)
 
     def password = column[String]("password", O.NotNull, O.DBType("text"))
 
@@ -81,17 +83,19 @@ package object schema {
 
     def workAddress = column[Option[AddressInfo]]("work_address", O.DBType("text"))
 
-    //    def avatar = ...
-
     def contacts = column[Set[ContactInfo]]("contacts", O.DBType("text"))
+
+    def avatar = column[Option[AvatarInfo]]("avatar", O.DBType("text"))
 
     def _deleted = column[Boolean]("_deleted", O.NotNull, O.Default(false))
 
-    def * = (id, username, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, _deleted) <>(User.tupled, User.unapply)
+    def passwordValid = column[Boolean]("password_valid", O.NotNull, O.Default(false))
 
-    def idx1 = index("USER_USERNAME_INDEX", username, unique = true)
+    def * = (id ?, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, _deleted, passwordValid) <>(User.tupled, User.unapply)
 
-    def idx2 = index("USER_USERNAME_PASSWORD_INDEX", (username, password))
+    def idx1 = index("USER_USERNAME_INDEX", email, unique = true)
+
+    def idx2 = index("USER_USERNAME_PASSWORD_INDEX", (email, password))
 
     def _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.SetNull)
     

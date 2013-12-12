@@ -1,35 +1,45 @@
 package schola
 package oadmin
 
+import org.clapper.avsl.Logger
+
 object main extends App {
   import unfiltered.jetty._
   import unfiltered.oauth2._
   import schola.oadmin.oauth2._
 
+  import unfiltered.request.&
+
+  val log = Logger(getClass)
+
   val server = Http(3000)
 
-  val authProvider = new AuthServerProvider
-
   server
-    .resources(getClass.getResource("/static/"))
+    .resources(getClass.getResource("/static/public"))
     .context("/oauth") {
-      _.filter(OAuthorization(authProvider.auth))
+      _.filter(unfiltered.filter.Planify{
+        case unfiltered.request.UserAgent(uA) & req =>
+          OAuthorization(new AuthServerProvider(uA).auth).intent(req)
+      })
     }
-    .context("/api") {
+    .context("/api/v1") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-        .filter(plans.routes)
+       .filter(utils.ValidatePasswd(Plans.routes))
     }
 
-  try façade.drop() catch { case _: Throwable => }
+  try Façade.drop() catch { case _: Throwable => }
   
-  façade.init(SuperUser.id)
+  Façade.init(SuperUser.id.get)
   server.start()
 
-  println("server is runing...")
-  println("press any key to stop server...")
+  log.info("server is runing . . .")
+  log.info("press any key to stop server...")
   System.in.read()
+
+  system.shutdown()
+  system.awaitTermination()
 
   server.stop()
   server.destroy()
-  façade.drop()
+  Façade.drop()
 }

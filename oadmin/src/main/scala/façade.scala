@@ -1,17 +1,105 @@
 package schola
 package oadmin
 
-package object façade extends impl.AccessControlServicesComponentImpl
-with impl.AccessControlServicesRepoComponentImpl
+import org.clapper.avsl.Logger
+
+object Façade extends Façade
+
+trait RouteHandler {
+  import unfiltered.oauth2.ResourceOwner
+  import unfiltered.request.Jsonp
+  import unfiltered.response.ResponseFunction
+
+  val resourceOwner: ResourceOwner
+
+  val cb: Jsonp.Wrapper
+
+  type Return = ResponseFunction[Any]
+
+  // -------------------------------------------------------------------------------------------------
+
+  def downloadAvatar(userId: String): Return
+
+  def purgeAvatar(userId: String): Return
+
+  def uploadAvatar(userId: String, avatarInfo: domain.AvatarInfo, bytes: Array[Byte]): Return
+
+  // -------------------------------------------------------------------------------------------------
+
+  def addUser(): Return
+
+  def updateUser(userId: String): Return
+
+  def removeUser(userId: String): Return
+
+  def getUser(userId: String): Return
+
+  def getUsers: Return
+
+  def getTrash: Return
+
+  def purgeUsers(id: Set[String]): Return
+
+  def addContacts(userId: String): Return
+
+  def removeContacts(userId: String): Return
+
+  def grantRoles(userId: String, roles: Set[String]): Return
+
+  def revokeRoles(userId: String, roles: Set[String]): Return
+
+  def getUserRoles(userId: String): Return
+
+  def userExists(email: String): Return
+
+  // ---------------------------------------------------------------------------------------------------
+
+  def getRoles: Return
+
+  def addRole(): Return
+
+  def roleExists(name: String): Return
+
+  def updateRole(name: String): Return
+
+  def getRole(name: String): Return
+
+  def getUserSession: Return
+
+  def purgeRoles(roles: Set[String]): Return
+
+  def grantPermissions(name: String, permissions: Set[String]): Return
+
+  def revokePermissions(name: String, permissions: Set[String]): Return
+
+  def getPermissions: Return
+
+  def getRolePermissions(name: String): Return
+
+  def logout(token: String): Return
+}
+
+trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.http.HttpServletRequest] => RouteHandler)
+
+class Façade extends impl.OAuthServicesRepoComponentImpl
 with impl.OAuthServicesComponentImpl
-with impl.OAuthServicesRepoComponentImpl {
+with impl.AccessControlServicesRepoComponentImpl
+with impl.AccessControlServicesComponentImpl
+with HandlerFactory{
 
   import schema._
   import domain._
   import Q._
 
-  private[oadmin] def withTransaction[T](f: Q.Session => T) = db.withTransaction { f }
-  private[oadmin] def withSession[T](f: Q.Session => T) = db.withSession { f }
+  def withTransaction[T](f: Q.Session => T) =
+    db.withTransaction {
+      f
+    }
+
+  def withSession[T](f: Q.Session => T) =
+    db.withSession {
+      f
+    }
 
   protected lazy val db = {
     import com.mchange.v2.c3p0.ComboPooledDataSource
@@ -47,9 +135,7 @@ with impl.OAuthServicesRepoComponentImpl {
       )) == Some(2)
 
       //Add a user
-      val _2 = (Users += SuperUser) == 1 //List(
-        SuperUser // User(userId, "amadou", "amsayk", "amadou", "cisse", createdBy = None),
-        //      User(adminId, "admin", "admin", "super", "user", createdBy = None)
+      val _2 = (Users += SuperUser) == 1
 
       val _3 = (Roles ++= List(
         SuperUserR,
@@ -100,12 +186,12 @@ with impl.OAuthServicesRepoComponentImpl {
       _1 && _2 && _3 && _4 && _5 && _6
   }
 
-  def test = {
+  def test() = {
     val o = accessControlService
 
     val userId = SuperUser.id
 
-    def initialize() = init(userId)
+    def initialize() = init(userId.get)
 
     initialize()
 
@@ -123,55 +209,356 @@ with impl.OAuthServicesRepoComponentImpl {
     println(o.roleHasPermission("Role One", Set("P1")))
   }
 
-  // -------------------------------------------------------
+  // --------------------------------------------------------------------------------------------------
 
-  // -------------------------------------------------------------------------------------------------
+  import unfiltered.request._
+  import unfiltered.response._
 
-  def addUser(): Option[User] = ???
+  import scala.util.control.Exception.allCatch
 
-  def updateUser(userId: String): Option[User] = ???
+  import unfiltered.request.Jsonp
 
-  def removeUser(userId: String): Option[User] = ???
+  class MyRouteHandler(val req: HttpRequest[_ <: javax.servlet.http.HttpServletRequest]) extends RouteHandler{
 
-  def getUser(userId: String): Option[User] = ???
+    val log = Logger(getClass)
 
-  def getUsers: List[User] = ???
+    import conversions.json._
+    import conversions.json.formats
 
-  def getPurgedUsers: List[User] = ???
+    val Some(resourceOwner) = utils.ResourceOwner.unapply(req)
 
-  def purgeUsers(ids: Set[String]): Boolean = ???
+    val cb = Jsonp.Optional.unapply(req) getOrElse Jsonp.EmptyWrapper
 
-  def changePasswd(userId: String): Boolean = ???
+    // -------------------------------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------------------------------
+    def downloadAvatar(userId: String) =
+      oauthService.getAvatar(userId) match {
+        case Some((avatarInfo, data)) =>
 
-  def addRole(role: String): Option[Role] = ???
+          import org.json4s.JsonDSL._
 
-  def updateRole(role: String): Option[Role] = ???
+          JsonContent ~>
+            ResponseString(
+              cb wrap tojson(
+                ("avatarInfo" -> org.json4s.Extraction.decompose(avatarInfo)) ~
+                  ("data" -> com.owtelse.codec.Base64.encode(data))))
 
-  def removeRole(role: String): Option[Role] = ???
+        case _ => BadRequest
+      }
 
-  def getRole(role: String): Option[Role] = ???
+    def purgeAvatar(userId: String) =
+      oauthService.updateUser(userId, new utils.DefaultUserSpec {
+        override val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(None))
+      }) match {
+        case Some(user) =>
 
-  def getRoles: List[Role] = ???
+          JsonContent ~> ResponseString(cb wrap tojson(user))
+        case _ => BadRequest
+      }
 
-  def getPurgedRoles: List[Role] = ???
+    def uploadAvatar(userId: String, avatarInfo: domain.AvatarInfo, bytes: Array[Byte]) =
+      oauthService.updateUser(userId, new utils.DefaultUserSpec {
+        override val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(Some(avatarInfo, bytes)))
+      }) match {
+        case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
+        case _ => BadRequest
+      }
 
-  def purgeRoles(roles: Set[String]): Boolean = ???
+    // -------------------------------------------------------------------------------------------------
 
-  def usernameExists(username: String): Boolean = ???
+    def addUser() =
+    // email
+    // firstname and lastname
+    // gender
+    // home and work addresses
+    // contacts
 
-  // ---------------------------------------------------------------------------------------------------
+      (for {
+        json <- JsonBody(req)
+        x <- allCatch.opt {
+          org.json4s.native.Serialization.read[domain.User](json)
+        }
+        y <- oauthService.saveUser(
+          x.email, x.password, x.firstname, x.lastname, Some(resourceOwner.id), x.gender, x.homeAddress, x.workAddress, x.contacts, x.passwordValid)
+      } yield y) match {
 
-  def getPermissions: List[Permission] = ???
+        case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
+        case _ => BadRequest
+      }
 
-  def getRolePermissions(role: String): List[Permission] = ???
+    def updateUser(userId: String) =
+    // email
+    // firstname and lastname
+    // gender
+    // home and work addresses
+    // contacts
 
-  def getUserRoles(userId: String): List[UserRole] = ???
+      (for {
+        json <- JsonBody(req)
+        x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
 
-  def logout: Boolean = ???
+          import org.json4s.native.Serialization
 
-  //-------------------------------------------------------------
+          def findField(field: String) =
+            json findField {
+              case org.json4s.JField(`field`, _) => true
+              case _ => false
+            } collect {
+              case org.json4s.JField(_, org.json4s.JString(s)) => s
+            }
 
-//  java.security.Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider)
+          def findFieldObj(field: String) =
+            json findField {
+              case org.json4s.JField(`field`, _) => true
+              case _ => false
+            } collect {
+              case org.json4s.JField(_, s@org.json4s.JObject(_)) => s
+            }
+
+          override val email = findField("email")
+
+          override val password = findField("password")
+          override val oldPassword = findField("old_password")
+
+          override val firstname = findField("firstname")
+          override val lastname = findField("lastname")
+          override val gender = findField("gender") flatMap (x => allCatch.opt {
+            domain.Gender.withName(x)
+          })
+
+          override val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
+            set = findFieldObj("homeAddress") map (x => allCatch.opt {
+              Serialization.read[domain.AddressInfo](x)
+            })
+          )
+
+          override val workAddress = new UpdateSpecImpl[domain.AddressInfo](
+            set = findFieldObj("workAddress") map (x => allCatch.opt {
+              Serialization.read[domain.AddressInfo](x)
+            })
+          )
+        })
+      } yield x) match {
+
+        case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
+        case _ => BadRequest
+      }
+
+    def removeUser(userId: String) =
+      JsonContent ~>
+        ResponseString(cb wrap s"""{"success": ${oauthService.removeUser(userId)}}""")
+
+    def getUser(userId: String) =
+      oauthService.getUser(userId) match {
+        case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
+        case _ => BadRequest
+      }
+
+    def getUsers = JsonContent ~> ResponseString(cb wrap tojson(oauthService.getUsers))
+
+    def getTrash = JsonContent ~> ResponseString(cb wrap tojson(oauthService.getPurgedUsers))
+
+    def purgeUsers(id: Set[String]) = {
+      JsonContent ~>
+        ResponseString(cb wrap s"""{"success": ${
+          allCatch.opt {
+            oauthService.purgeUsers(id)
+            true
+          } getOrElse false
+        }}""")
+    }
+
+    def addContacts(userId: String) = {
+      (for {
+        json <- JsonBody(req)
+        x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
+
+          import org.json4s.native.Serialization
+
+          def findField(field: String) =
+            json findField {
+              case org.json4s.JField(`field`, _) => true
+              case _ => false
+            } collect {
+              case org.json4s.JField(_, org.json4s.JArray(s)) => s
+            }
+
+          override val contacts = Some(ContactInfoSpec(
+            toAdd = findField("contacts") flatMap (x => allCatch.opt {
+              Serialization.read[Set[domain.ContactInfo]](x)
+            }) getOrElse Set()
+          ))
+        })
+      } yield x) match {
+
+        case Some(user) =>
+          JsonContent ~> ResponseString(cb wrap tojson(user))
+        case _ => BadRequest
+      }
+    }
+
+    def removeContacts(userId: String) = {
+      (for {
+        json <- JsonBody(req)
+        x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
+
+          import org.json4s.native.Serialization
+
+          def findField(field: String) =
+            json findField {
+              case org.json4s.JField(`field`, _) => true
+              case _ => false
+            } collect {
+              case org.json4s.JField(_, org.json4s.JArray(s)) => s
+            }
+
+          override val contacts = Some(ContactInfoSpec(
+            toRem = findField("contacts") flatMap (x => allCatch.opt {
+              Serialization.read[Set[domain.ContactInfo]](x)
+            }) getOrElse Set()
+          ))
+
+        })
+      } yield x) match {
+
+        case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
+        case _ => BadRequest
+      }
+    }
+
+    def grantRoles(userId: String, roles: Set[String]) = {
+      JsonContent ~>
+        ResponseString(
+          cb wrap s"""{"success": ${
+            allCatch.opt {
+              accessControlService.grantUserRoles(userId, roles, Some(resourceOwner.id))
+              true
+            } getOrElse false
+          }}""")
+    }
+
+    def revokeRoles(userId: String, roles: Set[String]) = {
+      JsonContent ~>
+        ResponseString(
+          cb wrap s"""{"success": ${
+            allCatch.opt {
+              accessControlService.revokeUserRole(userId, roles)
+              true
+            } getOrElse false
+          }}""")
+    }
+
+    def getUserRoles(userId: String) =
+      JsonContent ~>
+        ResponseString(cb wrap tojson(accessControlService.getUserRoles(userId)))
+
+    def userExists(email: String) =
+      JsonContent ~> ResponseString(cb wrap s"""{"success": ${oauthService.emailExists(email)}}""")
+
+    // ---------------------------------------------------------------------------------------------------
+
+    def getRoles =
+      JsonContent ~> ResponseString(cb wrap tojson(accessControlService.getRoles))
+
+    def addRole() = {
+      (for {
+        json <- JsonBody(req)
+        x <- allCatch.opt {
+          org.json4s.native.Serialization.read[domain.Role](json)
+        }
+        y <- accessControlService.saveRole(x.name, x.parent, Some(resourceOwner.id))
+      } yield y) match {
+
+        case Some(role) => JsonContent ~> ResponseString(cb wrap tojson(role))
+        case _ => BadRequest
+      }
+    }
+
+    def roleExists(name: String) =
+      JsonContent ~> ResponseString(cb wrap s"""{"success": ${accessControlService.roleExists(name)}""")
+
+    def updateRole(name: String) =
+      (for {
+        json <- JsonBody(req)
+        x <- allCatch.opt {
+          org.json4s.native.Serialization.read[domain.Role](json)
+        } if accessControlService.updateRole(name, x.name, x.parent)
+        y <- accessControlService.getRole(x.name)
+      } yield y) match {
+
+        case Some(role) => JsonContent ~> ResponseString(cb wrap tojson(role))
+        case _ => BadRequest
+      }
+
+    def getRole(name: String) =
+      accessControlService.getRole(name) match {
+        case Some(role) => JsonContent ~> ResponseString(cb wrap tojson(role))
+        case _ => BadRequest
+      }
+
+    def getUserSession = {
+
+      val params = Map(
+        /* "userId" -> resourceOwner.id, // -- NOT USED YET */
+        "bearerToken" -> oauth2.Token.unapply(req).get,
+        "userAgent" -> UserAgent.unapply(req).get
+      )
+
+      oauthService.getUserSession(params) match {
+        case Some(session) =>
+
+          JsonContent ~> ResponseString(
+            cb wrap tojson(session))
+
+        case _ => BadRequest
+      }
+    }
+
+    def purgeRoles(roles: Set[String]) =
+      JsonContent ~> ResponseString(cb wrap s"""{"success": ${
+        allCatch.opt {
+          accessControlService.purgeRoles(roles)
+          true
+        } getOrElse false
+      }""")
+
+    def grantPermissions(name: String, permissions: Set[String]) =
+      JsonContent ~>
+        ResponseString(
+          cb wrap s"""{"success": ${
+            allCatch.opt {
+              accessControlService.grantRolePermissions(name, permissions, Some(resourceOwner.id))
+              true
+            } getOrElse false
+          }}""")
+
+    def revokePermissions(name: String, permissions: Set[String]) =
+      JsonContent ~>
+        ResponseString(cb wrap s"""{"success": ${
+          allCatch.opt {
+            accessControlService.revokeRolePermission(name, permissions)
+            true
+          } getOrElse false
+        }}""")
+
+    def getPermissions =
+      JsonContent ~>
+        ResponseString(cb wrap tojson(accessControlService.getPermissions))
+
+    def getRolePermissions(name: String) =
+      JsonContent ~>
+        ResponseString(cb wrap tojson(accessControlService.getRolePermissions(name)))
+
+    def logout(token: String) =
+      JsonContent ~> ResponseString(
+        cb wrap s"""{"success": ${
+          allCatch.opt {
+            oauthService.revokeToken(token)
+            true
+          } getOrElse false
+        }}"""
+      )
+  }
+
+  def apply(req: HttpRequest[_ <: javax.servlet.http.HttpServletRequest]) = new MyRouteHandler(req)
 }

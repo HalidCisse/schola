@@ -3,14 +3,16 @@ package oadmin
 
 package impl
 
-trait AccessControlServicesComponentImpl extends AccessControlServicesComponent[({type λ[α] = α })#λ]{
-  self: AccessControlServicesRepoComponent[({type λ[α] = α })#λ] =>
+trait AccessControlServicesComponentImpl extends AccessControlServicesComponent{
+  self: AccessControlServicesRepoComponent =>
 
   val accessControlService = new AccessControlServicesImpl
 
   class AccessControlServicesImpl extends AccessControlServices{
 
     def getRoles = accessControlServiceRepo.getRoles
+
+    def getRole(name: String) = accessControlServiceRepo.getRole(name)
 
     def getUserRoles(userId: String) = accessControlServiceRepo.getUserRoles(userId)
 
@@ -37,11 +39,15 @@ trait AccessControlServicesComponentImpl extends AccessControlServicesComponent[
     def userHasRole(userId: String, role: String) = accessControlServiceRepo.userHasRole(userId, role)
 
     def roleHasPermission(role: String, permissions: Set[String]) = accessControlServiceRepo.roleHasPermission(role, permissions)
+
+    def roleExists(role: String) = accessControlServiceRepo.roleExists(role)
+
+    def updateRole(name: String, newName: String, parent: Option[String]) = accessControlServiceRepo.updateRole(name, newName, parent)
   }
 }
 
-trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoComponent[({type λ[α] = α })#λ] {
-  self : AccessControlServicesComponent[({type λ[α] = α })#λ] =>
+trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoComponent {
+  self : AccessControlServicesComponent =>
 
   import schema._
   import domain._
@@ -67,6 +73,27 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
 
       val result = db.withDynSession {
         q.list
+      }
+
+      result map {
+        case (name, parent, createdAt, createdBy, public) => Role(name, parent, createdAt, createdBy, public)
+      }
+    }
+
+    def getRole(name: String) = {
+      import Database.dynamicSession
+
+      val q = for {
+        r <- Roles if r.name is name
+      } yield (
+          r.name,
+          r.parent,
+          r.createdAt,
+          r.createdBy,
+          r.public)
+
+      val result = db.withDynSession {
+        q.firstOption
       }
 
       result map {
@@ -169,7 +196,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     }
 
     def saveRole(name: String, parent: Option[String], createdBy: Option[String]) = db.withTransaction { implicit session =>
-      Roles += Role(name, parent, System.currentTimeMillis, createdBy = createdBy map java.util.UUID.fromString)
+      Roles += Role(name, parent orElse Some(AdministratorR.name), System.currentTimeMillis, createdBy = createdBy map java.util.UUID.fromString)
 
       val q = for{
         r <- Roles if r.name is name
@@ -240,6 +267,19 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       } yield true
 
       Query(q.exists).firstOption getOrElse false
+    }
+
+    def roleExists(name: String) = db.withSession { implicit session =>
+      val q = for {
+        r <- Roles if r.name is name
+      } yield true
+
+      Query(q.exists).firstOption getOrElse false
+    }
+
+    def updateRole(name: String, newName: String, parent: Option[String]) =
+    db.withTransaction{ implicit sesssion =>
+      (Roles where(_.name is name) map(o => (o.name, o.parent)) update(newName, parent)) == 1
     }
   }
 }
