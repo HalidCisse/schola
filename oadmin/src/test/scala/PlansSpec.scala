@@ -10,19 +10,60 @@ import org.json4s.native.Serialization
 import org.clapper.avsl.Logger
 
 object PlansSpec extends org.specs.Specification
-with org.specs.mock.Mockito
 with unfiltered.spec.jetty.Served {
 
   import dispatch.classic._
 
-  import org.mockito.Mockito._
-  import org.mockito.Matchers._
+  import unfiltered.request.&
 
-  import conversions.json._
+
+  object formats {
+
+    import domain._
+
+    import org.json4s._
+    import org.json4s.native.Serialization
+
+    val userSerializer = FieldSerializer[User](FieldSerializer.ignore("_deleted"))
+
+    val tokenSerializer = FieldSerializer[OAuthToken](
+      FieldSerializer.ignore("macKey") orElse FieldSerializer.ignore("refreshExpiresIn") orElse FieldSerializer.ignore("tokenType") orElse FieldSerializer.ignore("scopes")
+    )
+
+    class UUIDSerializer extends Serializer[java.util.UUID] {
+      val UUIDClass = classOf[java.util.UUID]
+
+      def deserialize(implicit format: Formats):
+      PartialFunction[(TypeInfo, JValue), java.util.UUID] = {
+        case (t@TypeInfo(UUIDClass, _), json) =>
+          json match {
+            case JString(s) => java.util.UUID.fromString(s)
+            case value => throw new MappingException(s"Can't convert $value to $UUIDClass")
+          }
+      }
+
+      def serialize(implicit format: Formats): PartialFunction[Any, JValue] = {
+        case i: java.util.UUID => JsonDSL.string2jvalue(i.toString)
+      }
+    }
+
+    implicit lazy val my =
+      new org.json4s.Formats {
+        override val typeHintFieldName = "type"
+        val dateFormat = DefaultFormats.lossless.dateFormat
+        override val typeHints = ShortTypeHints(List(classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]))
+      } +
+        new conversions.jdbc.EnumNameSerializer(Gender) +
+        userSerializer +
+        tokenSerializer +
+        new UUIDSerializer
+
+    implicit def tojson[T](v: T) = Serialization.write(v.asInstanceOf[AnyRef])
+  }
 
   val log = Logger("oadmin.tests.PlansSpec")
 
-  def withMac[T](method: String, uri: String)(f: Map[String, String] => T) = {
+  def withMac[T](session: Session, method: String, uri: String)(f: Map[String, String] => T) = {
 
     def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
@@ -68,6 +109,7 @@ with unfiltered.spec.jetty.Served {
       case _ => fail("could not parse body")
     }
 
+  val token = host / "oauth" / "token"
   val api = host / "api" / "v1"
 
   val client = domain.OAuthClient(
@@ -76,113 +118,65 @@ with unfiltered.spec.jetty.Served {
   )
 
   val sPassword = config.getString("super-user-password")
-  val owner = new ResourceOwner { val id = SuperUser.id.map(_.toString).get; val password = Some(sPassword) }
-
-  val appServices = mock[Façade]
-
-  val oauth2Services = mock[appServices.OAuthServicesImpl]
-  val accessControlServices = mock[appServices.AccessControlServicesImpl]
-
-  val session = {
-    def generateToken = utils.SHA3Utils digest s"${client.id}:${owner.id}:${System.nanoTime}"
-    def generateRefreshToken(accessToken: String) = utils.SHA3Utils digest s"$accessToken:${owner.id}:${System.nanoTime}"
-    def generateMacKey = utils.genPasswd(s"${owner.id}:${System.nanoTime}")
-
-    val key = generateToken
-
-    Session(
-      key,
-      generateMacKey,
-      client.id,
-      System.currentTimeMillis,
-      None,
-      Some(generateRefreshToken(key)),
-      System.currentTimeMillis,
-      SuperUser,
-      "Chrome"
-    )
-  }
+  val owner = new ResourceOwner { val id = SuperUser.email; val password = Some(sPassword) }
 
   def init() {
-    when(appServices.apply(anyObject())) thenCallRealMethod()
-
-    appServices.oauthService returns oauth2Services
-    appServices.accessControlService returns accessControlServices
-
-    oauth2Services getUserSession Map("bearerToken" -> session.key, "userAgent" -> session.userAgent) returns Some(session)
-
-    oauth2Services getTokenSecret session.key returns Some(session.secret)
+    Façade.init(SuperUser.id.get)
   }
+
+  def drop() = Façade.drop()
 
   def setup = {
     server =>
 
+      try drop() catch { case _: Throwable => }
       init()
 
-      case class TestOAuth2Protection(source: AuthSource) extends ProtectionLike {
-
-        object OAuth2MacAuth extends MacAuth {
-          val algorithm = MacAlgo
-          def tokenSecret(key: String) = oauth2Services.getTokenSecret(key)
-        }
-
-        val schemes = Seq(OAuth2MacAuth)
-      }
-
-      val oadminAuthSource = mock[unfiltered.oauth2.AuthSource]
-
-      oadminAuthSource authenticateToken(anyObject(), anyObject()) returns Right((owner, client.id, Seq()))
-
-      server/*.context("/oauth") {
+      server.context("/oauth") {
         _.filter(unfiltered.filter.Planify {
           case unfiltered.request.UserAgent(uA) & req =>
             OAuthorization(new AuthServerProvider(uA).auth).intent(req) // Too much objects created !?
         })
       }
-        */.context("/api/v1") {
-        _.filter(TestOAuth2Protection(oadminAuthSource))
-          .filter(/*utils.ValidatePasswd(*/new Plans(appServices).routes/*)*/)
+        .context("/api/v1") {
+        _.filter(OAuth2Protection(new OAdminAuthSource))
+          .filter(utils.ValidatePasswd(Plans.routes))
       }
   }
 
   "user plans" should {
 
     "save user" in {
-      val id = java.util.UUID.randomUUID
+      val toSave = User(None, "cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = true)
 
-      val toSave = User(Some(id), "cisse.amadou.9@gmail.com", "amsayk", "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = true)
+      val body = http(token << Map(
+        "grant_type" -> "password",
+        "client_id" -> client.id,
+        "client_secret" -> client.secret,
+        "username" -> owner.id,
+        "password" -> sPassword
+      ) <:< Map("User-Agent" -> "Chrome") as_str)
 
-      oauth2Services.saveUser(
-        any[java.lang.String],
-        any[java.lang.String],
-        any[java.lang.String],
-        any[java.lang.String],
-        any[Option[java.lang.String]],
-        any[Gender.Value],
-        any[Option[AddressInfo]],
-        any[Option[AddressInfo]],
-        any[Set[ContactInfo]],
-        any[Boolean]
-      ) returns Some(toSave)
+      json(body) {map =>
 
-      withMac("POST", "/api/v1/users") { auth =>
-        val sres = http(api / "users" <:< auth << (tojson(toSave), "application/json; charset=UTF-8") as_str)
+        val key = map("access_token").toString
 
-        there was one(oauth2Services).saveUser(
-          any[java.lang.String],
-          any[java.lang.String],
-          any[java.lang.String],
-          any[java.lang.String],
-          any[Option[java.lang.String]],
-          any[Gender.Value],
-          any[Option[AddressInfo]],
-          any[Option[AddressInfo]],
-          any[Set[ContactInfo]],
-          any[Boolean]
-        )
+        val Some(session : Session) = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> "Chrome"))
 
-        Serialization.read[User](sres) must be equalTo toSave
+        withMac(session, "POST", "/api/v1/users") { auth =>
+
+          val sres = http(api / "users" <:< auth << (formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
+
+          import formats.my
+
+          val user = Serialization.read[User](sres)
+
+          user.email must be equalTo toSave.email
+          user.firstname must be equalTo toSave.firstname
+          user.lastname must be equalTo toSave.lastname
+        }
       }
+
     }
 
     "force password change on non-validation" in {}
@@ -230,4 +224,6 @@ with unfiltered.spec.jetty.Served {
 
     "get role permissions" in {}
   }
+
+  doAfterSpec { drop() }
 }

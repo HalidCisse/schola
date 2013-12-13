@@ -114,7 +114,7 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.addRole()
 
-        case GET(ContextPath(_, Seg("role_exists" :: Nil))) & Params(params) =>
+        case GET(ContextPath(_, Seg("roleexists" :: Nil))) & Params(params) =>
 
           allCatch.opt {
             params("name")(0)

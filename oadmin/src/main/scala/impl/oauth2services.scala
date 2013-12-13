@@ -98,7 +98,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       result map {
         case (id, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(Some(id), email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
+          User(Some(id), email, Some(password), firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
       }
     }
 
@@ -130,7 +130,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       result map {
         case (sId, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(Some(sId), email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
+          User(Some(sId), email, Some(password), firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
       }
     }
 
@@ -170,7 +170,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       result map {
         case (id, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(Some(id), email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
+          User(Some(id), email, Some(password), firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
       }
     }
 
@@ -435,13 +435,13 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       val q = for {
         u <- Users if !u._deleted && (u.email is username)
-      } yield u.id
+      } yield (u.id, u.password)
 
       val result = db.withDynSession {
         q.firstOption
       }
 
-      result map(_.toString)
+      result filter { case (_, sPassword) => passwords verify(password, sPassword) } map(_._1.toString)
     }
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
@@ -487,7 +487,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         val id = java.util.UUID.randomUUID
 
         if((
-          Users += User(Some(id), email, passwords crypt password, firstname, lastname, createdBy = createdBy map java.util.UUID.fromString, gender = gender, homeAddress = homeAddress, workAddress = workAddress, contacts = contacts, passwordValid = passwordValid)
+          Users += User(Some(id), email, Some(passwords crypt password), firstname, lastname, createdBy = createdBy map java.util.UUID.fromString, gender = gender, homeAddress = homeAddress, workAddress = workAddress, contacts = contacts, passwordValid = passwordValid)
           ) != 1) throw new Exception("saveUser: can't save user")
 
         val q = for{
@@ -511,7 +511,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
         q.firstOption map {
           case (sId, uEmail, uPassword, uFirstname, uLastname, createdAt, uCreatedBy, lastModifiedAt, lastModifiedBy, sGender, sHomeAddress, sWorkAddress, sContacts, sAvatar, sPasswordValid) =>
-            User(Some(sId), uEmail, uPassword, uFirstname, uLastname, createdAt, uCreatedBy, lastModifiedAt, lastModifiedBy, sGender, sHomeAddress, sWorkAddress, sContacts, sAvatar, passwordValid = sPasswordValid)
+            User(Some(sId), uEmail, Some(uPassword), uFirstname, uLastname, createdAt, uCreatedBy, lastModifiedAt, lastModifiedBy, sGender, sHomeAddress, sWorkAddress, sContacts, sAvatar, passwordValid = sPasswordValid)
         }
       }
 
