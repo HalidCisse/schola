@@ -31,13 +31,17 @@ package object utils {
     import unfiltered.request.&
 
     val intent : unfiltered.filter.Plan.Intent = {
-      case ResourceOwner(resourceOwner) & oauth2.TokenA(token) & req =>
+      case ResourceOwner(resourceOwner) & req =>
 
         Façade.oauthService.getUser(resourceOwner.id) match {
           case Some(user) =>
 
             if(user.passwordValid) next.intent(req)
-            else Scalate(
+            else req match {
+
+                case oauth2.TokenA(token) =>
+                  
+                  Scalate(
                     req,
                     "changepasswd.jade",
                     Seq(
@@ -46,6 +50,9 @@ package object utils {
                       "issuedTime" -> token.createdAt.toString,
                       "email" -> user.email) map{ case (key, value) => key -> java.net.URLEncoder.encode(value, "utf-8") } : _*
                    )
+
+                case _ => BadRequest
+              }
 
           case _  => unfiltered.response.BadRequest
         }

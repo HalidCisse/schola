@@ -192,7 +192,11 @@ package object oauth2 {
 
               if (issuedTime + expiresIn * 1000 > System.currentTimeMillis)
                 Right((new ResourceOwner { val password = None; val id = userId.toString }, clientId, scopes.toSeq))
-              else Left("Token Expired")
+              else {
+
+                // TODO: spawn expired tokens deletion service
+                Left("Token Expired")
+              }
 
             case Some(
               domain.Session(_, _, clientId, issuedTime, None, _, _,
