@@ -63,7 +63,7 @@ package domain {
   case class User(
      id: Option[java.util.UUID],
      email: String,
-     password: String,
+     password: Option[String],
      firstname: String,
      lastname: String,
      createdAt: Long = System.currentTimeMillis,
@@ -129,7 +129,7 @@ package domain {
       User(
         Some(java.util.UUID.fromString(config.getString("super-user-id"))),
         config.getString("super-user-email"),
-        passwords crypt config.getString("super-user-password"),
+        Some(passwords crypt config.getString("super-user-password")),
         config.getString("super-user-firstname"),
         config.getString("super-user-lastname"), createdAt = 0L, createdBy = None,
         passwordValid = true)

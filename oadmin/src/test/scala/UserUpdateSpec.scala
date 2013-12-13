@@ -50,7 +50,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "username0"
-      passwords.verify("amsayk.0", o.get.password) must beTrue
+      passwords.verify("amsayk.0", o.get.password.get) must beTrue
       o.get.firstname must be equalTo "Amadou"
       o.get.lastname must be equalTo "Cisse"
       o.get.gender must be equalTo domain.Gender.Female
@@ -92,7 +92,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "username0"
-      passwords.verify("amsayk.0", o.get.password) must beTrue
+      passwords.verify("amsayk.0", o.get.password.get) must beTrue
       o.get.firstname must be equalTo "Amadou"
       o.get.lastname must be equalTo "Cisse"
       o.get.gender must be equalTo domain.Gender.Female
@@ -110,7 +110,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       val hh = Façade.oauthService.getUser(o.get.id.get.toString)
       hh must not be empty
-      passwords.verify("amsayk.0", hh.get.password) must beTrue
+      passwords.verify("amsayk.0", hh.get.password.get) must beTrue
 
       updateFn(o.get.id.get.toString, new utils.DefaultUserSpec {
         override val password = Some("amsayk.9")
@@ -119,7 +119,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       val hhh = Façade.oauthService.getUser(o.get.id.get.toString)
       hhh must not be empty
-      passwords.verify("amsayk.0", hhh.get.password) must beTrue
+      passwords.verify("amsayk.0", hhh.get.password.get) must beTrue
 
       updateFn(o.get.id.get.toString, new utils.DefaultUserSpec {
         override val password = Some("amsayk.9")
@@ -128,7 +128,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       val gg = Façade.oauthService.getUser(o.get.id.get.toString)
       gg must not be empty
-      passwords.verify("amsayk.9", gg.get.password) must beTrue
+      passwords.verify("amsayk.9", gg.get.password.get) must beTrue
 
       Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
     }
@@ -154,7 +154,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "username2"
-      passwords.verify("amsayk.0", o.get.password) must beTrue
+      passwords.verify("amsayk.0", o.get.password.get) must beTrue
       o.get.firstname must be equalTo "Amadou"
       o.get.lastname must be equalTo "Cisse"
       o.get.gender must be equalTo domain.Gender.Female
@@ -263,7 +263,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "username10"
-      passwords.verify("amsayk.0", o.get.password) must beTrue
+      passwords.verify("amsayk.0", o.get.password.get) must beTrue
       o.get.firstname must be equalTo "Amadou"
       o.get.lastname must be equalTo "Cisse"
       o.get.gender must be equalTo domain.Gender.Female
@@ -334,7 +334,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "username11"
-      passwords.verify("amsayk.0", o.get.password) must beTrue
+      passwords.verify("amsayk.0", o.get.password.get) must beTrue
       o.get.firstname must be equalTo "Amadou"
       o.get.lastname must be equalTo "Cisse"
       o.get.gender must be equalTo domain.Gender.Female

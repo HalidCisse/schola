@@ -7,7 +7,7 @@ package object json {
   import domain._
 
   import org.json4s._
-  import org.json4s.native.JsonMethods._
+//  import org.json4s.native.JsonMethods._
   import org.json4s.native.Serialization
 
   val userSerializer = FieldSerializer[User](FieldSerializer.ignore("_deleted") orElse FieldSerializer.ignore("password"))
@@ -46,5 +46,5 @@ package object json {
 
   implicit def tojson[T](v: T) = Serialization.write(v.asInstanceOf[AnyRef])
 
-  implicit def tojson(v: JValue) = compact(render(v))
+  //implicit def tojson(v: JValue) = compact(render(v))
 }

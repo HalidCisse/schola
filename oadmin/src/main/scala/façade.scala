@@ -278,8 +278,9 @@ with HandlerFactory{
         x <- allCatch.opt {
           org.json4s.native.Serialization.read[domain.User](json)
         }
+        passwd <- x.password
         y <- oauthService.saveUser(
-          x.email, x.password, x.firstname, x.lastname, Some(resourceOwner.id), x.gender, x.homeAddress, x.workAddress, x.contacts, x.passwordValid)
+          x.email, passwd, x.firstname, x.lastname, Some(resourceOwner.id), x.gender, x.homeAddress, x.workAddress, x.contacts, x.passwordValid)
       } yield y) match {
 
         case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
@@ -358,7 +359,7 @@ with HandlerFactory{
 
     def getTrash = JsonContent ~> ResponseString(cb wrap tojson(oauthService.getPurgedUsers))
 
-    def purgeUsers(id: Set[String]) = {
+    def purgeUsers(id: Set[String]) =
       JsonContent ~>
         ResponseString(cb wrap s"""{"success": ${
           allCatch.opt {
@@ -366,9 +367,8 @@ with HandlerFactory{
             true
           } getOrElse false
         }}""")
-    }
 
-    def addContacts(userId: String) = {
+    def addContacts(userId: String) =
       (for {
         json <- JsonBody(req)
         x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
@@ -395,9 +395,8 @@ with HandlerFactory{
           JsonContent ~> ResponseString(cb wrap tojson(user))
         case _ => BadRequest
       }
-    }
 
-    def removeContacts(userId: String) = {
+    def removeContacts(userId: String) =
       (for {
         json <- JsonBody(req)
         x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
@@ -424,9 +423,8 @@ with HandlerFactory{
         case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
         case _ => BadRequest
       }
-    }
 
-    def grantRoles(userId: String, roles: Set[String]) = {
+    def grantRoles(userId: String, roles: Set[String]) =
       JsonContent ~>
         ResponseString(
           cb wrap s"""{"success": ${
@@ -435,9 +433,8 @@ with HandlerFactory{
               true
             } getOrElse false
           }}""")
-    }
 
-    def revokeRoles(userId: String, roles: Set[String]) = {
+    def revokeRoles(userId: String, roles: Set[String]) =
       JsonContent ~>
         ResponseString(
           cb wrap s"""{"success": ${
@@ -446,7 +443,6 @@ with HandlerFactory{
               true
             } getOrElse false
           }}""")
-    }
 
     def getUserRoles(userId: String) =
       JsonContent ~>
@@ -460,7 +456,7 @@ with HandlerFactory{
     def getRoles =
       JsonContent ~> ResponseString(cb wrap tojson(accessControlService.getRoles))
 
-    def addRole() = {
+    def addRole() =
       (for {
         json <- JsonBody(req)
         x <- allCatch.opt {
@@ -472,7 +468,6 @@ with HandlerFactory{
         case Some(role) => JsonContent ~> ResponseString(cb wrap tojson(role))
         case _ => BadRequest
       }
-    }
 
     def roleExists(name: String) =
       JsonContent ~> ResponseString(cb wrap s"""{"success": ${accessControlService.roleExists(name)}""")

@@ -91,7 +91,7 @@ package object schema {
 
     def passwordValid = column[Boolean]("password_valid", O.NotNull, O.Default(false))
 
-    def * = (id ?, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, _deleted, passwordValid) <>(User.tupled, User.unapply)
+    def * = (id ?, email, password ?, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, _deleted, passwordValid) <>(User.tupled, User.unapply)
 
     def idx1 = index("USER_USERNAME_INDEX", email, unique = true)
 
