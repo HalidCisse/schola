@@ -3,7 +3,7 @@ package oadmin
 
 import org.clapper.avsl.Logger
 
-object Façade extends Façade
+object façade extends Façade
 
 trait RouteHandler {
 
@@ -128,7 +128,7 @@ with HandlerFactory{
       )) == Some(2)
 
       //Add a user
-      val _2 = (Users += SuperUser) == 1
+      val _2 = (Users += SuperUser copy(password = SuperUser.password map passwords.crypt)) == 1
 
       val _3 = (Roles ++= List(
         SuperUserR,
@@ -236,7 +236,21 @@ with HandlerFactory{
                 ("avatarInfo" -> org.json4s.Extraction.decompose(avatarInfo)) ~
                   ("data" -> com.owtelse.codec.Base64.encode(data))))
 
-        case _ => BadRequest
+        case _ =>
+
+          import org.json4s.JsonDSL._
+
+          oauthService.getUser(userId) match {
+            case Some(user) =>
+
+              JsonContent ~>
+                ResponseString(
+                  cb wrap tojson(
+                    ("avatarInfo" -> org.json4s.Extraction.decompose(domain.AvatarInfo("image/png"))) ~
+                      ("data" -> org.json4s.JString(if(user.gender eq domain.Gender.Male) DefaultAvatars.Male else DefaultAvatars.Female))))
+
+            case _ => BadRequest
+          }
       }
 
     def purgeAvatar(userId: String) =
@@ -271,8 +285,9 @@ with HandlerFactory{
         x <- allCatch.opt {
           org.json4s.native.Serialization.read[domain.User](json)
         }
+        passwd <- x.password
         y <- oauthService.saveUser(
-          x.email, x.password, x.firstname, x.lastname, Some(resourceOwner.id), x.gender, x.homeAddress, x.workAddress, x.contacts, x.passwordValid)
+          x.email, passwd, x.firstname, x.lastname, Some(resourceOwner.id), x.gender, x.homeAddress, x.workAddress, x.contacts, x.passwordValid)
       } yield y) match {
 
         case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
@@ -305,7 +320,7 @@ with HandlerFactory{
               case org.json4s.JField(`field`, _) => true
               case _ => false
             } collect {
-              case org.json4s.JField(_, s@org.json4s.JObject(_)) => s
+              case org.json4s.JField(_, o@org.json4s.JObject(_)) => o
             }
 
           override val email = findField("email")

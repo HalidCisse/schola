@@ -5,24 +5,24 @@ package object oadmin {
 
   lazy val avatars = system.actorOf(akka.actor.Props(new utils.Avatars))
 
-  lazy val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
+  val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
-  lazy val config = com.typesafe.config.ConfigFactory.load()
+  val config = com.typesafe.config.ConfigFactory.load()
 
-  lazy val AccessTokenSessionLifeTime = config.getInt("access-token-session-lifetime")
+  val AccessTokenSessionLifeTime = config.getInt("access-token-session-lifetime")
 
-  lazy val RefreshTokenSessionLifeTime = config.getInt("refresh-token-session-lifetime")
+  val RefreshTokenSessionLifeTime = config.getInt("refresh-token-session-lifetime")
 
-  lazy val Q = scala.slick.driver.PostgresDriver.simple
+  val Q = scala.slick.driver.PostgresDriver.simple
 
   val SuperUser = domain.U.SuperUser
 
   val SuperUserR = domain.R.SuperUserR
   val AdministratorR = domain.R.AdministratorR
 
-  lazy val MacAlgo = config.getString("oauth2-mac-algo")
+  val MacAlgo = config.getString("oauth2-mac-algo")
 
-  lazy val Db = new {
+  val Db = new {
     val DriverClass = config.getString("db.database-driver-class")
 
     val DatabaseURL = config.getString("db.database-url")
@@ -36,6 +36,23 @@ package object oadmin {
     val MaxPoolSize = config.getInt("db.database-max-pool-size")
 
     val MinPoolSize = config.getInt("db.database-min-pool-size")
+  }
+
+  val MongoDB = new {
+    val Hostname = config.getString("mongodb.hostname")
+    val Port = config.getInt("mongodb.dbport")
+    val DatabaseName = config.getString("mongodb.dbname")
+    val CollectionName = config.getString("mongodb.dbcollection")
+  }
+
+  val DefaultAvatars = new {
+    import com.owtelse.codec.Base64
+    import java.nio.file.Files
+    import java.nio.file.Paths
+
+    val Male = Base64.encode(Files.readAllBytes(Paths.get(getClass.getResource(config.getString("default_avatar.male")).toURI)))
+
+    val Female = Base64.encode(Files.readAllBytes(Paths.get(getClass.getResource(config.getString("default_avatar.male")).toURI)))
   }
 
   //  java.security.Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider)

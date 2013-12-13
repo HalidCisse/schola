@@ -9,33 +9,33 @@ object ConversionSpecification extends org.specs.Specification {
 
   val userId = SuperUser.id.get
 
-  def initialize() = Façade.init(userId)
+  def initialize() = façade.init(userId)
 
-  def drop() = Façade.drop()
+  def drop() = façade.drop()
 
   "support for conversions" should {
 
     "be able to persist scopes" in {
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           OAuthTokens += domain.OAuthToken(
             "access_token.0", "oadmin", "http://localhost/oadmin",userId, None, "djdjdj", "Chrome", None, None, scopes = Set("oadmin", "schola", "orphans")
           )
       } must be equalTo 1
 
-      val o = Façade.withTransaction {
+      val o = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getToken("access_token.0")
+          façade.oauthService.getToken("access_token.0")
       }
 
       o must not be empty
       o.get.accessToken must be equalTo "access_token.0"
       o.get.scopes must be equalTo Set("oadmin", "schola", "orphans")
 
-      val x = Façade.withTransaction {
+      val x = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.saveToken(
+          façade.oauthService.saveToken(
             "access_token.1", None, "djdjdj", "Chrome", "oadmin", "http://localhost/oadmin", userId.toString, None, None, scopes = Set("oadmin", "schola", "orphans")
           )
       }
@@ -44,16 +44,16 @@ object ConversionSpecification extends org.specs.Specification {
       x.get.accessToken must be equalTo "access_token.1"
       x.get.scopes must be equalTo Set("oadmin", "schola", "orphans")
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           OAuthTokens += domain.OAuthToken(
             "access_token.3", "oadmin", "http://localhost/oadmin", userId, None, "djdjdj", "Chrome", None, None, scopes = Set()
           )
       } must be equalTo 1
 
-      val g = Façade.withTransaction {
+      val g = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getToken("access_token.3")
+          façade.oauthService.getToken("access_token.3")
       }
 
       g must not be empty
@@ -64,7 +64,7 @@ object ConversionSpecification extends org.specs.Specification {
     "be able to persist home and work addresses" in {
       val uId = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           Users += domain.User(
             Some(uId),
@@ -78,9 +78,9 @@ object ConversionSpecification extends org.specs.Specification {
           )
       } must be equalTo 1
 
-      val o = Façade.withTransaction {
+      val o = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getUser(uId.toString)
+          façade.oauthService.getUser(uId.toString)
       }
 
       o must not be empty
@@ -98,7 +98,7 @@ object ConversionSpecification extends org.specs.Specification {
       val uId = java.util.UUID.randomUUID
 
       // Empty contacts {
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           Users += domain.User(
             Some(uId),
@@ -111,9 +111,9 @@ object ConversionSpecification extends org.specs.Specification {
           )
       } must be equalTo 1
 
-      val o = Façade.withTransaction {
+      val o = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getUser(uId.toString)
+          façade.oauthService.getUser(uId.toString)
       }
 
       o must not be empty
@@ -134,7 +134,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       val uId = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           Users += domain.User(
             Some(uId),
@@ -147,9 +147,9 @@ object ConversionSpecification extends org.specs.Specification {
           )
       } must be equalTo 1
 
-      val o = Façade.withTransaction {
+      val o = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getUser(uId.toString)
+          façade.oauthService.getUser(uId.toString)
       }
 
       o must not be empty
@@ -170,7 +170,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       val uId = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           Users += domain.User(
             Some(uId),
@@ -183,9 +183,9 @@ object ConversionSpecification extends org.specs.Specification {
           )
       } must be equalTo 1
 
-      val o = Façade.withTransaction {
+      val o = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getUser(uId.toString)
+          façade.oauthService.getUser(uId.toString)
       }
 
       o must not be empty
@@ -200,7 +200,7 @@ object ConversionSpecification extends org.specs.Specification {
     "be able to persist gender" in {
       val uId = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           Users += domain.User(
             Some(uId),
@@ -212,9 +212,9 @@ object ConversionSpecification extends org.specs.Specification {
           )
       } must be equalTo 1
 
-      val o = Façade.withTransaction {
+      val o = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getUser(uId.toString)
+          façade.oauthService.getUser(uId.toString)
       }
 
       o must not be empty
@@ -224,7 +224,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       val uId2 = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           Users += domain.User(
             Some(uId2),
@@ -237,9 +237,9 @@ object ConversionSpecification extends org.specs.Specification {
           )
       } must be equalTo 1
 
-      val d = Façade.withTransaction {
+      val d = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getUser(uId2.toString)
+          façade.oauthService.getUser(uId2.toString)
       }
 
       d must not be empty
@@ -256,7 +256,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       val uId = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      façade.withTransaction {
         implicit session =>
           Users += domain.User(
             Some(uId),
@@ -269,9 +269,9 @@ object ConversionSpecification extends org.specs.Specification {
           )
       } must be equalTo 1
 
-      val o = Façade.withTransaction {
+      val o = façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getUser(uId.toString)
+          façade.oauthService.getUser(uId.toString)
       }
 
       o must not be empty

@@ -3,7 +3,7 @@ package oadmin
 
 import org.clapper.avsl.Logger
 
-object Plans extends oadmin.Plans(Façade)
+object plans extends oadmin.Plans(façade)
 
 class Plans(val factory: HandlerFactory) {
 

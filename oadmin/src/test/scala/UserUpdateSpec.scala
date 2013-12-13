@@ -5,11 +5,11 @@ package test
 object UserUpdateSpec extends org.specs.Specification {
   val userId = SuperUser.id.get
 
-  def initialize() = Façade.init(userId)
+  def initialize() = façade.init(userId)
 
-  def drop() = Façade.drop()
+  def drop() = façade.drop()
 
-  val updateFn = Façade.oauthService.updateUser _
+  val updateFn = façade.oauthService.updateUser _
 
   "updating a user" should {
 
@@ -17,7 +17,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       updateFn(userId.toString, new utils.DefaultUserSpec) must not be empty
 
-      val o = Façade.oauthService.getUser(userId.toString)
+      val o = façade.oauthService.getUser(userId.toString)
 
       o must not be empty
       o.get.email must be equalTo SuperUser.email
@@ -32,7 +32,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
     "update email" in {
 
-      val o = Façade.oauthService.saveUser(
+      val o = façade.oauthService.saveUser(
         "username0",
         "amsayk.0",
         "Amadou",
@@ -65,16 +65,16 @@ object UserUpdateSpec extends org.specs.Specification {
         override val email = Some("username1")
       }) must not be empty
 
-      val h = Façade.oauthService.getUser(o.get.id.get.toString)
+      val h = façade.oauthService.getUser(o.get.id.get.toString)
 
       h must not be empty
       h.get.email must be equalTo "username1"
 
-      Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
+      façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
     }
 
     "update password only of it matches" in {
-      val o = Façade.oauthService.saveUser(
+      val o = façade.oauthService.saveUser(
         "username0",
         "amsayk.0",
         "Amadou",
@@ -108,7 +108,7 @@ object UserUpdateSpec extends org.specs.Specification {
 //        override val passwordConfirm = Some("username1")
       }) must beEmpty
 
-      val hh = Façade.oauthService.getUser(o.get.id.get.toString)
+      val hh = façade.oauthService.getUser(o.get.id.get.toString)
       hh must not be empty
       passwords.verify("amsayk.0", hh.get.password.get) must beTrue
 
@@ -117,7 +117,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val oldPassword = Some("username1dd") // wrong password confirmation
       }) must beEmpty
 
-      val hhh = Façade.oauthService.getUser(o.get.id.get.toString)
+      val hhh = façade.oauthService.getUser(o.get.id.get.toString)
       hhh must not be empty
       passwords.verify("amsayk.0", hhh.get.password.get) must beTrue
 
@@ -126,11 +126,11 @@ object UserUpdateSpec extends org.specs.Specification {
         override val oldPassword = Some("amsayk.0")
       }) must not be empty
 
-      val gg = Façade.oauthService.getUser(o.get.id.get.toString)
+      val gg = façade.oauthService.getUser(o.get.id.get.toString)
       gg must not be empty
       passwords.verify("amsayk.9", gg.get.password.get) must beTrue
 
-      Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
+      façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
     }
 
     "update contacts" in {
@@ -139,7 +139,7 @@ object UserUpdateSpec extends org.specs.Specification {
           domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com"))
         )
 
-      val o = Façade.oauthService.saveUser(
+      val o = façade.oauthService.saveUser(
         "username2",
         "amsayk.0",
         "Amadou",
@@ -166,7 +166,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val contacts = Some(ContactInfoSpec(toAdd = Set(domain.MobileContactInfo(domain.PhoneNumber("+212600793159")))))
       }) must not be empty
 
-      val h = Façade.oauthService.getUser(o.get.id.get.toString)
+      val h = façade.oauthService.getUser(o.get.id.get.toString)
 
       h must not be empty
       h.get.contacts must haveSize(3)
@@ -178,7 +178,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val contacts = Some(ContactInfoSpec(toRem = sContacts))
       }) must not be empty
 
-      val hh = Façade.oauthService.getUser(o.get.id.get.toString)
+      val hh = façade.oauthService.getUser(o.get.id.get.toString)
 
       hh must not be empty
       hh.get.contacts must haveSize(1)
@@ -190,7 +190,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val contacts = Some(ContactInfoSpec(toAdd = sContacts))
       }) must not be empty
 
-      val hhh = Façade.oauthService.getUser(o.get.id.get.toString)
+      val hhh = façade.oauthService.getUser(o.get.id.get.toString)
 
       hhh must not be empty
       hhh.get.contacts must haveSize(3)
@@ -202,7 +202,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val contacts = Some(ContactInfoSpec(toRem = Set(), toAdd = Set()))
       }) must not be empty
 
-      val g = Façade.oauthService.getUser(o.get.id.get.toString)
+      val g = façade.oauthService.getUser(o.get.id.get.toString)
 
       g must not be empty
       g.get.contacts must haveSize(3)
@@ -214,7 +214,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val contacts = None
       }) must not be empty
 
-      val gg = Façade.oauthService.getUser(o.get.id.get.toString)
+      val gg = façade.oauthService.getUser(o.get.id.get.toString)
 
       gg must not be empty
       gg.get.contacts must haveSize(3)
@@ -226,13 +226,13 @@ object UserUpdateSpec extends org.specs.Specification {
         override val contacts = Some(ContactInfoSpec(toRem = sContacts + domain.MobileContactInfo(domain.PhoneNumber("+212600793159"))))
       }) must not be empty
 
-      val ggg = Façade.oauthService.getUser(o.get.id.get.toString)
+      val ggg = façade.oauthService.getUser(o.get.id.get.toString)
 
       ggg must not be empty
       ggg.get.contacts must haveSize(0)
       ggg.get.contacts must be equalTo Set()
 
-      Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
+      façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
     }
 
     "update workAddress" in {}
@@ -245,7 +245,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
     "remove homeAddress" in {
 
-      val o = Façade.oauthService.saveUser(
+      val o = façade.oauthService.saveUser(
         "username10",
         "amsayk.0",
         "Amadou",
@@ -278,7 +278,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val homeAddress = UpdateSpecImpl[domain.AddressInfo](set = Some(None))
       }) must not be empty
 
-      val h = Façade.oauthService.getUser(o.get.id.get.toString)
+      val h = façade.oauthService.getUser(o.get.id.get.toString)
 
       h must not be empty
       h.get.homeAddress must beEmpty
@@ -289,7 +289,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val homeAddress = UpdateSpecImpl(set = Some(Some(domain.AddressInfo("CASABLANCA", "Morocco", "500000", "5, Appt. 27, Rue Jabal Tazaka"))))
       }) must not be empty
 
-      val hh = Façade.oauthService.getUser(o.get.id.get.toString)
+      val hh = façade.oauthService.getUser(o.get.id.get.toString)
 
       hh must not be empty
       hh.get.homeAddress must not be empty
@@ -301,13 +301,13 @@ object UserUpdateSpec extends org.specs.Specification {
         // override val homeAddress = super.homeAddress copy(set = Some(Some(domain.AddressInfo("CASABLANCA", "Morocco", "500000", "5, Appt. 27, Rue Jabal Tazaka"))))
       }) must not be empty
 
-      val hhh = Façade.oauthService.getUser(o.get.id.get.toString)
+      val hhh = façade.oauthService.getUser(o.get.id.get.toString)
 
       hhh must not be empty
       hhh.get.homeAddress must not be empty
       hhh.get.homeAddress.get must be equalTo domain.AddressInfo("CASABLANCA", "Morocco", "500000", "5, Appt. 27, Rue Jabal Tazaka")      
 
-      Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
+      façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
     }
 
     "update email, firstname, lastname, gender, homeAddress, workAddress and contacts" in {
@@ -316,7 +316,7 @@ object UserUpdateSpec extends org.specs.Specification {
           domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com"))
         )
 
-      val o = Façade.oauthService.saveUser(
+      val o = façade.oauthService.saveUser(
         "username11",
         "amsayk.0",
         "Amadou",
@@ -352,7 +352,7 @@ object UserUpdateSpec extends org.specs.Specification {
         override val gender = Some(domain.Gender.Male)
       }) must not be empty
 
-      val h = Façade.oauthService.getUser(o.get.id.get.toString)
+      val h = façade.oauthService.getUser(o.get.id.get.toString)
 
       h must not be empty
       h.get.homeAddress must beEmpty
@@ -360,7 +360,7 @@ object UserUpdateSpec extends org.specs.Specification {
       h.get.contacts must be equalTo sContacts
       h.get.gender must be equalTo domain.Gender.Male    
 
-      Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
+      façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
     }
   }
 

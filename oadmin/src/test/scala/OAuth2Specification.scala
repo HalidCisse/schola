@@ -37,13 +37,13 @@ object OAuth2Specification extends org.specs.Specification
     }
     .context("/api/v1") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-      .filter(utils.ValidatePasswd(Plans.routes))
+      .filter(/*utils.ValidatePasswd(*/plans.routes/*)*/)
     }
   }
 
-  def initialize() = Façade.init(SuperUser.id.get)
+  def initialize() = façade.init(SuperUser.id.get)
 
-  def drop() = Façade.drop()
+  def drop() = façade.drop()
 
   // turning off redirects for validation
   override def http[T](handler: Handler[T]): T = {

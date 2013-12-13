@@ -78,7 +78,6 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       } yield (
           u.id,
           u.email,
-          u.password,
           u.firstname,
           u.lastname,
           u.createdAt,
@@ -97,8 +96,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result map {
-        case (id, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(Some(id), email, Some(password), firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
+        case (id, email, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
+          User(Some(id), email, None, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
       }
     }
 
@@ -110,7 +109,6 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       } yield (
           u.id,
           u.email,
-          u.password,
           u.firstname,
           u.lastname,
           u.createdAt,
@@ -129,8 +127,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result map {
-        case (sId, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(Some(sId), email, Some(password), firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
+        case (sId, email, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
+          User(Some(sId), email, None, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
       }
     }
 
@@ -150,7 +148,6 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       } yield (
           u.id,
           u.email,
-          u.password,
           u.firstname,
           u.lastname,
           u.createdAt,
@@ -169,8 +166,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result map {
-        case (id, email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(Some(id), email, Some(password), firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
+        case (id, email, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
+          User(Some(id), email, None, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid)
       }
     }
 
@@ -398,7 +395,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               sExpiresIn,
               sRefreshToken,
               sLastAccessTime,
-              user = sUser,
+              user = sUser copy(password = None),
               userAgent = sUA,
               roles = Set(accessControlService.getUserRoles(sUser.id map(_.toString) get) map(_.role) : _*), // TODO: is this dependency safe
               permissions = {
@@ -441,7 +438,9 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         q.firstOption
       }
 
-      result filter { case (_, sPassword) => passwords verify(password, sPassword) } map(_._1.toString)
+      result map {
+        case (id, sPasswd) if passwords verify(password, sPasswd) => id.toString
+      }
     }
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
@@ -495,7 +494,6 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         } yield (
             u.id,
             u.email,
-            u.password,
             u.firstname,
             u.lastname,
             u.createdAt,
@@ -510,8 +508,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             u.passwordValid)
 
         q.firstOption map {
-          case (sId, uEmail, uPassword, uFirstname, uLastname, createdAt, uCreatedBy, lastModifiedAt, lastModifiedBy, sGender, sHomeAddress, sWorkAddress, sContacts, sAvatar, sPasswordValid) =>
-            User(Some(sId), uEmail, Some(uPassword), uFirstname, uLastname, createdAt, uCreatedBy, lastModifiedAt, lastModifiedBy, sGender, sHomeAddress, sWorkAddress, sContacts, sAvatar, passwordValid = sPasswordValid)
+          case (sId, uEmail, uFirstname, uLastname, createdAt, uCreatedBy, lastModifiedAt, lastModifiedBy, sGender, sHomeAddress, sWorkAddress, sContacts, sAvatar, sPasswordValid) =>
+            User(Some(sId), uEmail, None, uFirstname, uLastname, createdAt, uCreatedBy, lastModifiedAt, lastModifiedBy, sGender, sHomeAddress, sWorkAddress, sContacts, sAvatar, passwordValid = sPasswordValid)
         }
       }
 
@@ -588,7 +586,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       import scala.util.control.Exception.allCatch
       import scala.concurrent.Await
 
-      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+      implicit val timeout = akka.util.Timeout(2 seconds) // needed for `?` below
 
       val q = (avatars ? utils.Avatars.Get(id)).mapTo[(domain.AvatarInfo, Array[Byte])]
 

@@ -27,37 +27,37 @@ package object utils {
       }
   }
 
-  case class ValidatePasswd(next: unfiltered.filter.Plan) extends unfiltered.filter.Plan{
-    import unfiltered.request.&
-
-    val intent : unfiltered.filter.Plan.Intent = {
-      case ResourceOwner(resourceOwner) & req =>
-
-        Façade.oauthService.getUser(resourceOwner.id) match {
-          case Some(user) =>
-
-            if(user.passwordValid) next.intent(req)
-            else req match {
-
-                case oauth2.TokenA(token) =>
-                  
-                  Scalate(
-                    req,
-                    "changepasswd.jade",
-                    Seq(
-                      "key" -> token.accessToken,
-                      "secret" -> token.macKey,
-                      "issuedTime" -> token.createdAt.toString,
-                      "email" -> user.email) map{ case (key, value) => key -> java.net.URLEncoder.encode(value, "utf-8") } : _*
-                   )
-
-                case _ => BadRequest
-              }
-
-          case _  => unfiltered.response.BadRequest
-        }
-    }
-  }
+//  case class ValidatePasswd(next: unfiltered.filter.Plan) extends unfiltered.filter.Plan{
+//    import unfiltered.request.&
+//
+//    val intent : unfiltered.filter.Plan.Intent = {
+//      case ResourceOwner(resourceOwner) & req =>
+//
+//        façade.oauthService.getUser(resourceOwner.id) match {
+//          case Some(user) =>
+//
+//            if(user.passwordValid) next.intent(req)
+//            else req match {
+//
+//                case oauth2.TokenA(token) =>
+//
+//                  Scalate(
+//                    req,
+//                    "changepasswd.jade",
+//                    Seq(
+//                      "key" -> token.accessToken,
+//                      "secret" -> token.macKey,
+//                      "issuedTime" -> token.createdAt.toString,
+//                      "email" -> user.email) map{ case (key, value) => key -> java.net.URLEncoder.encode(value, "utf-8") } : _*
+//                   )
+//
+//                case _ => unfiltered.response.BadRequest
+//              }
+//
+//          case _  => unfiltered.response.BadRequest
+//        }
+//    }
+//  }
 
   trait UpdateSpec[T] {
     def set: Option[Option[T]]
@@ -86,7 +86,7 @@ package object utils {
 
     def email: Option[String]
 
-    def password: Option[String]
+    def password: Option[String] // Though this is an Option, its required!
 
     def oldPassword: Option[String]
 
@@ -125,10 +125,10 @@ package object utils {
   }
 
   class Avatars extends akka.actor.Actor with akka.actor.ActorLogging {
-    lazy val mongo = new com.mongodb.Mongo("localhost", 27017)
-    lazy val db = mongo.getDB("schola")
+    lazy val mongo = new com.mongodb.Mongo(MongoDB.Hostname, MongoDB.Port)
+    lazy val db = mongo.getDB(MongoDB.DatabaseName)
 
-    lazy val gfsPhoto = new com.mongodb.gridfs.GridFS(db, "users_avatars")
+    lazy val gfsPhoto = new com.mongodb.gridfs.GridFS(db, MongoDB.CollectionName)
 
     def uploadAvatar(id: String, contentType: String, data: Array[Byte]) = {
       log.debug(s"saving $id")
@@ -185,6 +185,55 @@ package object utils {
 
   // ---------------------------------------------------------------------------------------------------------------
 
+  import unfiltered.oauth2._
+
+  /** Configured Authorization server module */
+  case class OAuthorization(auth: unfiltered.oauth2.AuthorizationServer) extends Authorized
+  with DefaultAuthorizationPaths with DefaultValidationMessages {
+
+    import scala.util.control.Exception.allCatch
+    import unfiltered.response.BadRequest
+
+    override def onPassword(
+                    userName: String, password: String,
+                    clientId: String, clientSecret: String, scope: Seq[String]) =
+      auth(PasswordRequest(
+        userName, password, clientId, clientSecret, scope)) match {
+
+        case AccessTokenResponse(
+        accessToken, tokenType, expiresIn, refreshToken, aScope, _, extras) =>
+          accessResponder(
+            accessToken, tokenType, expiresIn, refreshToken, aScope, extras
+          )
+
+        case ErrorResponse("changepasswd", json, _, _) =>
+
+          import org.json4s.native.Serialization
+          import conversions.json.formats
+
+          allCatch.opt(Serialization.read[domain.User](json)) match {
+            case Some(owner) =>
+
+              utils.Scalate(
+                TokenPath,
+                "changepasswd.jade",
+                Seq(
+                  "id" -> owner.id.get.toString,
+                  "firstname" -> owner.firstname,
+                  "lastname" -> owner.lastname,
+                  "email" -> owner.email) map{ case (key, value) => key -> java.net.URLEncoder.encode(value, "utf-8") } : _*
+              )
+
+            case _ => BadRequest
+          }
+
+        case ErrorResponse(error, desc, euri, state) =>
+          errorResponder(error, desc, euri, state)
+      }
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+
   import org.fusesource.scalate.{
   TemplateEngine, Binding, DefaultRenderContext, RenderContext}
   import unfiltered.request.{Path,HttpRequest}
@@ -192,11 +241,22 @@ package object utils {
   import java.io.{File,OutputStreamWriter,PrintWriter}
 
   object Scalate {
+
+    def apply[A, B](request: HttpRequest[A],
+                    template: String,
+                    attributes:(String,Any)*)
+                   ( implicit
+                     engine: TemplateEngine = defaultEngine,
+                     contextBuilder: ToRenderContext = defaultRenderContext,
+                     bindings: List[Binding] = Nil,
+                     additionalAttributes: Seq[(String, Any)] = Nil
+                     ): ResponseWriter = apply(Path(request), template, attributes : _*)
+
     /** Constructs a ResponseWriter for Scalate templates.
       *  Note that any parameter in the second, implicit set
       *  can be overriden by specifying an implicit value of the
       *  expected type in a pariticular scope. */
-    def apply[A, B](request: HttpRequest[A],
+    def apply[A, B](path: String,
                     template: String,
                     attributes:(String,Any)*)
                    ( implicit
@@ -209,7 +269,7 @@ package object utils {
         val printWriter = new PrintWriter(writer)
         try {
           val scalateTemplate = engine.load(template, bindings)
-          val context = contextBuilder(Path(request), printWriter, engine)
+          val context = contextBuilder(path, printWriter, engine)
           (additionalAttributes ++ attributes) foreach {
             case (k,v) => context.attributes(k) = v
           }
@@ -228,7 +288,7 @@ package object utils {
     (String, PrintWriter, TemplateEngine) => RenderContext
 
     private val defaultTemplateDirs =
-      new File("src/main/resources/templates") :: Nil
+      new File(config.getString("jade.template-dir")) :: Nil
     private val defaultEngine = new TemplateEngine(defaultTemplateDirs)
     private val defaultRenderContext: ToRenderContext =
       (path, writer, engine) =>

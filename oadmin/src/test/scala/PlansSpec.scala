@@ -16,7 +16,10 @@ with unfiltered.spec.jetty.Served {
 
   import unfiltered.request.&
 
-
+  /*
+  *   Necessary to avoid removing password from
+  *
+  * */
   object formats {
 
     import domain._
@@ -72,14 +75,15 @@ with unfiltered.spec.jetty.Served {
     val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, "localhost", port, "", "")
     unfiltered.mac.Mac.macHash(MacAlgo, session.secret)(normalizedRequest).fold({
       fail(_)
-    }, { mac =>
+    }, {
+      mac =>
 
-      val auth = Map(
-        "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
-        "User-Agent" -> "Chrome"
-      )
+        val auth = Map(
+          "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
+          "User-Agent" -> "Chrome"
+        )
 
-      f(auth)
+        f(auth)
     })
   }
 
@@ -89,24 +93,33 @@ with unfiltered.spec.jetty.Served {
       override def make_client = {
         val c = new ConfiguredHttpClient(credentials)
         c.setRedirectHandler(new org.apache.http.client.RedirectHandler() {
+
           import org.apache.http.protocol.HttpContext
-          import org.apache.http.{HttpResponse=>HcResponse}
+          import org.apache.http.{HttpResponse => HcResponse}
+
           def getLocationURI(res: HcResponse, ctx: HttpContext) = null
+
           def isRedirectRequested(res: HcResponse, ctx: HttpContext) = false
         })
         c
       }
     }
-    try { h.x(handler) }
-    finally { h.shutdown() }
+    try {
+      h.x(handler)
+    }
+    finally {
+      h.shutdown()
+    }
   }
 
-  def json[T](body: String)(f: Map[String, Any] => T) =
+  def json[T](body: String)(f: Either[String, Map[String, Any]] => T) =
     scala.util.parsing.json.JSON.parseFull(body) match {
-      case Some(obj) => f(
-        obj.asInstanceOf[Map[String, Any]]
-      )
-      case _ => fail("could not parse body")
+      case Some(obj) =>
+        f(
+          Right(obj.asInstanceOf[Map[String, Any]])
+        )
+
+      case _ => f(Left(body))
     }
 
   val token = host / "oauth" / "token"
@@ -121,65 +134,142 @@ with unfiltered.spec.jetty.Served {
   val owner = new ResourceOwner { val id = SuperUser.email; val password = Some(sPassword) }
 
   def init() {
-    Façade.init(SuperUser.id.get)
+    façade.init(SuperUser.id.get)
   }
 
-  def drop() = Façade.drop()
+  def drop() = façade.drop()
 
   def setup = {
     server =>
 
-      try drop() catch { case _: Throwable => }
+      try drop() catch {
+        case _: Throwable =>
+      }
       init()
 
       server.context("/oauth") {
         _.filter(unfiltered.filter.Planify {
           case unfiltered.request.UserAgent(uA) & req =>
-            OAuthorization(new AuthServerProvider(uA).auth).intent(req) // Too much objects created !?
+            utils.OAuthorization(new AuthServerProvider(uA).auth).intent(req) // Too much objects created !?
         })
       }
         .context("/api/v1") {
         _.filter(OAuth2Protection(new OAdminAuthSource))
-          .filter(utils.ValidatePasswd(Plans.routes))
+          .filter(/*utils.ValidatePasswd(*/plans.routes/*)*/)
       }
   }
+
+  case class ConnectInfo(username: String, passwd: String, clientId: String = client.id, clientSecret: String = client.secret)
+
+  def withSession[T](connectInfo: ConnectInfo = ConnectInfo(SuperUser.email, SuperUser.password.get))(f: Either[String, Session] => T) = {
+    val body = http(token << Map(
+      "grant_type" -> "password",
+      "client_id" -> connectInfo.clientId,
+      "client_secret" -> connectInfo.clientSecret,
+      "username" -> connectInfo.username,
+      "password" -> connectInfo.passwd
+    ) <:< Map("User-Agent" -> "Chrome") as_str)
+
+    json(body) {
+      case Right(map) =>
+
+        val key = map("access_token").toString
+        val session = façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> "Chrome"))
+
+        session must not be empty
+
+        try f(Right(session.get.asInstanceOf[Session]))
+        finally façade.oauthService.revokeToken(session.get.key)
+
+      case Left(res) => f(Left(res))
+    }
+  }
+
 
   "user plans" should {
 
     "save user" in {
       val toSave = User(None, "cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = true)
 
-      val body = http(token << Map(
-        "grant_type" -> "password",
-        "client_id" -> client.id,
-        "client_secret" -> client.secret,
-        "username" -> owner.id,
-        "password" -> sPassword
-      ) <:< Map("User-Agent" -> "Chrome") as_str)
+      withSession() {
+        case Right(session) =>
 
-      json(body) {map =>
+          withMac(session, "POST", "/api/v1/users") {
+            auth =>
 
-        val key = map("access_token").toString
+              val sres = http(api / "users" <:< auth <<(formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
 
-        val Some(session : Session) = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> "Chrome"))
+              import formats.my
+              import scala.util.control.Exception.allCatch
 
-        withMac(session, "POST", "/api/v1/users") { auth =>
+              val user = allCatch.opt { Serialization.read[User](sres) }
 
-          val sres = http(api / "users" <:< auth << (formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
+              user must not be empty
 
-          import formats.my
+              user.get.email must be equalTo toSave.email
+              user.get.firstname must be equalTo toSave.firstname
+              user.get.lastname must be equalTo toSave.lastname
 
-          val user = Serialization.read[User](sres)
+              withMac(session, "DELETE", s"/api/v1/user/${user.get.id.get.toString}") {
+                auth =>
+                  val sres = http(api.DELETE / "user" / user.get.id.get.toString <:< auth as_str)
 
-          user.email must be equalTo toSave.email
-          user.firstname must be equalTo toSave.firstname
-          user.lastname must be equalTo toSave.lastname
-        }
+                  sres must be equalTo """{"success": true}"""
+
+                  withMac(session, "DELETE", s"/api/v1/user/${user.get.id.get.toString}/purge") {
+                    auth =>
+                      val sres = http(api.DELETE / "user" / user.get.id.get.toString / "purge" <:< auth as_str)
+
+                      sres must be equalTo """{"success": true}"""
+                  }
+              }
+          }
+
+        case _ =>
       }
-
     }
 
-    "force password change on non-validation" in {}
+    "force password change on non-validation" in {
+      val toSave = User(None, "cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = false)
+
+      withSession() {
+        case Right(session) =>
+
+          withMac(session, "POST", "/api/v1/users") {
+            auth =>
+
+              val sres = http(api / "users" <:< auth <<(formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
+
+              import formats.my
+              import scala.util.control.Exception.allCatch
+
+              val user = allCatch.opt { Serialization.read[User](sres) }
+
+              user must not be empty
+
+              user.get.email must be equalTo toSave.email
+              user.get.firstname must be equalTo toSave.firstname
+              user.get.lastname must be equalTo toSave.lastname
+
+              withSession(ConnectInfo(user.get.email, toSave.password.get)) {
+                case Left(body) =>
+
+                  body must startWith("<h1>Please change your password.")
+
+                case _ => fail("passwordValid doesn't work")
+              }
+
+              withMac(session, "DELETE", s"/api/v1/user/${user.get.id.get.toString}/purge") {
+                auth =>
+                  val sres = http(api.DELETE / "user" / user.get.id.get.toString / "purge" <:< auth as_str)
+
+                  sres must be equalTo """{"success": true}"""
+              }
+          }
+
+        case _ =>
+      }
+    }
 
     "update user" in {}
 
@@ -225,5 +315,7 @@ with unfiltered.spec.jetty.Served {
     "get role permissions" in {}
   }
 
-  doAfterSpec { drop() }
+  doAfterSpec {
+    drop()
+  }
 }

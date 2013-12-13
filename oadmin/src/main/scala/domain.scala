@@ -129,7 +129,7 @@ package domain {
       User(
         Some(java.util.UUID.fromString(config.getString("super-user-id"))),
         config.getString("super-user-email"),
-        Some(passwords crypt config.getString("super-user-password")),
+        Some(config.getString("super-user-password")),
         config.getString("super-user-firstname"),
         config.getString("super-user-lastname"), createdAt = 0L, createdBy = None,
         passwordValid = true)

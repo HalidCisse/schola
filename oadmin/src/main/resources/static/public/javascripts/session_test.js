@@ -330,11 +330,9 @@ login().done( function(){
         }, [], true)
 })
 
-// addContact(
-//   id, {type: 'HomeContactInfo', home: { type: 'PhoneNumber', number: '+231886582873' }}
-//   )
+// addContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
 
-// removeContact(id, {type: 'HomeContactInfo', home: { type: 'PhoneNumber', number: '+231886582873' }})
+// removeContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
 
 // addAddress(id, {homeAddress: {city: 'CASABLANCA', 'country': 'Morocco', zipCode: '10032', addressLine: '5, Rue Jabal Tazaka, Agdal'}})
 

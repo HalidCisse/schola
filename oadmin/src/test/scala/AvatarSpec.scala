@@ -6,14 +6,14 @@ object AvatarSpec extends org.specs.Specification {
 
   val userId = SuperUser.id.get
 
-  def initialize() = Façade.init(userId)
+  def initialize() = façade.init(userId)
 
-  def drop() = Façade.drop()
+  def drop() = façade.drop()
 
   "avatar services" should {
 
     "save, modify and purge avatar" in {
-      val o = Façade.oauthService.saveUser(
+      val o = façade.oauthService.saveUser(
         "username0",
         "amsayk.0",
         "Amadou",
@@ -32,28 +32,28 @@ object AvatarSpec extends org.specs.Specification {
       o must not be empty
       o.get.avatar must beEmpty
 
-      Façade.oauthService.updateUser(o.get.id.get.toString, new utils.DefaultUserSpec{
+      façade.oauthService.updateUser(o.get.id.get.toString, new utils.DefaultUserSpec{
         override val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(Some(domain.AvatarInfo("image/png"), "file contents".getBytes("utf-8"))))
       }) must not be empty
 
       Thread.sleep(2 * 1000)
 
-      val x = Façade.oauthService.getAvatar(o.get.id.get.toString)
+      val x = façade.oauthService.getAvatar(o.get.id.get.toString)
 
       x must not be empty
       x.get._1.contentType must be equalTo "image/png"
       new String(x.get._2, "utf-8") must be equalTo "file contents"
 
-      Façade.oauthService.updateUser(o.get.id.get.toString, new utils.DefaultUserSpec{
+      façade.oauthService.updateUser(o.get.id.get.toString, new utils.DefaultUserSpec{
         override val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(None))
       }) must not be empty
 
       Thread.sleep(2 * 1000)
 
-      Façade.oauthService.getAvatar(o.get.id.get.toString) must beEmpty
+      façade.oauthService.getAvatar(o.get.id.get.toString) must beEmpty
 
-      Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
-      Façade.oauthService.purgeUsers(Set(o.get.id.get.toString))
+      façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
+      façade.oauthService.purgeUsers(Set(o.get.id.get.toString))
     }
   }
 

@@ -19,17 +19,17 @@ object main extends App {
     .context("/oauth") {
       _.filter(unfiltered.filter.Planify{
         case unfiltered.request.UserAgent(uA) & req =>
-          OAuthorization(new AuthServerProvider(uA).auth).intent(req)
+          utils.OAuthorization(new AuthServerProvider(uA).auth).intent(req)
       })
     }
     .context("/api/v1") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-       .filter(utils.ValidatePasswd(Plans.routes))
+       .filter(/*utils.ValidatePasswd(*/plans.routes/*)*/)
     }
 
-  try Façade.drop() catch { case _: Throwable => }
+  try façade.drop() catch { case _: Throwable => }
   
-  Façade.init(SuperUser.id.get)
+  façade.init(SuperUser.id.get)
   server.start()
 
   log.info("server is runing . . .")
@@ -41,5 +41,5 @@ object main extends App {
 
   server.stop()
   server.destroy()
-  Façade.drop()
+  façade.drop()
 }
