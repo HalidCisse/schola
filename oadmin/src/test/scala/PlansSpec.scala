@@ -15,6 +15,7 @@ with unfiltered.spec.jetty.Served {
   import dispatch.classic._
 
   import unfiltered.request.&
+  import unfiltered.response.Pass
 
   /*
   *   Necessary to avoid removing password from
@@ -150,7 +151,7 @@ with unfiltered.spec.jetty.Served {
       server.context("/oauth") {
         _.filter(unfiltered.filter.Planify {
           case unfiltered.request.UserAgent(uA) & req =>
-            utils.OAuthorization(new AuthServerProvider(uA).auth).intent(req) // Too much objects created !?
+            utils.OAuthorization(new AuthServerProvider(uA).auth).intent.lift(req).getOrElse(Pass) // Too much objects created !?
         })
       }
         .context("/api/v1") {

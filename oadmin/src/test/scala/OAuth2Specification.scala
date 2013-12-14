@@ -11,6 +11,7 @@ object OAuth2Specification extends org.specs.Specification
 
   import dispatch.classic._
   import unfiltered.request.&
+  import unfiltered.response.Pass
 
   import scala.util.parsing.json.JSON
 
@@ -32,7 +33,7 @@ object OAuth2Specification extends org.specs.Specification
     server.context("/oauth") {
       _.filter(unfiltered.filter.Planify{
         case unfiltered.request.UserAgent(uA) & req =>
-          OAuthorization(new AuthServerProvider(uA).auth).intent(req) // Too much objects created !?
+          OAuthorization(new AuthServerProvider(uA).auth).intent.lift(req).getOrElse(Pass) // Too much objects created !?
       })
     }
     .context("/api/v1") {

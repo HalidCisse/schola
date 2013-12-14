@@ -215,7 +215,7 @@ with HandlerFactory{
 
     val log = Logger(getClass)
 
-    import conversions.json._
+    import conversions.json.tojson
     import conversions.json.formats
 
     val Some(resourceOwner) = utils.ResourceOwner.unapply(req)
@@ -249,7 +249,7 @@ with HandlerFactory{
                     ("avatarInfo" -> org.json4s.Extraction.decompose(domain.AvatarInfo("image/png"))) ~
                       ("data" -> org.json4s.JString(if(user.gender eq domain.Gender.Male) DefaultAvatars.Male else DefaultAvatars.Female))))
 
-            case _ => BadRequest
+            case _ => NotFound
           }
       }
 
@@ -283,7 +283,7 @@ with HandlerFactory{
       (for {
         json <- JsonBody(req)
         x <- allCatch.opt {
-          org.json4s.native.Serialization.read[domain.User](json)
+            json.extract[domain.User]
         }
         passwd <- x.password
         y <- oauthService.saveUser(
@@ -304,8 +304,6 @@ with HandlerFactory{
       (for {
         json <- JsonBody(req)
         x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
-
-          import org.json4s.native.Serialization
 
           def findField(field: String) =
             json findField {
@@ -336,13 +334,13 @@ with HandlerFactory{
 
           override val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
             set = findFieldObj("homeAddress") map (x => allCatch.opt {
-              Serialization.read[domain.AddressInfo](x)
+                x.extract[domain.AddressInfo]
             })
           )
 
           override val workAddress = new UpdateSpecImpl[domain.AddressInfo](
             set = findFieldObj("workAddress") map (x => allCatch.opt {
-              Serialization.read[domain.AddressInfo](x)
+              x.extract[domain.AddressInfo]
             })
           )
         })
@@ -359,7 +357,7 @@ with HandlerFactory{
     def getUser(userId: String) =
       oauthService.getUser(userId) match {
         case Some(user) => JsonContent ~> ResponseString(cb wrap tojson(user))
-        case _ => BadRequest
+        case _ => NotFound
       }
 
     def getUsers = JsonContent ~> ResponseString(cb wrap tojson(oauthService.getUsers))
@@ -380,19 +378,17 @@ with HandlerFactory{
         json <- JsonBody(req)
         x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
 
-          import org.json4s.native.Serialization
-
           def findField(field: String) =
             json findField {
               case org.json4s.JField(`field`, _) => true
               case _ => false
             } collect {
-              case org.json4s.JField(_, org.json4s.JArray(s)) => s
+              case org.json4s.JField(_, x@org.json4s.JArray(_)) => x
             }
 
           override val contacts = Some(ContactInfoSpec(
             toAdd = findField("contacts") flatMap (x => allCatch.opt {
-              Serialization.read[Set[domain.ContactInfo]](x)
+              x.extract[Set[domain.ContactInfo]]
             }) getOrElse Set()
           ))
         })
@@ -408,19 +404,17 @@ with HandlerFactory{
         json <- JsonBody(req)
         x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
 
-          import org.json4s.native.Serialization
-
           def findField(field: String) =
             json findField {
               case org.json4s.JField(`field`, _) => true
               case _ => false
             } collect {
-              case org.json4s.JField(_, org.json4s.JArray(s)) => s
+              case org.json4s.JField(_, x@org.json4s.JArray(_)) => x
             }
 
           override val contacts = Some(ContactInfoSpec(
             toRem = findField("contacts") flatMap (x => allCatch.opt {
-              Serialization.read[Set[domain.ContactInfo]](x)
+              x.extract[Set[domain.ContactInfo]]
             }) getOrElse Set()
           ))
 
@@ -467,7 +461,8 @@ with HandlerFactory{
       (for {
         json <- JsonBody(req)
         x <- allCatch.opt {
-          org.json4s.native.Serialization.read[domain.Role](json)
+//          org.json4s.native.Serialization.read[domain.Role](json)
+            json.extract[domain.Role]
         }
         y <- accessControlService.saveRole(x.name, x.parent, Some(resourceOwner.id))
       } yield y) match {
@@ -483,7 +478,8 @@ with HandlerFactory{
       (for {
         json <- JsonBody(req)
         x <- allCatch.opt {
-          org.json4s.native.Serialization.read[domain.Role](json)
+//          org.json4s.native.Serialization.read[domain.Role](json)
+          json.extract[domain.Role]
         } if accessControlService.updateRole(name, x.name, x.parent)
         y <- accessControlService.getRole(x.name)
       } yield y) match {
@@ -495,7 +491,7 @@ with HandlerFactory{
     def getRole(name: String) =
       accessControlService.getRole(name) match {
         case Some(role) => JsonContent ~> ResponseString(cb wrap tojson(role))
-        case _ => BadRequest
+        case _ => NotFound
       }
 
     def getUserSession = {
@@ -512,7 +508,7 @@ with HandlerFactory{
           JsonContent ~> ResponseString(
             cb wrap tojson(session))
 
-        case _ => BadRequest
+        case _ => NotFound
       }
     }
 

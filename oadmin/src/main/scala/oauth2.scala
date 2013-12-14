@@ -190,7 +190,7 @@ package object oauth2 {
                     )
                   }
 
-                  else ErrorResponse("changepasswd", conversions.json.tojson(owner))
+                  else ErrorResponse("changepasswd", owner.id.get.toString)
 
                 case None => ErrorResponse(
                   InvalidRequest, UnauthorizedClient, errorUri(InvalidClient), None)
@@ -225,24 +225,24 @@ package object oauth2 {
           façade.oauthService.getUserSession(params) match {
 
             case Some(
-              domain.Session(_, _, clientId, issuedTime, Some(expiresIn), _, _,
+              domain.Session(_, _, clientId, issuedTime, expiresIn, _, _,
                 domain.User(Some(userId), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _), userAgent, _, _, scopes)
             ) if userAgent == uA =>
 
-              if (issuedTime + expiresIn * 1000 > System.currentTimeMillis)
-                Right((new ResourceOwner { val password = None; val id = userId.toString }, clientId, scopes.toSeq))
-              else {
+              expiresIn match {
+                case Some(expiry) =>
 
-                // TODO: spawn expired tokens deletion service
-                Left("Token Expired")
+                  if (issuedTime + expiry * 1000 > System.currentTimeMillis)
+                    Right((new ResourceOwner { val password = None; val id = userId.toString }, clientId, scopes.toSeq))
+                  else {
+
+                    // TODO: spawn expired tokens deletion service
+                    Left("Token Expired")
+                  }
+
+                case _ =>
+                  Right((new ResourceOwner { val password = None; val id = userId.toString }, clientId, scopes.toSeq))
               }
-
-            case Some(
-              domain.Session(_, _, clientId, issuedTime, None, _, _,
-                domain.User(Some(userId), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _), userAgent, _, _, scopes)
-            ) if userAgent == uA =>
-
-              Right((new ResourceOwner { val password = None; val id = userId.toString }, clientId, scopes.toSeq))
 
             case _ => Left("Bad Token")
           }

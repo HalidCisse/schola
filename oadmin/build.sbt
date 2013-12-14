@@ -23,6 +23,7 @@ libraryDependencies ++= List(
  // "com.h2database" % "h2" % "1.3.166",
   "org.postgresql" % "postgresql" % "9.3-1100-jdbc41",
   "net.databinder" %% "unfiltered-oauth2" % "0.7.1",
+  //"net.databinder" %% "unfiltered-directives" % "0.7.1",
   "net.databinder" %% "unfiltered-spec" % "0.7.1" % "test",
   //"net.databinder" %% "unfiltered-filter-async" % "0.7.1",
   "net.databinder" %% "unfiltered-filter-uploads" % "0.7.1",

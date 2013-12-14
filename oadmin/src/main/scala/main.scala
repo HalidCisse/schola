@@ -4,9 +4,11 @@ package oadmin
 import org.clapper.avsl.Logger
 
 object main extends App {
+
   import unfiltered.jetty._
-  import unfiltered.oauth2._
-  import schola.oadmin.oauth2._
+  import unfiltered.response.Pass
+
+  import oauth2._
 
   import unfiltered.request.&
 
@@ -19,7 +21,7 @@ object main extends App {
     .context("/oauth") {
       _.filter(unfiltered.filter.Planify{
         case unfiltered.request.UserAgent(uA) & req =>
-          utils.OAuthorization(new AuthServerProvider(uA).auth).intent(req)
+          utils.OAuthorization(new AuthServerProvider(uA).auth).intent.lift(req).getOrElse(Pass)
       })
     }
     .context("/api/v1") {

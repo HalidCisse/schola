@@ -6,7 +6,7 @@ package object schema {
   import domain._
   import conversions.jdbc._
 
-  class OAuthAccessTokens(tag: Tag) extends Table[OAuthToken](tag, "oauth_tokens") {
+  class OAuthTokens(tag: Tag) extends Table[OAuthToken](tag, "oauth_tokens") {
     def accessToken = column[String]("access_token", O.PrimaryKey)
 
     def clientId = column[String]("client_id", O.NotNull)
@@ -40,7 +40,11 @@ package object schema {
     def client = foreignKey("TOKEN_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade)
   }
 
-  val OAuthTokens = TableQuery[OAuthAccessTokens]
+  val OAuthTokens = TableQuery[OAuthTokens]
+
+  implicit class OAuthTokensExtensions(val OAuthTokens: Query[OAuthTokens, OAuthToken]) extends AnyVal{
+    def forInsert = OAuthTokens.map { t => (t.accessToken, t.clientId, t.redirectUri, t.userId, t.refreshToken, t.macKey, t.uA, t.expiresIn, t.refreshExpiresIn, t.createdAt, t.lastAccessTime, t.tokenType, t.scopes) }
+  }
 
   class OAuthClients(tag: Tag) extends Table[OAuthClient](tag, "oauth_clients") {
     def id = column[String]("client_id")
@@ -103,6 +107,11 @@ package object schema {
   }
 
   val Users = TableQuery[Users]
+
+  implicit class UsersExtensions(val users: Query[Users, User]) extends AnyVal{
+    def forInsert = Users.map { u => (u.id, u.email, u.password, u.firstname, u.lastname, u.createdAt, u.createdBy, u.lastModifiedAt, u.lastModifiedBy, u.gender, u.homeAddress, u.workAddress, u.contacts, u.passwordValid) }
+    def forDeletion(id: String) = Users where(_.id is java.util.UUID.fromString(id)) map { _._deleted }
+  }
 
   class Roles(tag: Tag) extends Table[Role](tag, "roles") {
     def name = column[String]("name", O.PrimaryKey)

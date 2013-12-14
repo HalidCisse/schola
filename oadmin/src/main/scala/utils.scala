@@ -27,38 +27,6 @@ package object utils {
       }
   }
 
-//  case class ValidatePasswd(next: unfiltered.filter.Plan) extends unfiltered.filter.Plan{
-//    import unfiltered.request.&
-//
-//    val intent : unfiltered.filter.Plan.Intent = {
-//      case ResourceOwner(resourceOwner) & req =>
-//
-//        façade.oauthService.getUser(resourceOwner.id) match {
-//          case Some(user) =>
-//
-//            if(user.passwordValid) next.intent(req)
-//            else req match {
-//
-//                case oauth2.TokenA(token) =>
-//
-//                  Scalate(
-//                    req,
-//                    "changepasswd.jade",
-//                    Seq(
-//                      "key" -> token.accessToken,
-//                      "secret" -> token.macKey,
-//                      "issuedTime" -> token.createdAt.toString,
-//                      "email" -> user.email) map{ case (key, value) => key -> java.net.URLEncoder.encode(value, "utf-8") } : _*
-//                   )
-//
-//                case _ => unfiltered.response.BadRequest
-//              }
-//
-//          case _  => unfiltered.response.BadRequest
-//        }
-//    }
-//  }
-
   trait UpdateSpec[T] {
     def set: Option[Option[T]]
 
@@ -121,7 +89,7 @@ package object utils {
 
     val gender: Option[domain.Gender.Value] = None
 
-    val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])]()
+    val avatar: UpdateSpec[(domain.AvatarInfo, Array[Byte])] = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])]()
   }
 
   class Avatars extends akka.actor.Actor with akka.actor.ActorLogging {
@@ -131,7 +99,7 @@ package object utils {
     lazy val gfsPhoto = new com.mongodb.gridfs.GridFS(db, MongoDB.CollectionName)
 
     def uploadAvatar(id: String, contentType: String, data: Array[Byte]) = {
-      log.debug(s"saving $id")
+      log.debug(s"uploading $id")
       val gfsFile = gfsPhoto.createFile(data)
 
       gfsFile.setFilename(id)
@@ -139,7 +107,7 @@ package object utils {
 
       try gfsFile.save()
       catch {
-        case scala.util.control.NonFatal(e) => log.debug("save() failed")
+        case e: Throwable => log.debug("save() failed: " + e.getMessage)
       }
     }
 
@@ -191,9 +159,6 @@ package object utils {
   case class OAuthorization(auth: unfiltered.oauth2.AuthorizationServer) extends Authorized
   with DefaultAuthorizationPaths with DefaultValidationMessages {
 
-    import scala.util.control.Exception.allCatch
-    import unfiltered.response.BadRequest
-
     override def onPassword(
                     userName: String, password: String,
                     clientId: String, clientSecret: String, scope: Seq[String]) =
@@ -206,26 +171,14 @@ package object utils {
             accessToken, tokenType, expiresIn, refreshToken, aScope, extras
           )
 
-        case ErrorResponse("changepasswd", json, _, _) =>
+        case ErrorResponse("changepasswd", id, _, _) =>
 
-          import org.json4s.native.Serialization
-          import conversions.json.formats
+            utils.Scalate(
+              TokenPath,
+              "changepasswd.jade",
+              "id" -> java.net.URLEncoder.encode(id, "utf-8")
+            )
 
-          allCatch.opt(Serialization.read[domain.User](json)) match {
-            case Some(owner) =>
-
-              utils.Scalate(
-                TokenPath,
-                "changepasswd.jade",
-                Seq(
-                  "id" -> owner.id.get.toString,
-                  "firstname" -> owner.firstname,
-                  "lastname" -> owner.lastname,
-                  "email" -> owner.email) map{ case (key, value) => key -> java.net.URLEncoder.encode(value, "utf-8") } : _*
-              )
-
-            case _ => BadRequest
-          }
 
         case ErrorResponse(error, desc, euri, state) =>
           errorResponder(error, desc, euri, state)

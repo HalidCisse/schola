@@ -85,7 +85,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "amsayk.0"
-      passwords.verify("amsayk.0", o.get.password.get) must beTrue
+      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
 
       o.get.homeAddress must not be empty
       o.get.homeAddress.get must be equalTo domain.AddressInfo("RABAT", "Morocco", "10032", "Imm. B, Appt. 23, Cite Mabella, Mabella")
@@ -118,7 +118,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "amsayk.11"
-      passwords.verify("amsayk.0", o.get.password.get) must beTrue
+      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       o.get.gender mustBe domain.Gender.Male
       o.get.contacts must be equalTo Set()
     }
@@ -154,7 +154,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "amsayk.12"
-      passwords.verify("amsayk.0", o.get.password.get) must beTrue
+      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       o.get.gender mustBe domain.Gender.Male
       o.get.contacts must haveSize(3)
 
@@ -190,7 +190,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "amsayk.13"
-      passwords.verify("amsayk.0", o.get.password.get) must beTrue
+      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       o.get.gender mustBe domain.Gender.Male
       o.get.contacts must haveSize(2)
 
@@ -219,7 +219,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "amsayk.10"
-      passwords.verify("amsayk.0", o.get.password.get) must beTrue
+      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       o.get.gender mustBe domain.Gender.Male
 
       val uId2 = java.util.UUID.randomUUID
@@ -244,7 +244,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       d must not be empty
       d.get.email must be equalTo "amsayk.40"
-      passwords.verify("amsayk.0", o.get.password.get) must beTrue
+      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       d.get.gender mustBe domain.Gender.Female
     }
 
@@ -276,7 +276,7 @@ object ConversionSpecification extends org.specs.Specification {
 
       o must not be empty
       o.get.email must be equalTo "amsayk.18"
-      passwords.verify("amsayk.0", o.get.password.get) must beTrue
+      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       o.get.gender mustBe domain.Gender.Male
       o.get.contacts must haveSize(2)
 

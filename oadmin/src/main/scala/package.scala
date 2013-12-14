@@ -3,7 +3,7 @@ package schola
 package object oadmin {
   lazy val system = akka.actor.ActorSystem("ScholaActorSystem")
 
-  lazy val avatars = system.actorOf(akka.actor.Props(new utils.Avatars))
+  lazy val avatars = system.actorOf(akka.actor.Props(new utils.Avatars), name = "avatars")
 
   val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
