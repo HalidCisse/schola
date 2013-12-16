@@ -269,12 +269,17 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       Query(q.exists).firstOption getOrElse false
     }
 
-    def roleExists(name: String) = db.withSession { implicit session =>
-      val q = for {
-        r <- Roles if r.name is name
+    def roleExists(name: String) = {
+      import Database.dynamicSession
+
+      val byName = for {
+        name <- Parameters[String]
+        r <- Roles if r.name.toLowerCase is name
       } yield true
 
-      Query(q.exists).firstOption getOrElse false
+      db.withDynSession {
+        byName(name.toLowerCase).firstOption
+      } getOrElse false
     }
 
     def updateRole(name: String, newName: String, parent: Option[String]) =

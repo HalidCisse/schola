@@ -20,7 +20,7 @@ package object oadmin {
   val SuperUserR = domain.R.SuperUserR
   val AdministratorR = domain.R.AdministratorR
 
-  val MacAlgo = config.getString("oauth2-mac-algo")
+  val MACAlgorithm = config.getString("oauth2-mac-algorithm")
 
   val Db = new {
     val DriverClass = config.getString("db.database-driver-class")
@@ -47,8 +47,7 @@ package object oadmin {
 
   val DefaultAvatars = new {
     import com.owtelse.codec.Base64
-    import java.nio.file.Files
-    import java.nio.file.Paths
+    import java.nio.file.{Files, Paths}
 
     val Male = Base64.encode(Files.readAllBytes(Paths.get(getClass.getResource(config.getString("default_avatar.male")).toURI)))
 

@@ -18,7 +18,7 @@ package object oauth2 {
 
     trait Clients extends ClientStore {
       def client(clientId: String, secret: Option[String]) =
-      façade.oauthService.getClient(clientId, secret getOrElse "") map {
+      Façade.oauthService.getClient(clientId, secret getOrElse "") map {
         case domain.OAuthClient(cId, cSecret, cRedirectUri) =>
           new Client {
             val id = cId
@@ -31,7 +31,7 @@ package object oauth2 {
     trait Tokens extends TokenStore {
 
       // Given a refresh token gives a new access token
-      def refresh(other: Token) = façade.oauthService.exchangeRefreshToken(other.refresh getOrElse "") map {
+      def refresh(other: Token) = Façade.oauthService.exchangeRefreshToken(other.refresh getOrElse "") map {
         case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes) =>
           new Token {
             val tokenType = Some(sTokenType)
@@ -42,7 +42,7 @@ package object oauth2 {
             val refresh = sRefreshToken
             val value = sAccessToken
             val clientId = sClientId
-            override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MacAlgo)
+            override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
           }
       } getOrElse (throw NotFoundException("could not refresh token"))
 
@@ -50,7 +50,7 @@ package object oauth2 {
 
       // Returns the refreshToken for the accessToken
       def refreshToken(refreshToken: String) =
-        façade.oauthService.getRefreshToken(refreshToken) map {
+        Façade.oauthService.getRefreshToken(refreshToken) map {
           case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, uA, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes) if uA == userAgent =>
             new Token {
               val tokenType = Some(sTokenType)
@@ -61,7 +61,7 @@ package object oauth2 {
               val refresh = sRefreshToken
               val value = sAccessToken
               val clientId = sClientId
-              override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MacAlgo)
+              override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
             }
         }
 
@@ -85,7 +85,7 @@ package object oauth2 {
         try {
 
           val accessToken = generateToken
-          façade.oauthService.saveToken(
+          Façade.oauthService.saveToken(
             accessToken, Some(generateRefresh(accessToken)), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(scopes : _*)
           ) match {
             case Some(domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes)) =>
@@ -98,7 +98,7 @@ package object oauth2 {
                 val refresh = sRefreshToken
                 val value = sAccessToken
                 val clientId = sClientId
-                override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MacAlgo)
+                override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
               }
 
             case _ => throw BadTokenException("Token not created")
@@ -120,8 +120,8 @@ package object oauth2 {
 
       def errorUri(err: String) = None
 
-      def login[T](bundle: RequestBundle[T]): ResponseFunction[Any] =
-        utils.Scalate(bundle.request, "login.jade")
+      def login[T](bundle: RequestBundle[T]): ResponseFunction[Any] = ???
+//        utils.Scalate(bundle.request, "login.jade")
 
       def requestAuthorization[T](bundle: RequestBundle[T]): ResponseFunction[Any] = Ok
 
@@ -134,7 +134,7 @@ package object oauth2 {
       def resourceOwner[T](req: Req[T]): Option[ResourceOwner] = ??? /* Not for password requests */
 
       def resourceOwner(userName: String, password: String): Option[ResourceOwner] =
-        façade.oauthService.authUser(userName, password) map {
+        Façade.oauthService.authUser(userName, password) map {
           uId =>
             new ResourceOwner {
               val password = None
@@ -172,7 +172,7 @@ package object oauth2 {
 
       object User {
         def unapply(owner: Option[ResourceOwner]) =
-          owner flatMap(o => façade.oauthService.getUser(o.id))
+          owner flatMap(o => Façade.oauthService.getUser(o.id))
       }
 
       override def apply(r: AccessRequest): AccessResponse = r match {
@@ -222,10 +222,10 @@ package object oauth2 {
           *   TODO: make sure nonce has not been used . . . ?
           *
           * */
-          façade.oauthService.getUserSession(params) match {
+          Façade.oauthService.getUserSession(params) match {
 
             case Some(
-              domain.Session(_, _, clientId, issuedTime, expiresIn, _, _,
+              domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
                 domain.User(Some(userId), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _), userAgent, _, _, scopes)
             ) if userAgent == uA =>
 
@@ -276,7 +276,7 @@ package object oauth2 {
 
   object TokenA {
     def unapply[T](req: unfiltered.request.HttpRequest[T]) = req match {
-      case Token(token) => façade.oauthService.getToken(token)
+      case Token(token) => Façade.oauthService.getToken(token)
       case _ => None
     }
   }
@@ -284,8 +284,8 @@ package object oauth2 {
   case class OAuth2Protection(source: AuthSource) extends ProtectionLike {
 
     object OAuth2MacAuth extends MacAuth {
-      val algorithm = MacAlgo
-      def tokenSecret(key: String) = façade.oauthService.getTokenSecret(key)
+      val algorithm = MACAlgorithm
+      def tokenSecret(key: String) = Façade.oauthService.getTokenSecret(key)
     }
 
     val schemes = Seq(OAuth2MacAuth)

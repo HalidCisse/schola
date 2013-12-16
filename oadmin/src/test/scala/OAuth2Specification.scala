@@ -38,13 +38,13 @@ object OAuth2Specification extends org.specs.Specification
     }
     .context("/api/v1") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-      .filter(/*utils.ValidatePasswd(*/plans.routes/*)*/)
+      .filter(/*utils.ValidatePasswd(*/Plans.routes/*)*/)
     }
   }
 
-  def initialize() = façade.init(SuperUser.id.get)
+  def initialize() = Façade.init(SuperUser.id.get)
 
-  def drop() = façade.drop()
+  def drop() = Façade.drop()
 
   // turning off redirects for validation
   override def http[T](handler: Handler[T]): T = {
@@ -110,7 +110,7 @@ object OAuth2Specification extends org.specs.Specification
           map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/v1/session",  "localhost", port)
 
         val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
-        unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
+        unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
           fail(_)
         }, { mac =>
           val auth = Map(
@@ -137,14 +137,14 @@ object OAuth2Specification extends org.specs.Specification
       json(body) { map : Map[String, Any] =>
         map must haveKey("access_token")
 
-        def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(8)}"
+        def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
         {
           val (key, nonce, method,  uri, hostname, hport) = (
             map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/v1/logout",  "localhost", port)
 
           val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
-          unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
+          unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
             fail(_)
           }, { mac =>
             val auth = Map(
@@ -162,7 +162,7 @@ object OAuth2Specification extends org.specs.Specification
               map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/session",  "http://localhost", 80)
 
             val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
-            unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
+            unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
               fail(_)
             }, { mac =>
               val auth = Map(
@@ -232,7 +232,7 @@ object OAuth2Specification extends org.specs.Specification
           map2("refresh_token") must not be equalTo(map("refresh_token"))
           map2("access_token") must not be equalTo(map("access_token"))
 
-          def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(8)}"
+          def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
           // old access token should be revoked
           {
@@ -240,7 +240,7 @@ object OAuth2Specification extends org.specs.Specification
               map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/session",  "localhost", port)
 
             val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
-            unfiltered.mac.Mac.macHash(MacAlgo, key)(normalizedRequest).fold({
+            unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
               fail(_)
             }, { mac =>
               val auth = Map(

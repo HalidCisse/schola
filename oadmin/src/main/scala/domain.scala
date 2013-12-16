@@ -9,6 +9,7 @@ package domain {
     clientId: String,
     issuedTime: Long,
     expiresIn: Option[Long],
+    refreshExpiresIn: Option[Long],
     refresh: Option[String],
     lastAccessTime: Long,
     user: User,
@@ -44,7 +45,7 @@ package domain {
     val Female = Value
   }
 
-  sealed trait ContactValue 
+  sealed trait ContactValue
 
   case class Email(email: String) extends ContactValue
   case class PhoneNumber(number: String) extends ContactValue

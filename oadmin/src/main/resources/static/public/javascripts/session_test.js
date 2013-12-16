@@ -406,3 +406,38 @@ function updateRole(name, newName, parent) {
     }
   });       
 }
+
+function roleExists(name) {
+ return $.ajax({
+    type:"GET",
+    url: '/api/v1/roleexists',
+    dataType: 'json',
+    data: {name: name},
+    success: function(msg) {
+      console.log(JSON.stringify(msg))
+    }
+  });       
+}
+
+function grantPermissions(role, permissions) {
+ return $.ajax({
+    type:"PUT",
+    url: '/api/v1/user/' + encodeURIComponent(role) + '/permissions',
+    dataType: 'json',
+    data: {permissions: permissions},
+    success: function(msg) {
+      console.log(JSON.stringify(msg))
+    }
+  });       
+}
+
+function revokePermissions(id, permissions) {
+ return $.ajax({
+    type:"DELETE",
+    url: '/api/v1/user/' + id + '/permissions?' + $.param({permissions: permissions}),
+    dataType: 'json',
+    success: function(msg) {
+      console.log(JSON.stringify(msg))
+    }
+  });       
+}

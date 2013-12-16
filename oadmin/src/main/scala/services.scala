@@ -53,6 +53,7 @@ trait OAuthServicesComponent {
       val clientId: String
       val issuedTime: Long
       val expiresIn: Option[Long]
+      val refreshExpiresIn: Option[Long]
       val refresh: Option[String]
       val lastAccessTime: Long
       val user: UserLike

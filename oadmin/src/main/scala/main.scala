@@ -12,7 +12,7 @@ object main extends App {
 
   import unfiltered.request.&
 
-  val log = Logger(getClass)
+  val log = Logger("oadmin.main")
 
   val server = Http(3000)
 
@@ -26,12 +26,12 @@ object main extends App {
     }
     .context("/api/v1") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-       .filter(/*utils.ValidatePasswd(*/plans.routes/*)*/)
+       .filter(Plans.routes)
     }
 
-  try façade.drop() catch { case _: Throwable => }
+  try Façade.drop() catch { case _: Throwable => }
   
-  façade.init(SuperUser.id.get)
+  Façade.init(SuperUser.id.get)
   server.start()
 
   log.info("server is runing . . .")
@@ -43,5 +43,5 @@ object main extends App {
 
   server.stop()
   server.destroy()
-  façade.drop()
+  Façade.drop()
 }

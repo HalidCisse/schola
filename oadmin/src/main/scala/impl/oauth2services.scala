@@ -267,12 +267,13 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           t.userId,
           t.uA,
           t.refreshToken,
+          t.createdAt,
           t.expiresIn,
           t.refreshExpiresIn,
           t.scopes)
 
       q.firstOption flatMap {
-        case (aAccessToken, clientId, redirectUri, userId, uA, Some(aRefreshToken), expiresIn, refreshExpiresIn, aScopes) => //aRefreshToken exists
+        case (aAccessToken, clientId, redirectUri, userId, uA, Some(aRefreshToken), issuedTime, expiresIn, refreshExpiresIn, aScopes) if refreshExpiresIn map(t => issuedTime + t * 1000 > System.currentTimeMillis) getOrElse true => //aRefreshToken exists
 
           def generateToken = utils.SHA3Utils digest s"$clientId:$userId:${System.nanoTime}"
           def generateRefreshToken(accessToken: String) = utils.SHA3Utils digest s"$accessToken:$userId:${System.nanoTime}"
@@ -324,6 +325,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
               OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, dCreatedAt, dLastAccessTime, scopes = dScopes)
           }
+
+        case _ => None
       }
     }
 
@@ -384,12 +387,13 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             t.macKey,
             t.uA,
             t.expiresIn,
+            t.refreshExpiresIn,
             t.createdAt,
             t.lastAccessTime,
             t.scopes))
 
         q.firstOption map {
-          case (sUser, (sAccessToken, sClientId, sRefreshToken, sMacKey, sUA, sExpiresIn, sCreatedAt, sLastAccessTime, sScopes)) =>
+          case (sUser, (sAccessToken, sClientId, sRefreshToken, sMacKey, sUA, sExpiresIn, sRefreshExpiresIn, sCreatedAt, sLastAccessTime, sScopes)) =>
 
             scala.util.control.Exception.allCatch.opt {
               OAuthTokens map(_.lastAccessTime) update(System.currentTimeMillis)
@@ -401,6 +405,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               sClientId,
               sCreatedAt,
               sExpiresIn,
+              sRefreshExpiresIn,
               sRefreshToken,
               sLastAccessTime,
               user = sUser copy(password = None),
@@ -604,12 +609,12 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       val byEmail = for {
         email <- Parameters[String]
-        u <- Users if u.email is email
+        u <- Users if u.email.toLowerCase is email
       } yield true
 
 
       db.withDynSession {
-        byEmail(email).firstOption
+        byEmail(email.toLowerCase).firstOption
       } getOrElse false
     }
   }

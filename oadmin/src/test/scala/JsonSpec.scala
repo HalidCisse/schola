@@ -8,15 +8,15 @@ object JsonSpec extends org.specs.Specification {
 
   val userId = SuperUser.id.get
 
-  def initialize() = façade.init(userId)
+  def initialize() = Façade.init(userId)
 
-  def drop() = façade.drop()
+  def drop() = Façade.drop()
 
   "domain objects" should {
 
     "convert user to json" in {
 
-      val o = façade.oauthService.saveUser(
+      val o = Façade.oauthService.saveUser(
         "username0",
         "amsayk.0",
         "Amadou",
@@ -39,7 +39,7 @@ object JsonSpec extends org.specs.Specification {
 
     "convert to json" in {
 
-      val o = façade.accessControlService
+      val o = Façade.accessControlService
 
       println(tojson (o.getRoles))
       println(tojson (o.getUserRoles(userId.toString)))

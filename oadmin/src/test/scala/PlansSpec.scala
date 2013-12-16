@@ -34,23 +34,6 @@ with unfiltered.spec.jetty.Served {
       FieldSerializer.ignore("macKey") orElse FieldSerializer.ignore("refreshExpiresIn") orElse FieldSerializer.ignore("tokenType") orElse FieldSerializer.ignore("scopes")
     )
 
-    class UUIDSerializer extends Serializer[java.util.UUID] {
-      val UUIDClass = classOf[java.util.UUID]
-
-      def deserialize(implicit format: Formats):
-      PartialFunction[(TypeInfo, JValue), java.util.UUID] = {
-        case (t@TypeInfo(UUIDClass, _), json) =>
-          json match {
-            case JString(s) => java.util.UUID.fromString(s)
-            case value => throw new MappingException(s"Can't convert $value to $UUIDClass")
-          }
-      }
-
-      def serialize(implicit format: Formats): PartialFunction[Any, JValue] = {
-        case i: java.util.UUID => JsonDSL.string2jvalue(i.toString)
-      }
-    }
-
     implicit lazy val my =
       new org.json4s.Formats {
         override val typeHintFieldName = "type"
@@ -60,21 +43,21 @@ with unfiltered.spec.jetty.Served {
         new conversions.jdbc.EnumNameSerializer(Gender) +
         userSerializer +
         tokenSerializer +
-        new UUIDSerializer
+        new conversions.json.UUIDSerializer
 
     implicit def tojson[T](v: T) = Serialization.write(v.asInstanceOf[AnyRef])
   }
 
   val log = Logger("oadmin.tests.PlansSpec")
 
-  def withMac[T](session: Session, method: String, uri: String)(f: Map[String, String] => T) = {
+  def withMac[T](session: Façade.oauthService.SessionLike, method: String, uri: String)(f: Map[String, String] => T) = {
 
     def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
     val nonce = _genNonce(session.issuedTime)
 
     val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, "localhost", port, "", "")
-    unfiltered.mac.Mac.macHash(MacAlgo, session.secret)(normalizedRequest).fold({
+    unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
       fail(_)
     }, {
       mac =>
@@ -135,10 +118,10 @@ with unfiltered.spec.jetty.Served {
   val owner = new ResourceOwner { val id = SuperUser.email; val password = Some(sPassword) }
 
   def init() {
-    façade.init(SuperUser.id.get)
+    Façade.init(SuperUser.id.get)
   }
 
-  def drop() = façade.drop()
+  def drop() = Façade.drop()
 
   def setup = {
     server =>
@@ -156,13 +139,13 @@ with unfiltered.spec.jetty.Served {
       }
         .context("/api/v1") {
         _.filter(OAuth2Protection(new OAdminAuthSource))
-          .filter(/*utils.ValidatePasswd(*/plans.routes/*)*/)
+          .filter(Plans.routes)
       }
   }
 
   case class ConnectInfo(username: String, passwd: String, clientId: String = client.id, clientSecret: String = client.secret)
 
-  def withSession[T](connectInfo: ConnectInfo = ConnectInfo(SuperUser.email, SuperUser.password.get))(f: Either[String, Session] => T) = {
+  def withSession[T](connectInfo: ConnectInfo = ConnectInfo(SuperUser.email, SuperUser.password.get))(f: Either[String, Façade.oauthService.SessionLike] => T) = {
     val body = http(token << Map(
       "grant_type" -> "password",
       "client_id" -> connectInfo.clientId,
@@ -175,12 +158,12 @@ with unfiltered.spec.jetty.Served {
       case Right(map) =>
 
         val key = map("access_token").toString
-        val session = façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> "Chrome"))
+        val session = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> "Chrome"))
 
         session must not be empty
 
-        try f(Right(session.get.asInstanceOf[Session]))
-        finally façade.oauthService.revokeToken(session.get.key)
+        try f(Right(session.get))
+        finally Façade.oauthService.revokeToken(session.get.key)
 
       case Left(res) => f(Left(res))
     }

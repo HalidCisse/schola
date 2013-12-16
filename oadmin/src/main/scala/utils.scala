@@ -15,6 +15,19 @@ package object utils {
     org.bouncycastle.util.encoders.Hex.toHexString(b)
   }
 
+//  val generateNonce = {
+//    import java.security.SecureRandom
+//    import org.bouncycastle.util.encoders.Hex
+//
+//    val b = new Array[Byte](8)
+//    val random = SecureRandom.getInstance("SHA1PRNG")
+//
+//    (size: Int) => b.synchronized{
+//      random.nextBytes(b)
+//      Hex.toHexString(b)
+//    }
+//  }
+
   object ResourceOwner {
 
     import javax.servlet.http.HttpServletRequest
@@ -39,7 +52,7 @@ package object utils {
 
     def toAdd: Set[T]
 
-    def diff(os: Set[T]): Set[T] = os ++ toAdd -- toRem
+    final def diff(os: Set[T]): Set[T] = os ++ toAdd -- toRem
   }
 
   trait UserSpec {

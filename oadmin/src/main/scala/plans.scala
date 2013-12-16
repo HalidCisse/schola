@@ -2,8 +2,9 @@ package schola
 package oadmin
 
 import org.clapper.avsl.Logger
+import org.apache.commons.validator.routines.EmailValidator
 
-object plans extends oadmin.Plans(façade)
+object Plans extends Plans(Façade)
 
 class Plans(val factory: HandlerFactory) {
 
@@ -20,6 +21,14 @@ class Plans(val factory: HandlerFactory) {
 
   val routes = unfiltered.filter.Planify {
     case req =>
+
+      object Name extends Params.Extract("name", Params.first ~> Params.nonempty ~> Params.trimmed)
+
+      object Email extends Params.Extract("email", Params.first ~> Params.nonempty ~> Params.trimmed ~> Params.pred(EmailValidator.getInstance.isValid))
+
+      object Roles extends Params.Extract("roles[]", new Params.ParamMapper(f => Some(Set(f:_*))))
+
+      object Permissions extends Params.Extract("permissions[]", new Params.ParamMapper(f => Some(Set(f:_*))))
 
       val routeHandler = factory(req)
 
@@ -59,14 +68,9 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.getTrash
 
-        case GET(ContextPath(_, Seg("userexists" :: Nil))) & Params(params) =>
+        case GET(ContextPath(_, Seg("userexists" :: Nil))) & Params(Email(email)) =>
 
-          allCatch.opt {
-            params("email")(0)
-          } match {
-            case Some(email) => routeHandler.userExists(email)
-            case _ => BadRequest
-          }
+          routeHandler.userExists(email)
 
         case GET(ContextPath(_, "/session")) =>
 
@@ -88,13 +92,13 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.getUserRoles(userId)
 
-        case PUT(ContextPath(_, Seg("user" :: userId :: "roles" :: Nil))) & Params(p) =>
+        case PUT(ContextPath(_, Seg("user" :: userId :: "roles" :: Nil))) & Params(Roles(roles)) =>
 
-          routeHandler.grantRoles(userId, p("roles[]").toSet)
+          routeHandler.grantRoles(userId, roles)
 
-        case DELETE(ContextPath(_, Seg("user" :: userId :: "roles" :: Nil))) & Params(p) =>
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "roles" :: Nil))) & Params(Roles(roles)) =>
 
-          routeHandler.revokeRoles(userId, p("roles[]").toSet)
+          routeHandler.revokeRoles(userId, roles)
 
         case PUT(ContextPath(_, Seg("user" :: userId :: "contacts" :: Nil))) =>
 
@@ -114,14 +118,9 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.addRole()
 
-        case GET(ContextPath(_, Seg("roleexists" :: Nil))) & Params(params) =>
+        case GET(ContextPath(_, Seg("roleexists" :: Nil))) & Params(Name(name)) =>
 
-          allCatch.opt {
-            params("name")(0)
-          } match {
-            case Some(name) => routeHandler.roleExists(name)
-            case _ => BadRequest
-          }
+          routeHandler.roleExists(name)
 
         case PUT(ContextPath(_, Seg("role" :: name :: Nil))) =>
 
@@ -135,13 +134,13 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.getRolePermissions(name)
 
-        case PUT(ContextPath(_, Seg("role" :: name :: "permissions[]" :: Nil))) & Params(p) =>
+        case PUT(ContextPath(_, Seg("role" :: name :: "permissions" :: Nil))) & Params(Permissions(permissions)) =>
 
-          routeHandler.grantPermissions(name, p("permissions").toSet)
+          routeHandler.grantPermissions(name, permissions)
 
-        case DELETE(ContextPath(_, Seg("role" :: name :: "permissions[]" :: Nil))) & Params(p) =>
+        case DELETE(ContextPath(_, Seg("role" :: name :: "permissions" :: Nil))) & Params(Permissions(permissions)) =>
 
-          routeHandler.revokePermissions(name, p("permissions").toSet)
+          routeHandler.revokePermissions(name, permissions)
 
         case GET(ContextPath(_, "/roles")) =>
 
@@ -164,6 +163,6 @@ class Plans(val factory: HandlerFactory) {
       }
 
       val app = usersIntent orElse rolesIntent orElse authIntent
-      app(req)
+      app.lift(req) getOrElse Pass
   }
 }

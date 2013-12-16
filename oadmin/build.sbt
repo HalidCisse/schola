@@ -33,6 +33,7 @@ libraryDependencies ++= List(
   "com.typesafe.akka" %% "akka-actor" % "2.3-M1",
   "org.fusesource.scalate" %% "scalate-core" % "1.6.1",
  // "org.slf4j" % "slf4j-simple" % "1.7.5",
-  "org.clapper" %% "avsl" % "1.0.1"
+  "org.clapper" %% "avsl" % "1.0.1",
+  "commons-validator" % "commons-validator" % "1.4.0"
  // "org.mockito" % "mockito-core" % "1.9.5" % "test"
 )
