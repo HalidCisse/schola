@@ -4,6 +4,7 @@ package oadmin
 package impl
 
 import org.clapper.avsl.Logger
+import schola.oadmin.impl.CacheActor.{FindValue, PurgeValue}
 
 trait OAuthServicesComponentImpl extends OAuthServicesComponent {
   self: OAuthServicesRepoComponent =>
@@ -616,6 +617,74 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       db.withDynSession {
         byEmail(email.toLowerCase).firstOption
       } getOrElse false
+    }
+  }
+}
+
+trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl{
+  self: CachingServicesComponent with OAuthServicesRepoComponent with impl.CacheSystemProvider =>
+
+  import caching._
+
+  import scala.concurrent.duration._
+  import akka.pattern._
+  import akka.util.Timeout
+  import scala.util.control.Exception.allCatch
+  import scala.concurrent.Await
+
+  override val oauthService = new CachingOAuthServicesImpl
+
+  class CachingOAuthServicesImpl extends OAuthServicesImpl {
+
+    override def getUsers =
+      cachingServices.get[List[domain.User]](UsersParams()) getOrElse Nil
+
+    override def getUser(id: String) =
+      cachingServices.get[Option[domain.User]](UserParams(id)) getOrElse None
+
+    override def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) =
+      super.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid) collect{
+        case my: domain.User =>
+          cachingServices.purge(UserParams(my.id.get.toString))
+          my
+      }
+
+    override def updateUser(id: String, spec: utils.UserSpec) =
+      super.updateUser(id, spec) collect {
+        case my: domain.User =>
+          cachingServices.purge(UserParams(my.id.get.toString))
+           my
+      }
+  }
+}
+
+trait CachingServicesComponentImpl extends CachingServicesComponent {
+  self: impl.CacheSystemProvider =>
+
+  import scala.concurrent.duration._
+  import akka.pattern._
+  import akka.util.Timeout
+  import scala.util.control.Exception.allCatch
+  import scala.concurrent.Await
+
+  protected val cachingServices = new CachingServicesImpl
+
+  private val cacheActor = cacheSystem.createCacheActor("oadmin-cache", 0 seconds, new impl.OAdminCacheActor(_))
+
+  class CachingServicesImpl extends CachingServices {
+
+    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params): Option[T] = {
+      implicit val tm = Timeout(60 seconds)
+
+      val q = (cacheActor ? impl.CacheActor.FindValue(params)).mapTo[Option[T]]
+
+      allCatch.opt {
+        Await.result(q, tm.duration)
+      } getOrElse(None)
+    }
+
+    def purge(params: impl.CacheActor.Params) {
+      cacheActor ! impl.CacheActor.PurgeValue(params)
     }
   }
 }

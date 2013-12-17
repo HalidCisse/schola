@@ -34,6 +34,8 @@ libraryDependencies ++= List(
   "org.fusesource.scalate" %% "scalate-core" % "1.6.1",
  // "org.slf4j" % "slf4j-simple" % "1.7.5",
   "org.clapper" %% "avsl" % "1.0.1",
-  "commons-validator" % "commons-validator" % "1.4.0"
+  "commons-validator" % "commons-validator" % "1.4.0",
+  "org.apache.commons" % "commons-lang3" % "3.1",
+  "net.spy" % "spymemcached" % "2.10.3"
  // "org.mockito" % "mockito-core" % "1.9.5" % "test"
 )

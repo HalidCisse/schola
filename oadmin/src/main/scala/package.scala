@@ -1,7 +1,7 @@
 package schola
 
 package object oadmin {
-  lazy val system = akka.actor.ActorSystem("ScholaActorSystem")
+  implicit lazy val system = akka.actor.ActorSystem("ScholaActorSystem")
 
   lazy val avatars = system.actorOf(akka.actor.Props(new utils.Avatars), name = "avatars")
 

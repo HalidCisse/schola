@@ -15,8 +15,6 @@ class Plans(val factory: HandlerFactory) {
   import unfiltered.filter.request.ContextPath
   import unfiltered.response._
 
-  import scala.util.control.Exception.allCatch
-
   import unfiltered.filter.request.{MultiPart, MultiPartParams}
 
   val routes = unfiltered.filter.Planify {

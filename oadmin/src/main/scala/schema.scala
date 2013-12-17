@@ -111,6 +111,12 @@ package object schema {
   implicit class UsersExtensions(val users: Query[Users, User]) extends AnyVal{
     def forInsert = Users.map { u => (u.id, u.email, u.password, u.firstname, u.lastname, u.createdAt, u.createdBy, u.lastModifiedAt, u.lastModifiedBy, u.gender, u.homeAddress, u.workAddress, u.contacts, u.passwordValid) }
     def forDeletion(id: String) = Users where(_.id is java.util.UUID.fromString(id)) map { _._deleted }
+
+    // val autoInc = fname ~ lname returning id into { case (c, i) => Person(c._1, c._2, i) }
+
+    // def insert(person: Person)(implicit session: Session): Person = {
+    //   autoInc.insert(person.fname, person.lname)
+    // }
   }
 
   class Roles(tag: Tag) extends Table[Role](tag, "roles") {

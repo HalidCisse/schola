@@ -1,0 +1,148 @@
+package schola
+package oadmin
+package impl
+
+import akka.actor._
+
+import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.{ArrayBlockingQueue, TimeUnit, ThreadPoolExecutor}
+import scala.concurrent.{Future, ExecutionContext}
+
+trait CacheSystemProvider {
+  val cacheSystem: CacheSystem
+}
+
+class CacheSystem(implicit system: ActorSystem = system) {
+
+  def createCacheActor(cacheName: String,
+                       scheduleDelay: FiniteDuration,
+                       actorCreator: CacheSystem => Actor) = {
+
+    val actor = system.actorOf(Props(actorCreator(this)), name = cacheName + "CacheActor")
+
+    // TODO: use pro-active caching
+    //    system.scheduler.schedule(scheduleDelay,
+    //      updateIntervalMin minutes,
+    //      actor, UpdateCacheForNow)
+
+    //    if (!DateUtil.isNowInActiveBusinessDay) {
+    //      actorSystem.scheduler.scheduleOnce(scheduleDelay, actor,
+    //        UpdateCacheForPreviousBusinessDay)
+    //    }
+
+    actor
+  }
+
+//  def findCachedObject[T](key: String,
+//                          finder: () => T): Option[T] = {
+//
+//    val element = Cache.get(key)
+//
+//    if (element eq null)
+//      findObjectForCache(key, finder)
+//    else
+//      Some(element.asInstanceOf[T])
+//  }
+
+  def findObjectForCache[T](key: String,
+                            finder: () => T): Option[T] = {
+
+    val domainObj = finder()
+    if (domainObj != null) {
+      Cache.set(key, domainObj)
+      Some(domainObj)
+    } else {
+      None
+    }
+  }
+
+  //  def clearAllCaches() {
+  //    Cache.foreach(_.removeAll())
+  //  }
+}
+
+abstract class CacheActor(cacheSystem: CacheSystem)
+  extends Actor with ActorLogging {
+
+  import CacheActor._
+  import akka.pattern._
+
+  def findValueReceive: Receive = {
+    case FindValue(params) => findValueForSender(params, sender)
+  }
+
+  def purgeValueReceive: Receive = {
+    case PurgeValue(params) => purgeValueForSender(params)
+  }
+
+  def purgeValueForSender(params: Params) {
+    Cache.remove(params.cacheKey)
+  }
+
+  def findValueForSender(params: Params, sender: ActorRef) {
+    val key = params.cacheKey
+    val elem = Cache.get(key)
+
+    if (elem ne null)
+      sender ! elem
+    else
+      Future {
+        findObject(params)
+      } pipeTo sender
+  }
+
+  def findObject(params: Params): Option[Any] =
+    cacheSystem.findObjectForCache(params.cacheKey, finder(params))
+
+  def finder(params: Params): () => Any
+}
+
+object CacheActor {
+
+  case class FindValue(params: Params)
+
+  case class PurgeValue(params: Params)
+
+  trait Params {
+    def cacheKey: String
+  }
+
+  // Thread pool used by findValueForSender()
+  val FUTURE_POOL_SIZE = 2
+
+  private lazy val findValueThreadPoolExecutor =
+    new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
+      1, TimeUnit.MINUTES,
+      new ArrayBlockingQueue(FUTURE_POOL_SIZE, true))
+
+  implicit lazy val findValueExecutionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(findValueThreadPoolExecutor)
+}
+
+class OAdminCacheActor(cacheSystem: CacheSystem)
+  extends CacheActor(cacheSystem) {
+
+  override def receive = findValueReceive orElse purgeValueReceive
+
+  //  override def updateCacheForDate(date: Date) {
+  //    import DateCacheActor._
+  //    Future { findObject(new Service1Params(date, true)) }
+  //    Future { findObject(new Service1Params(date, false)) }
+  //  }
+
+  def finder(params: CacheActor.Params) = {
+    () =>
+      params match {
+        case UserParams(cacheKey) => Façade.oauthService.getUser(cacheKey)
+        case _: UsersParams => Façade.oauthService.getUsers
+        case _ => throw new IllegalArgumentException("unmatched params ins UserCacheActor")
+      }
+  }
+}
+
+case class UserParams(cacheKey: String)
+  extends CacheActor.Params
+
+case class UsersParams(offset: Int = 0, size: Int = 50) extends CacheActor.Params {
+  def cacheKey = "oadmin.users"
+}

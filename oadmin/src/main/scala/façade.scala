@@ -435,9 +435,13 @@ trait RouteHandler extends Any {
 trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.http.HttpServletRequest] => RouteHandler)
 
 class Façade extends impl.OAuthServicesRepoComponentImpl
-with impl.OAuthServicesComponentImpl
+with impl.CachingServicesComponentImpl
+with impl.CachingOAuthServicesComponentImpl
+//with impl.OAuthServicesComponentImpl
+with CachingServicesComponent
 with impl.AccessControlServicesRepoComponentImpl
-with impl.AccessControlServicesComponentImpl{
+with impl.AccessControlServicesComponentImpl
+with impl.CacheSystemProvider{
 
   import schema._
   import domain._
@@ -452,6 +456,8 @@ with impl.AccessControlServicesComponentImpl{
     db.withSession {
       f
     }
+
+  val cacheSystem = new impl.CacheSystem
 
   protected lazy val db = {
     import com.mchange.v2.c3p0.ComboPooledDataSource

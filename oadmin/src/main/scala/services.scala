@@ -101,50 +101,6 @@ trait OAuthServicesComponent {
 
     def emailExists(email: String): Boolean
   }
-
-  trait OAuthServicesDelegate extends OAuthServices { self =>
-    protected val delegate: OAuthServices
-
-    def getUsers = delegate.getUsers
-
-    def getUser(id: String) = delegate.getUser(id)
-
-    def removeUser(id: String) = delegate.removeUser(id)
-
-    def getPurgedUsers = delegate.getPurgedUsers
-
-    def purgeUsers(users: Set[String]) = delegate.purgeUsers(users)
-
-    def getToken(bearerToken: String) = delegate.getToken(bearerToken)
-
-    def getTokenSecret(accessToken: String) = delegate.getTokenSecret(accessToken)
-
-    def getRefreshToken(refreshToken: String) = delegate.getRefreshToken(refreshToken)
-
-    def exchangeRefreshToken(refreshToken: String) = delegate.exchangeRefreshToken(refreshToken)
-
-    def revokeToken(accessToken: String) = delegate.revokeToken(accessToken)
-
-    def getUserTokens(userId: String) = delegate.getUserTokens(userId)
-
-    def getUserSession(params: Map[String, String]) = delegate.getUserSession(params)
-
-    def getClient(id: String, secret: String) = delegate.getClient(id, secret)
-
-    def authUser(username: String, password: String) = delegate.authUser(username, password)
-
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
-      delegate.saveToken(accessToken, refreshToken, macKey, uA, clientId, redirectUri, userId, expiresIn, refreshExpiresIn, scopes)
-
-    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) = delegate.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid)
-
-    def updateUser(id: String, spec: utils.UserSpec) = delegate.updateUser(id, spec)
-
-    def getAvatar(id: String) = delegate.getAvatar(id)
-
-    def emailExists(email: String) = delegate.emailExists(email)
-  }
-
 }
 
 trait OAuthServicesRepoComponent {
@@ -343,4 +299,16 @@ trait AccessControlServicesRepoComponent {
     def updateRole(name: String, newName: String, parent: Option[String]): Boolean
   }
 
+}
+
+trait CachingServicesComponent {
+
+  protected val cachingServices: CachingServices
+
+  trait CachingServices {
+
+    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params): Option[T]
+
+    def purge(params: impl.CacheActor.Params)
+  }
 }
