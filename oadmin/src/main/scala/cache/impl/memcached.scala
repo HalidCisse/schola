@@ -24,14 +24,16 @@ package caching {
     import settings._
 
     system.registerOnTermination {
-      log.info("shutting down memcached client...")
-      client.shutdown()
-      Thread.interrupted()
+      if(Enabled) {
+        log.info("shutting down memcached client...")
+        client.shutdown()
+        Thread.interrupted()
+      }
     }
 
     val log = Logger("oadmin.memcached")
 
-    val client =
+    lazy val client =
       User map {
         memcacheUser =>
           val memcachePassword = Passwd getOrElse {
@@ -75,7 +77,13 @@ package caching {
 
     val tc = new CustomSerializing().asInstanceOf[Transcoder[Any]]
 
-    val api = new CacheAPI {
+    object NullApi extends CacheAPI {
+      def set(key: String, value: Any, expiration: Int){}
+      def get(key: String) = None
+      def remove(key: String){}
+    }
+
+    val api = if(Enabled) new CacheAPI {
 
       def get(key: String) = {
         log.debug("Getting the cached for key " + Namespace + "." + key)
@@ -113,7 +121,7 @@ package caching {
       def remove(key: String) {
         client.delete(Namespace + "." + hash(key))
       }
-    }
+    } else NullApi
 
     // you may override hash implementation to use more sophisticated hashes, like xxHash for higher performance
     protected def hash(key: String): String =

@@ -45,13 +45,13 @@ object Cache {
     val Hosts = {
       import net.spy.memcached.AddrUtil
 
-      val singleHost = allCatch.opt(config.getString("memcached.host")).map(AddrUtil.getAddresses)
-      val multipleHosts = allCatch.opt(config.getString("memcached.1.host")).map {
+      val singleHost = allCatch.opt {config.getString("memcached.host")} map AddrUtil.getAddresses
+      val multipleHosts = allCatch.opt { config.getString("memcached.1.host") } map {
         _ =>
           def acc(nb: Int): String =
-            allCatch.opt(config.getString("memcached." + nb + ".host")).map {
+            allCatch.opt{ config.getString("memcached." + nb + ".host") } map {
               h => h + " " + acc(nb + 1)
-            }.getOrElse("")
+            } getOrElse ""
 
           AddrUtil.getAddresses(acc(1))
       }
@@ -86,7 +86,7 @@ object Cache {
 
     val Hash = allCatch.opt{config.getString("memcached.hashkeys")}
 
-    val Enabled = !allCatch.opt{config.getString("memcached")}.filter(_ == "disabled").isDefined
+    val Enabled = allCatch.opt { config.getBoolean("memcached.disabled") } getOrElse true
   }
 
   private val cacheAPI: CacheAPI = new caching.Memcached(MemcachedSettings).api
