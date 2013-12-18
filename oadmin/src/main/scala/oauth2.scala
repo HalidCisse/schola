@@ -192,7 +192,7 @@ package object oauth2 {
 
                   else ErrorResponse("changepasswd", owner.id.get.toString)
 
-                case None => ErrorResponse(
+                case _ => ErrorResponse(
                   InvalidRequest, UnauthorizedClient, errorUri(InvalidClient), None)
               }
             case _ => ErrorResponse(

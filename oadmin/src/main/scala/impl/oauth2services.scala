@@ -637,10 +637,10 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl{
   class CachingOAuthServicesImpl extends OAuthServicesImpl {
 
     override def getUsers =
-      cachingServices.get[List[domain.User]](UsersParams()) getOrElse Nil
+      cachingServices.get[List[domain.User]](UsersParams(), super.getUsers.asInstanceOf[List[domain.User]]) getOrElse Nil
 
     override def getUser(id: String) =
-      cachingServices.get[Option[domain.User]](UserParams(id)) getOrElse None
+      cachingServices.get[Option[domain.User]](UserParams(id), super.getUser(id).asInstanceOf[Option[domain.User]]) getOrElse None
 
     override def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) =
       super.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid) collect{
@@ -669,14 +669,14 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
 
   protected val cachingServices = new CachingServicesImpl
 
-  private val cacheActor = cacheSystem.createCacheActor("oadmin-cache", 0 seconds, new impl.OAdminCacheActor(_))
+  private lazy val cacheActor = cacheSystem.createCacheActor("OAdmin", new impl.OAdminCacheActor(_))
 
   class CachingServicesImpl extends CachingServices {
 
-    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params): Option[T] = {
+    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params, default: => T): Option[T] = {
       implicit val tm = Timeout(60 seconds)
 
-      val q = (cacheActor ? impl.CacheActor.FindValue(params)).mapTo[Option[T]]
+      val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
 
       allCatch.opt {
         Await.result(q, tm.duration)

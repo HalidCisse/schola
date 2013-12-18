@@ -4,7 +4,7 @@ package impl
 
 import akka.actor._
 
-import scala.concurrent.duration.FiniteDuration
+//import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit, ThreadPoolExecutor}
 import scala.concurrent.{Future, ExecutionContext}
 
@@ -12,10 +12,10 @@ trait CacheSystemProvider {
   val cacheSystem: CacheSystem
 }
 
-class CacheSystem(implicit system: ActorSystem = system) {
+class CacheSystem(val maxTTL: Int)(implicit system: ActorSystem = system) {
 
   def createCacheActor(cacheName: String,
-                       scheduleDelay: FiniteDuration,
+//                       scheduleDelay: FiniteDuration,
                        actorCreator: CacheSystem => Actor) = {
 
     val actor = system.actorOf(Props(actorCreator(this)), name = cacheName + "CacheActor")
@@ -38,22 +38,21 @@ class CacheSystem(implicit system: ActorSystem = system) {
 //
 //    val element = Cache.get(key)
 //
-//    if (element eq null)
+//    if (element eq None)
 //      findObjectForCache(key, finder)
 //    else
 //      Some(element.asInstanceOf[T])
 //  }
 
   def findObjectForCache[T](key: String,
-                            finder: () => T): Option[T] = {
+                            default: () => T): Option[T] = {
 
-    val domainObj = finder()
-    if (domainObj != null) {
-      Cache.set(key, domainObj)
+    val domainObj = default()
+
+    if (domainObj != None) {
+      Cache.set(key, domainObj, maxTTL)
       Some(domainObj)
-    } else {
-      None
-    }
+    } else None
   }
 
   //  def clearAllCaches() {
@@ -68,7 +67,7 @@ abstract class CacheActor(cacheSystem: CacheSystem)
   import akka.pattern._
 
   def findValueReceive: Receive = {
-    case FindValue(params) => findValueForSender(params, sender)
+    case FindValue(params, default) => findValueForSender(params, default, sender)
   }
 
   def purgeValueReceive: Receive = {
@@ -79,27 +78,27 @@ abstract class CacheActor(cacheSystem: CacheSystem)
     Cache.remove(params.cacheKey)
   }
 
-  def findValueForSender(params: Params, sender: ActorRef) {
+  def findValueForSender[T](params: Params, default:() => T, sender: ActorRef) {
     val key = params.cacheKey
     val elem = Cache.get(key)
 
-    if (elem ne null)
+    if (elem ne None)
       sender ! elem
     else
       Future {
-        findObject(params)
+        findObject(params, default)
       } pipeTo sender
   }
 
-  def findObject(params: Params): Option[Any] =
-    cacheSystem.findObjectForCache(params.cacheKey, finder(params))
+  def findObject[T](params: Params, default: () => T): Option[Any] =
+    cacheSystem.findObjectForCache(params.cacheKey, default)
 
-  def finder(params: Params): () => Any
+//  def finder(params: Params): () => Any
 }
 
 object CacheActor {
 
-  case class FindValue(params: Params)
+  case class FindValue[T](params: Params, default: () => T)
 
   case class PurgeValue(params: Params)
 
@@ -108,7 +107,7 @@ object CacheActor {
   }
 
   // Thread pool used by findValueForSender()
-  val FUTURE_POOL_SIZE = 2
+  val FUTURE_POOL_SIZE = 2 // TODO: make `FUTURE_POOL_SIZE` a config value
 
   private lazy val findValueThreadPoolExecutor =
     new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
@@ -130,19 +129,19 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
   //    Future { findObject(new Service1Params(date, false)) }
   //  }
 
-  def finder(params: CacheActor.Params) = {
-    () =>
-      params match {
-        case UserParams(cacheKey) => Façade.oauthService.getUser(cacheKey)
-        case _: UsersParams => Façade.oauthService.getUsers
-        case _ => throw new IllegalArgumentException("unmatched params ins UserCacheActor")
-      }
-  }
+//  def finder(params: CacheActor.Params) = {
+//    () =>
+//      params match {
+//        case UserParams(cacheKey) => Façade.oauthService.getUser(cacheKey)
+//        case _: UsersParams => Façade.oauthService.getUsers
+//        case _ => throw new IllegalArgumentException("unmatched params in UserCacheActor")
+//      }
+//  }
 }
 
 case class UserParams(cacheKey: String)
   extends CacheActor.Params
 
 case class UsersParams(offset: Int = 0, size: Int = 50) extends CacheActor.Params {
-  def cacheKey = "oadmin.users"
+  def cacheKey = "users"
 }

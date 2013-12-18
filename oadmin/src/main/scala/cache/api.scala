@@ -60,19 +60,19 @@ object Cache {
         .getOrElse(throw new RuntimeException("Bad configuration for memcached: missing host(s)"))
     }
 
-    val User = allCatch.opt(config.getString("memcached.user"))
+    val User = allCatch.opt{config.getString("memcached.user")}
 
-    val Passwd = allCatch.opt(config.getString("memcached.password"))
+    val Passwd = allCatch.opt{config.getString("memcached.password")}
 
     val Namespace = allCatch.opt { config.getString("memcached.namespace") } getOrElse ""
 
     val Timeout = {
       import java.util.concurrent.TimeUnit
 
-      lazy val timeout: Long = allCatch.opt(config.getLong("memcached.timeout")).getOrElse(1L)
+      lazy val timeout: Long = allCatch.opt{config.getLong("memcached.timeout")} getOrElse(1L)
 
       lazy val timeunit: TimeUnit = {
-        allCatch.opt(config.getString("memcached.timeunit")).getOrElse("seconds") match {
+        allCatch.opt{ config.getString("memcached.timeunit") }.getOrElse("seconds") match {
           case "seconds" => TimeUnit.SECONDS
           case "milliseconds" => TimeUnit.MILLISECONDS
           case "microseconds" => TimeUnit.MICROSECONDS
@@ -84,12 +84,12 @@ object Cache {
       Duration(timeout, timeunit)
     }
 
-    val Hash = allCatch.opt(config.getString("memcached.hashkeys"))
+    val Hash = allCatch.opt{config.getString("memcached.hashkeys")}
 
-    val Enabled = !allCatch.opt(config.getString("memcached")).filter(_ == "disabled").isDefined
+    val Enabled = !allCatch.opt{config.getString("memcached")}.filter(_ == "disabled").isDefined
   }
 
-  private def cacheAPI: CacheAPI = new caching.Memcached(MemcachedSettings).api
+  private val cacheAPI: CacheAPI = new caching.Memcached(MemcachedSettings).api
 
   /**
    * Set a value into the cache.

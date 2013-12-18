@@ -40,6 +40,7 @@ package domain {
     val OADMIN = "oadmin"
   }
 
+//  @SerialVersionUID(8648206719264612402L)
   object Gender extends conversions.jdbc.DBEnum {
     val Male = Value
     val Female = Value

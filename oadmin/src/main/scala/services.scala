@@ -216,49 +216,11 @@ trait AccessControlServicesComponent {
 
     def updateRole(name: String, newName: String, parent: Option[String]): Boolean
   }
-
-  trait AccessControlServicesDelegate extends AccessControlServices {
-    val delegate: AccessControlServices
-
-    def getRoles = delegate.getRoles
-
-    def getRole(name: String) = delegate.getRole(name)
-
-    def getUserRoles(userId: String) = delegate.getUserRoles(userId)
-
-    def getPermissions = delegate.getPermissions
-
-    def getRolePermissions(role: String) = delegate.getRolePermissions(role)
-
-    def getUserPermissions(userId: String) = delegate.getUserPermissions(userId)
-
-    def getClientPermissions(clientId: String) = delegate.getClientPermissions(clientId)
-
-    def saveRole(name: String, parent: Option[String], createdBy: Option[String]) = delegate.saveRole(name, parent, createdBy)
-
-    def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String]) = delegate.grantRolePermissions(role, permissions, grantedBy)
-
-    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String]) = delegate.grantUserRoles(userId, roles, grantedBy)
-
-    def revokeUserRole(userId: String, roles: Set[String]) = delegate.revokeUserRole(userId, roles)
-
-    def revokeRolePermission(role: String, permissions: Set[String]) = delegate.revokeRolePermission(role, permissions)
-
-    def purgeRoles(roles: Set[String]) = delegate.purgeRoles(roles)
-
-    def userHasRole(userId: String, role: String) = delegate.userHasRole(userId, role)
-
-    def roleHasPermission(role: String, permissions: Set[String]) = delegate.roleHasPermission(role, permissions)
-
-    def roleExists(role: String) = delegate.roleExists(role)
-
-    def updateRole(name: String, newName: String, parent: Option[String]) = delegate.updateRole(name, newName, parent)
-  }
-
 }
 
 trait AccessControlServicesRepoComponent {
   self: AccessControlServicesComponent =>
+
   protected val accessControlServiceRepo: AccessControlServiceRepo
 
   trait AccessControlServiceRepo {
@@ -307,7 +269,7 @@ trait CachingServicesComponent {
 
   trait CachingServices {
 
-    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params): Option[T]
+    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params, default: => T): Option[T]
 
     def purge(params: impl.CacheActor.Params)
   }

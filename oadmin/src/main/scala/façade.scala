@@ -437,11 +437,11 @@ trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.
 class Façade extends impl.OAuthServicesRepoComponentImpl
 with impl.CachingServicesComponentImpl
 with impl.CachingOAuthServicesComponentImpl
+with impl.CacheSystemProvider
 //with impl.OAuthServicesComponentImpl
 with CachingServicesComponent
 with impl.AccessControlServicesRepoComponentImpl
-with impl.AccessControlServicesComponentImpl
-with impl.CacheSystemProvider{
+with impl.AccessControlServicesComponentImpl{
 
   import schema._
   import domain._
@@ -457,7 +457,7 @@ with impl.CacheSystemProvider{
       f
     }
 
-  val cacheSystem = new impl.CacheSystem
+  val cacheSystem = new impl.CacheSystem(60 * 30) // TODO: make `ttl` a config value
 
   protected lazy val db = {
     import com.mchange.v2.c3p0.ComboPooledDataSource

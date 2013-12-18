@@ -47,7 +47,7 @@ package object jdbc {
       ) + new EnumNameSerializer(domain.Gender)
 
   abstract class DBEnum extends Enumeration {
-    implicit val enumMapper = MappedJdbcType.base[Value, String](_.toString, this.withName)
+    @transient implicit val enumMapper = MappedJdbcType.base[Value, String](_.toString, this.withName)
   }
 
   implicit val setTypeMapper =
