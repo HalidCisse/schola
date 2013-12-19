@@ -15,6 +15,18 @@ package object utils {
     org.bouncycastle.util.encoders.Hex.toHexString(b)
   }
 
+  val xxHash = {
+    import net.jpountz.xxhash.XXHashFactory
+
+    val f = XXHashFactory.nativeInstance().hash32
+
+    (bytes: Array[Byte]) => {
+      val x = f.hash(bytes, 0, bytes.length, 0xCAFEBABE)
+      Integer.toHexString(x)
+    }
+  }
+
+
 //  val generateNonce = {
 //    import java.security.SecureRandom
 //    import org.bouncycastle.util.encoders.Hex

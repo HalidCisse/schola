@@ -15,7 +15,7 @@ package caching {
     val Passwd: Option[String]
     val Namespace: String
     val Timeout: scala.concurrent.duration.Duration
-    val Hash: Option[String]
+    val Hash: Boolean
     val Enabled: Boolean
   }
 
@@ -24,6 +24,7 @@ package caching {
     import settings._
 
     system.registerOnTermination {
+      log.info("running Memcached termination callback...")
       if(Enabled) {
         log.info("shutting down memcached client...")
         client.shutdown()
@@ -33,7 +34,9 @@ package caching {
 
     val log = Logger("oadmin.memcached")
 
-    lazy val client =
+    lazy val client = {
+      log.info("Starting Memcached client....")
+
       User map {
         memcacheUser =>
           val memcachePassword = Passwd getOrElse {
@@ -50,6 +53,7 @@ package caching {
 
           new MemcachedClient(cf, Hosts)
       } getOrElse new MemcachedClient(Hosts)
+    }
 
     import java.io._
 
@@ -123,11 +127,8 @@ package caching {
       }
     } else NullApi
 
-    // you may override hash implementation to use more sophisticated hashes, like xxHash for higher performance
     protected def hash(key: String): String =
-      Hash.map {
-        key => java.security.MessageDigest.getInstance(key).digest(key.getBytes).map("%02x".format(_)).mkString
-      } getOrElse key
+      if(Hash) utils.xxHash(key.getBytes("UTF-8")) else key
   }
 
 }

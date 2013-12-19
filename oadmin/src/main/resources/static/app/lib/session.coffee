@@ -11,8 +11,9 @@ class Session extends Spine.Module
 
   getMAcHeader: (xhr) ->
 
+  hasRole: (role) ->
 
-
+  hasPermission: (permission) ->
 
 
 

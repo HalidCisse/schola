@@ -78,7 +78,7 @@ abstract class CacheActor(cacheSystem: CacheSystem)
     Cache.remove(params.cacheKey)
   }
 
-  def findValueForSender[T](params: Params, default:() => T, sender: ActorRef) {
+  def findValueForSender[T](params: Params, default: () => T, sender: ActorRef) {
     val key = params.cacheKey
     val elem = Cache.get(key)
 
@@ -92,8 +92,6 @@ abstract class CacheActor(cacheSystem: CacheSystem)
 
   def findObject[T](params: Params, default: () => T): Option[Any] =
     cacheSystem.findObjectForCache(params.cacheKey, default)
-
-//  def finder(params: Params): () => Any
 }
 
 object CacheActor {

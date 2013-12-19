@@ -269,7 +269,7 @@ trait CachingServicesComponent {
 
   trait CachingServices {
 
-    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params, default: => T): Option[T]
+    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T]
 
     def purge(params: impl.CacheActor.Params)
   }

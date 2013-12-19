@@ -84,9 +84,9 @@ object Cache {
       Duration(timeout, timeunit)
     }
 
-    val Hash = allCatch.opt{config.getString("memcached.hashkeys")}
+    val Hash = allCatch.opt { config.getBoolean("memcached.hashkeys") } getOrElse false
 
-    val Enabled = allCatch.opt { config.getBoolean("memcached.disabled") } getOrElse true
+    val Enabled = allCatch.opt { config.getBoolean("memcached.enabled") } getOrElse false
   }
 
   private val cacheAPI: CacheAPI = new caching.Memcached(MemcachedSettings).api

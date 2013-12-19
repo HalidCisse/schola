@@ -16,8 +16,7 @@ package domain {
     userAgent: String,
     roles: Set[String] = Set(),
     permissions: Map[String, Boolean] = Map(),
-    scopes: Set[String] = Set()
-  )
+    scopes: Set[String] = Set())
 
   case class OAuthToken(
      accessToken: String,
@@ -40,7 +39,6 @@ package domain {
     val OADMIN = "oadmin"
   }
 
-//  @SerialVersionUID(8648206719264612402L)
   object Gender extends conversions.jdbc.DBEnum {
     val Male = Value
     val Female = Value

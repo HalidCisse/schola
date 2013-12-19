@@ -288,19 +288,6 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             (accessToken, clientId, redirectUri, userId, Some(generateRefreshToken(accessToken)), generateMacKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", aScopes)) != 1)
               throw new Exception("could not refresh Token")
 
-//          OAuthTokens += OAuthToken(
-//            accessToken,
-//            clientId,
-//            redirectUri,
-//            userId,
-//            Some(generateRefreshToken(accessToken)),
-//            macKey = generateMacKey,
-//            uA = uA,
-//            expiresIn = Some(AccessTokenSessionLifeTime),
-//            refreshExpiresIn = Some(RefreshTokenSessionLifeTime),
-//            scopes = aScopes
-//          )
-
           val q2 = for {
             (t, c) <- OAuthTokens leftJoin OAuthClients on (_.clientId is _.id) if t.accessToken is accessToken
           } yield (
@@ -521,7 +508,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
     def updateUser(id: String, spec: utils.UserSpec) = {
-      val q = schema.Users filter (_.id is java.util.UUID.fromString(id))
+      val uuid = java.util.UUID.fromString(id)
+      val q = schema.Users filter (_.id is uuid)
 
       db.withSession {
         implicit session => (for {u <- q} yield (u.password, u.contacts)).firstOption
@@ -530,7 +518,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         case Some((sPassword, sContacts)) => if (db.withTransaction {
           implicit session =>
 
-            val currentTimestamp = System.currentTimeMillis
+            val currentTimestamp = Some(System.currentTimeMillis)
 
             val _1 = spec.email map {
               email =>
@@ -541,45 +529,45 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               password =>
                 spec.oldPassword.nonEmpty &&
                   (passwords verify(spec.oldPassword.get, sPassword)) &&
-                  ((q map (o => (o.password, o.passwordValid, o.lastModifiedAt, o.lastModifiedBy)) update(passwords crypt (password), true, Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1)
+                  ((q map (o => (o.password, o.passwordValid, o.lastModifiedAt, o.lastModifiedBy)) update(passwords crypt password, true, currentTimestamp, Some(uuid))) == 1)
             } getOrElse true
 
             val _3 = spec.firstname map {
               firstname =>
-                (q map (o => (o.firstname, o.lastModifiedAt, o.lastModifiedBy)) update(firstname, Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1
+                (q map (o => (o.firstname, o.lastModifiedAt, o.lastModifiedBy)) update(firstname, currentTimestamp, Some(uuid))) == 1
             } getOrElse true
 
             val _4 = spec.lastname map {
               lastname =>
-                (q map (o => (o.lastname, o.lastModifiedAt, o.lastModifiedBy)) update(lastname, Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1
+                (q map (o => (o.lastname, o.lastModifiedAt, o.lastModifiedBy)) update(lastname, currentTimestamp, Some(uuid))) == 1
             } getOrElse true
 
             val _5 = spec.gender map {
               gender =>
-                (q map (o => (o.gender, o.lastModifiedAt, o.lastModifiedBy)) update(gender, Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1
+                (q map (o => (o.gender, o.lastModifiedAt, o.lastModifiedBy)) update(gender, currentTimestamp, Some(uuid))) == 1
             } getOrElse true
 
             val _6 = spec.homeAddress foreach {
               case homeAddress =>
-                (q map (o => (o.homeAddress, o.lastModifiedAt, o.lastModifiedBy)) update(homeAddress, Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1
+                (q map (o => (o.homeAddress, o.lastModifiedAt, o.lastModifiedBy)) update(homeAddress, currentTimestamp, Some(uuid))) == 1
             }
 
             val _7 = spec.workAddress foreach {
               case workAddress =>
-                (q map (o => (o.workAddress, o.lastModifiedAt, o.lastModifiedBy)) update(workAddress, Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1
+                (q map (o => (o.workAddress, o.lastModifiedAt, o.lastModifiedBy)) update(workAddress, currentTimestamp, Some(uuid))) == 1
             }
 
             val _8 = spec.avatar foreach {
               case Some((avatar, data)) =>
                 avatars ! utils.Avatars.Add(id, avatar, data)
-                (q map (o => (o.avatar, o.lastModifiedAt, o.lastModifiedBy)) update(Some(avatar), Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1
+                (q map (o => (o.avatar, o.lastModifiedAt, o.lastModifiedBy)) update(Some(avatar), currentTimestamp, Some(uuid))) == 1
 
               case _ =>
                 avatars ! utils.Avatars.Purge(id)
-                (q map (o => (o.avatar, o.lastModifiedAt, o.lastModifiedBy)) update(None, Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1
+                (q map (o => (o.avatar, o.lastModifiedAt, o.lastModifiedBy)) update(None, currentTimestamp, Some(uuid))) == 1
             }
 
-            val _9 = spec.contacts map (contacts => (q map (o => (o.contacts, o.lastModifiedAt, o.lastModifiedBy)) update(contacts.diff(sContacts), Some(currentTimestamp), Some(java.util.UUID.fromString(id)))) == 1) getOrElse true
+            val _9 = spec.contacts map (contacts => (q map (o => (o.contacts, o.lastModifiedAt, o.lastModifiedBy)) update(contacts.diff(sContacts), currentTimestamp, Some(uuid))) == 1) getOrElse true
 
             _1 && _2 && _3 && _4 && _5 && _6 && _7 && _8 && _9
         }) getUser(id)
@@ -637,10 +625,10 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl{
   class CachingOAuthServicesImpl extends OAuthServicesImpl {
 
     override def getUsers =
-      cachingServices.get[List[domain.User]](UsersParams(), super.getUsers.asInstanceOf[List[domain.User]]) getOrElse Nil
+      cachingServices.get[List[domain.User]](UsersParams()) { super.getUsers.asInstanceOf[List[domain.User]] } getOrElse Nil
 
     override def getUser(id: String) =
-      cachingServices.get[Option[domain.User]](UserParams(id), super.getUser(id).asInstanceOf[Option[domain.User]]) getOrElse None
+      cachingServices.get[Option[domain.User]](UserParams(id)) { super.getUser(id).asInstanceOf[Option[domain.User]] } getOrElse None
 
     override def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) =
       super.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid) collect{
@@ -673,8 +661,8 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
 
   class CachingServicesImpl extends CachingServices {
 
-    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params, default: => T): Option[T] = {
-      implicit val tm = Timeout(60 seconds)
+    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
+      implicit val tm = Timeout(10 seconds)
 
       val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
 
