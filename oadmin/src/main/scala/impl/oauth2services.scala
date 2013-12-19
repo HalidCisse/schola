@@ -584,13 +584,13 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       import scala.util.control.Exception.allCatch
       import scala.concurrent.Await
 
-      implicit val timeout = akka.util.Timeout(2 seconds) // needed for `?` below
+      implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
 
-      val q = (avatars ? utils.Avatars.Get(id)).mapTo[(domain.AvatarInfo, Array[Byte])]
+      val q = (avatars ? utils.Avatars.Get(id)).mapTo[Option[(domain.AvatarInfo, String)]]
 
       allCatch.opt {
         Await.result(q, timeout.duration)
-      }
+      } getOrElse None
     }
 
     def emailExists(email: String) = {
@@ -668,7 +668,7 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
 
       allCatch.opt {
         Await.result(q, tm.duration)
-      } getOrElse(None)
+      } getOrElse None
     }
 
     def purge(params: impl.CacheActor.Params) {

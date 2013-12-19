@@ -38,23 +38,11 @@ with HandlerFactory{
             ResponseString(
               cb wrap tojson(
                 ("avatarInfo" -> org.json4s.Extraction.decompose(avatarInfo)) ~
-                  ("data" -> com.owtelse.codec.Base64.encode(data))))
+                  ("data" -> data)))
 
         case _ =>
 
-          import org.json4s.JsonDSL._
-
-          oauthService.getUser(userId) match {
-            case Some(user) =>
-
-              JsonContent ~>
-                ResponseString(
-                  cb wrap tojson(
-                    ("avatarInfo" -> org.json4s.Extraction.decompose(domain.AvatarInfo("image/png"))) ~
-                      ("data" -> org.json4s.JString(if(user.gender eq domain.Gender.Male) DefaultAvatars.Male else DefaultAvatars.Female))))
-
-            case _ => NotFound
-          }
+          NotFound
       }
 
     def purgeAvatar(userId: String) =

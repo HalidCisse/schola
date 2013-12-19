@@ -128,7 +128,7 @@ package caching {
     } else NullApi
 
     protected def hash(key: String): String =
-      if(Hash) utils.xxHash(key.getBytes("UTF-8")) else key
+      if(Hash) utils.xxHash(key.getBytes) else key
   }
 
 }

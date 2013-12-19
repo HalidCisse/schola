@@ -3,6 +3,7 @@ package oadmin
 package impl
 
 import akka.actor._
+import org.clapper.avsl.Logger
 
 //import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit, ThreadPoolExecutor}
@@ -13,6 +14,12 @@ trait CacheSystemProvider {
 }
 
 class CacheSystem(val maxTTL: Int)(implicit system: ActorSystem = system) {
+  val log = Logger("oadmin.cacheSystem")
+
+  system.registerOnTermination {
+    log.info("Terminating execution context...")
+    CacheActor.findValueThreadPoolExecutor.shutdown()
+  }
 
   def createCacheActor(cacheName: String,
 //                       scheduleDelay: FiniteDuration,
@@ -104,10 +111,10 @@ object CacheActor {
     def cacheKey: String
   }
 
-  // Thread pool used by findValueForSender()
-  val FUTURE_POOL_SIZE = 2 // TODO: make `FUTURE_POOL_SIZE` a config value
+  // Thread pool used by findValueForSender() & utils.Avatars
+  val FUTURE_POOL_SIZE = 4 // TODO: make `FUTURE_POOL_SIZE` a config value
 
-  private lazy val findValueThreadPoolExecutor =
+  private[impl] lazy val findValueThreadPoolExecutor =
     new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
       1, TimeUnit.MINUTES,
       new ArrayBlockingQueue(FUTURE_POOL_SIZE, true))
@@ -126,15 +133,6 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
   //    Future { findObject(new Service1Params(date, true)) }
   //    Future { findObject(new Service1Params(date, false)) }
   //  }
-
-//  def finder(params: CacheActor.Params) = {
-//    () =>
-//      params match {
-//        case UserParams(cacheKey) => Façade.oauthService.getUser(cacheKey)
-//        case _: UsersParams => Façade.oauthService.getUsers
-//        case _ => throw new IllegalArgumentException("unmatched params in UserCacheActor")
-//      }
-//  }
 }
 
 case class UserParams(cacheKey: String)

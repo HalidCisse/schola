@@ -97,7 +97,7 @@ trait OAuthServicesComponent {
 
     def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
 
-    def getAvatar(id: String): Option[(domain.AvatarInfo, Array[Byte])]
+    def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
 
     def emailExists(email: String): Boolean
   }
@@ -144,7 +144,7 @@ trait OAuthServicesRepoComponent {
 
     def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
 
-    def getAvatar(id: String): Option[(domain.AvatarInfo, Array[Byte])]
+    def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
 
     def emailExists(email: String): Boolean
   }

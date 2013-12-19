@@ -42,15 +42,19 @@ object AvatarSpec extends org.specs.Specification {
 
       x must not be empty
       x.get._1.contentType must be equalTo "image/png"
-      new String(x.get._2, "utf-8") must be equalTo "file contents"
+      x.get._2 must be equalTo com.owtelse.codec.Base64.encode("file contents".getBytes)
 
       Façade.oauthService.updateUser(o.get.id.get.toString, new utils.DefaultUserSpec{
         override val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(None))
       }) must not be empty
 
-      Thread.sleep(2 * 1000)
-
-      Façade.oauthService.getAvatar(o.get.id.get.toString) must beEmpty
+      val d = Façade.oauthService.getAvatar(o.get.id.get.toString)
+      d must not be empty
+      d foreach {
+        case (info, data) =>
+          info.contentType must be equalTo "image/png"
+          data must be equalTo (if (o.get.gender eq domain.Gender.Male) DefaultAvatars.Male else DefaultAvatars.Female)
+      }
 
       Façade.oauthService.removeUser(o.get.id.get.toString) must beTrue
       Façade.oauthService.purgeUsers(Set(o.get.id.get.toString))

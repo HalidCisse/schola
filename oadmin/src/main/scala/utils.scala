@@ -27,18 +27,18 @@ package object utils {
   }
 
 
-//  val generateNonce = {
-//    import java.security.SecureRandom
-//    import org.bouncycastle.util.encoders.Hex
-//
-//    val b = new Array[Byte](8)
-//    val random = SecureRandom.getInstance("SHA1PRNG")
-//
-//    (size: Int) => b.synchronized{
-//      random.nextBytes(b)
-//      Hex.toHexString(b)
-//    }
-//  }
+  //  val generateNonce = {
+  //    import java.security.SecureRandom
+  //    import org.bouncycastle.util.encoders.Hex
+  //
+  //    val b = new Array[Byte](8)
+  //    val random = SecureRandom.getInstance("SHA1PRNG")
+  //
+  //    (size: Int) => b.synchronized{
+  //      random.nextBytes(b)
+  //      Hex.toHexString(b)
+  //    }
+  //  }
 
   object ResourceOwner {
 
@@ -94,7 +94,7 @@ package object utils {
 
   class DefaultUserSpec extends UserSpec {
 
-    case class UpdateSpecImpl[T : scala.reflect.ClassTag](set: Option[Option[T]] = None) extends UpdateSpec[T]
+    case class UpdateSpecImpl[T: scala.reflect.ClassTag](set: Option[Option[T]] = None) extends UpdateSpec[T]
 
     val contacts: Option[ContactInfoSpec] = None
 
@@ -117,52 +117,66 @@ package object utils {
     val avatar: UpdateSpec[(domain.AvatarInfo, Array[Byte])] = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])]()
   }
 
-  class Avatars extends akka.actor.Actor with akka.actor.ActorLogging {
-    lazy val mongo = new com.mongodb.Mongo(MongoDB.Hostname, MongoDB.Port)
-    lazy val db = mongo.getDB(MongoDB.DatabaseName)
-
-    lazy val gfsPhoto = new com.mongodb.gridfs.GridFS(db, MongoDB.CollectionName)
+  class AvatarWorkers(gfsPhotos: com.mongodb.gridfs.GridFS) extends akka.actor.Actor with akka.actor.ActorLogging {
 
     def uploadAvatar(id: String, contentType: String, data: Array[Byte]) = {
       log.debug(s"uploading $id")
-      val gfsFile = gfsPhoto.createFile(data)
+      val gfsFile = gfsPhotos.createFile(data)
 
       gfsFile.setFilename(id)
       gfsFile.setContentType(contentType)
 
       try gfsFile.save()
       catch {
-        case e: Throwable => log.debug("save() failed: " + e.getMessage)
+        case scala.util.control.NonFatal(e) => log.debug("save() failed: " + e.getMessage)
       }
     }
 
-    def purgeAvatar(id: String) = gfsPhoto.remove(gfsPhoto.findOne(id))
+    def purgeAvatar(id: String) = gfsPhotos.remove(gfsPhotos.findOne(id))
 
-    def receive: Actor.Receive = {
+    def getAvatar(id: String) = {
+      val f = gfsPhotos.findOne(id)
+
+      if (f eq null)
+        Façade.oauthService.getUser(id) map {
+          user =>
+            (domain.AvatarInfo("image/png"), if (user.gender eq domain.Gender.Male) DefaultAvatars.Male else DefaultAvatars.Female)
+        }
+
+      else {
+
+        val in = f.getInputStream
+        val bos = new java.io.ByteArrayOutputStream
+        val ba = new Array[Byte](4096)
+
+        @scala.annotation.tailrec
+        def read() {
+          val len = in.read(ba)
+          if (len > 0) bos.write(ba, 0, len)
+          if (len >= 0) read()
+        }
+        read()
+        in.close()
+
+        Some((domain.AvatarInfo(f.getContentType), com.owtelse.codec.Base64.encode(bos.toByteArray)))
+      }
+    }
+
+    def receive = {
       case Avatars.Add(id, info, data) =>
         uploadAvatar(id, info.contentType, data)
 
       case Avatars.Get(id) =>
 
+        import scala.concurrent.Future
+        import akka.pattern._
+        import impl.CacheActor._
+
         log.debug(s"get $id")
 
-        Option(gfsPhoto.findOne(id)) map { f =>
-
-          val in = f.getInputStream
-          val bos = new java.io.ByteArrayOutputStream
-          val ba = new Array[Byte](4096)
-
-          @scala.annotation.tailrec
-          def read() {
-            val len = in.read(ba)
-            if (len > 0) bos.write(ba, 0, len)
-            if (len >= 0) read()
-          }
-          read()
-          in.close()
-
-          sender ! (domain.AvatarInfo(f.getContentType), bos.toByteArray)
-        }
+        Future {
+          getAvatar(id)
+        } pipeTo sender
 
       case Avatars.Purge(id) =>
         log.debug(s"purge $id")
@@ -170,10 +184,37 @@ package object utils {
     }
   }
 
+  class Avatars extends akka.actor.Actor with akka.actor.ActorLogging {
+    import akka.actor._
+    import akka.routing._
+
+    val gfsPhotos = {
+      val mongo = new com.mongodb.Mongo(MongoDB.Hostname, MongoDB.Port)
+      val db = mongo.getDB(MongoDB.DatabaseName)
+
+      new com.mongodb.gridfs.GridFS(db, MongoDB.CollectionName)
+    }
+
+    val workerPool = context.actorOf(
+      props = RandomPool(3).props(Props(classOf[AvatarWorkers], gfsPhotos)).withDeploy(Deploy.local),
+      name = "Avatars_upload-workers")
+
+    def receive = {
+      case msg: Avatars.Msg =>
+        workerPool tell(msg, sender)
+    }
+  }
+
   object Avatars {
-    case class Add(id: String, info: domain.AvatarInfo, data: Array[Byte])
-    case class Get(id: String)
-    case class Purge(id: String)
+
+    sealed trait Msg
+
+    case class Add(id: String, info: domain.AvatarInfo, data: Array[Byte]) extends Msg
+
+    case class Get(id: String) extends Msg
+
+    case class Purge(id: String) extends Msg
+
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -185,8 +226,8 @@ package object utils {
   with DefaultAuthorizationPaths with DefaultValidationMessages {
 
     override def onPassword(
-                    userName: String, password: String,
-                    clientId: String, clientSecret: String, scope: Seq[String]) =
+                             userName: String, password: String,
+                             clientId: String, clientSecret: String, scope: Seq[String]) =
       auth(PasswordRequest(
         userName, password, clientId, clientSecret, scope)) match {
 
@@ -198,11 +239,11 @@ package object utils {
 
         case ErrorResponse("changepasswd", id, _, _) =>
 
-            utils.Scalate(
-              TokenPath,
-              "changepasswd.jade",
-              "id" -> java.net.URLEncoder.encode(id, "utf-8")
-            )
+          utils.Scalate(
+            TokenPath,
+            "changepasswd.jade",
+            "id" -> java.net.URLEncoder.encode(id, "utf-8")
+          )
 
 
         case ErrorResponse(error, desc, euri, state) =>
@@ -214,34 +255,34 @@ package object utils {
 
   import org.fusesource.scalate.{
   TemplateEngine, Binding, DefaultRenderContext, RenderContext}
-  import unfiltered.request.{Path,HttpRequest}
+  import unfiltered.request.{Path, HttpRequest}
   import unfiltered.response.ResponseWriter
-  import java.io.{File,OutputStreamWriter,PrintWriter}
+  import java.io.{File, OutputStreamWriter, PrintWriter}
 
   object Scalate {
 
     def apply[A, B](request: HttpRequest[A],
                     template: String,
-                    attributes:(String,Any)*)
-                   ( implicit
-                     engine: TemplateEngine = defaultEngine,
-                     contextBuilder: ToRenderContext = defaultRenderContext,
-                     bindings: List[Binding] = Nil,
-                     additionalAttributes: Seq[(String, Any)] = Nil
-                     ): ResponseWriter = apply(Path(request), template, attributes : _*)
+                    attributes: (String, Any)*)
+                   (implicit
+                    engine: TemplateEngine = defaultEngine,
+                    contextBuilder: ToRenderContext = defaultRenderContext,
+                    bindings: List[Binding] = Nil,
+                    additionalAttributes: Seq[(String, Any)] = Nil
+                     ): ResponseWriter = apply(Path(request), template, attributes: _*)
 
     /** Constructs a ResponseWriter for Scalate templates.
-      *  Note that any parameter in the second, implicit set
-      *  can be overriden by specifying an implicit value of the
-      *  expected type in a pariticular scope. */
+      * Note that any parameter in the second, implicit set
+      * can be overriden by specifying an implicit value of the
+      * expected type in a pariticular scope. */
     def apply[A, B](path: String,
                     template: String,
-                    attributes:(String,Any)*)
-                   ( implicit
-                     engine: TemplateEngine = defaultEngine,
-                     contextBuilder: ToRenderContext = defaultRenderContext,
-                     bindings: List[Binding] = Nil,
-                     additionalAttributes: Seq[(String, Any)] = Nil
+                    attributes: (String, Any)*)
+                   (implicit
+                    engine: TemplateEngine = defaultEngine,
+                    contextBuilder: ToRenderContext = defaultRenderContext,
+                    bindings: List[Binding] = Nil,
+                    additionalAttributes: Seq[(String, Any)] = Nil
                      ) = new ResponseWriter {
       def write(writer: OutputStreamWriter) {
         val printWriter = new PrintWriter(writer)
@@ -249,7 +290,7 @@ package object utils {
           val scalateTemplate = engine.load(template, bindings)
           val context = contextBuilder(path, printWriter, engine)
           (additionalAttributes ++ attributes) foreach {
-            case (k,v) => context.attributes(k) = v
+            case (k, v) => context.attributes(k) = v
           }
           engine.layout(scalateTemplate, context)
         } catch {
@@ -272,4 +313,5 @@ package object utils {
       (path, writer, engine) =>
         new DefaultRenderContext(path, engine, writer)
   }
+
 }
