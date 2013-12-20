@@ -37,15 +37,15 @@ class roles
   @grantPermissions: (roleName, permissions) ->
     $.ajax(
       type: 'PUT',
-      url: "/api/v1/role/#{encodeURIComponent(roleName)}/permissions",
+      url: "/api/v1/role/_/permissions",
       dataType: 'json',
-      data: {permissions: permissions}
+      data: {name: roleName, permissions: permissions}
     )
 
   @revokePermissions: (roleName, permissions) ->
     $.ajax(
       type: 'DELETE',
-      url: "/api/v1/role/#{roleName}/permissions?" + $.param({permissions: permissions}),
+      url: "/api/v1/role/_/permissions?" + $.param({name: roleName, permissions: permissions}),
       dataType: 'json'
     )
 

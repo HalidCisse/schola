@@ -70,7 +70,7 @@ class Session extends Spine.Module
 
   getMacHeader: (xhr, req) ->
     nonce = Mac._genNonce(parseInt(@issuedTime))
-    req = Mac.reqString(nonce, req.type.toUpperCase(), req.url, document.location.hostname, document.location.port||80)
+    req = Mac.reqString(nonce, req.type, req.url, document.location.hostname, document.location.port||80, req.data if req.type in ['POST', 'PUT'])
     mac = Mac.sign(@secret, req)
     Mac.createHeader(@key, nonce, mac)    
 

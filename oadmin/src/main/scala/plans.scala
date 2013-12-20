@@ -17,20 +17,20 @@ class Plans(val factory: HandlerFactory) {
 
   import unfiltered.filter.request.{MultiPart, MultiPartParams}
 
-  val routes = unfiltered.filter.Planify {
+  val routes = unfiltered.filter.async.Planify {
     case req =>
 
       object Name extends Params.Extract("name", Params.first ~> Params.nonempty ~> Params.trimmed)
 
       object Email extends Params.Extract("email", Params.first ~> Params.nonempty ~> Params.trimmed ~> Params.pred(EmailValidator.getInstance.isValid))
 
-      object Roles extends Params.Extract("roles[]", new Params.ParamMapper(f => Some(Set(f:_*))))
+      object Roles extends Params.Extract("roles[]", new Params.ParamMapper(f => Some(Set(f: _*))))
 
-      object Permissions extends Params.Extract("permissions[]", new Params.ParamMapper(f => Some(Set(f:_*))))
+      object Permissions extends Params.Extract("permissions[]", new Params.ParamMapper(f => Some(Set(f: _*))))
 
       val routeHandler = factory(req)
 
-      type Intent = unfiltered.filter.Plan.Intent
+      type Intent = unfiltered.filter.async.Plan.Intent
 
       val usersIntent: Intent = {
 
@@ -52,7 +52,6 @@ class Plans(val factory: HandlerFactory) {
 
             case _ => BadRequest
           }
-
 
         case POST(ContextPath(_, "/users")) =>
 
@@ -132,11 +131,11 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.getRolePermissions(name)
 
-        case PUT(ContextPath(_, Seg("role" :: name :: "permissions" :: Nil))) & Params(Permissions(permissions)) =>
+        case PUT(ContextPath(_, Seg("role" :: "_" :: "permissions" :: Nil))) & Params(Name(name) & Permissions(permissions)) =>
 
           routeHandler.grantPermissions(name, permissions)
 
-        case DELETE(ContextPath(_, Seg("role" :: name :: "permissions" :: Nil))) & Params(Permissions(permissions)) =>
+        case DELETE(ContextPath(_, Seg("role" :: "_" :: "permissions" :: Nil))) & Params(Name(name) & Permissions(permissions)) =>
 
           routeHandler.revokePermissions(name, permissions)
 

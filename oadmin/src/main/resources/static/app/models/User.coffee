@@ -15,21 +15,7 @@ class User extends Spine.Model
     'createdAt', 
     'createdBy', 
     'lastModifiedAt', 
-    'lastModifiedBy'  
-
-  grantRoles: (roles) ->
-
-  revokeRoles: (roles) ->
-
-  addContacts: (contacts) ->
-
-  purgeContacts: (contacts) ->
-
-  addAddress: (address) ->
-
-  purgeHomeAddress: (address) ->      
-  
-  purgeWorkAddress: (address) ->      
+    'lastModifiedBy'     
 
   
 module.exports = User

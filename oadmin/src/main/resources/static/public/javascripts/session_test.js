@@ -8,30 +8,28 @@ var validBody = {
 };
 
 
-function beforeSend(xhr, req){
-  var nonce = Mac._genNonce(parseInt(session["issued_time"]));
-  var req = Mac.reqString(nonce, req.type.toUpperCase(), req.url, document.location.hostname, document.location.port||80);
-  var mac = Mac.sign(session['secret'], req);
-  var header = Mac.createHeader(session['access_token'], nonce, mac);
+// function beforeSend(xhr, req){  
+//   var bodyHash = (req.type === 'POST' || req.type === 'PUT') && req.data ? CryptoJS.enc.Base64.stringify(CryptoJS.SHA1(req.data)) : undefined
+//   var nonce = Mac._genNonce(parseInt(session["issuedTime"]));
+//   var r = Mac.reqString(nonce, req.type, req.url, document.location.hostname, document.location.port||80, bodyHash);
+//   var mac = Mac.sign(session['secret'], r);
+//   var header = Mac.createHeader(session['access_token'], nonce, mac, bodyHash);
 
-  xhr.setRequestHeader("Authorization", header);
-}
+//   xhr.setRequestHeader("Authorization", header);
+// }
 
 $.ajaxSetup({
-  beforeSend: beforeSend,
-  dataType: 'json'
+  beforeSend: Mac.beforeSend
 });
 
 function login() {
   $.ajaxSetup({
-    beforeSend: null,
-    dataType: 'json'
+    beforeSend: null
   });
 
   return $.post('/oauth/token', validBody, function(resp) { console.log(JSON.stringify(resp)); window.session = resp; }, 'json').done(function(){
     $.ajaxSetup({
-      beforeSend: beforeSend,
-      dataType: 'json'
+      beforeSend: Mac.beforeSend
     });
   })
 }
@@ -39,7 +37,7 @@ function login() {
 function logout() {
     return $.ajax({
       type:"GET",
-      beforeSend: beforeSend,
+      // beforeSend: Mac.beforeSend,
       url: "/api/v1/logout",
       dataType: 'json',
       success: function(msg) {
@@ -169,7 +167,7 @@ function removeUser(id) {
 function purgeUser(id) {
   return $.ajax({
     type:"DELETE",
-    url: "/api/v1/user/" + id + '/purge',
+    url: "/api/v1/user/" + id + '/_purge',
     dataType: 'json',
     success: function(msg) {
       console.log(JSON.stringify(msg))
@@ -218,7 +216,7 @@ function userExists(email) {
 function getTrash() {
   return $.ajax({
     type:"GET",
-    url: "/api/v1/users/trash",
+    url: "/api/v1/users/_trash",
     dataType: 'json',
     success: function(msg) {
       console.log(JSON.stringify(msg))
@@ -422,19 +420,19 @@ function roleExists(name) {
 function grantPermissions(role, permissions) {
  return $.ajax({
     type:"PUT",
-    url: '/api/v1/role/' + encodeURIComponent(role) + '/permissions',
+    url: '/api/v1/role/permissions',
     dataType: 'json',
-    data: {permissions: permissions},
+    data: {role: role, permissions: permissions},
     success: function(msg) {
       console.log(JSON.stringify(msg))
     }
   });       
 }
 
-function revokePermissions(id, permissions) {
+function revokePermissions(role, permissions) {
  return $.ajax({
     type:"DELETE",
-    url: '/api/v1/role/' + id + '/permissions?' + $.param({permissions: permissions}),
+    url: '/api/v1/role/permissions?' + $.param({role: role, permissions: permissions}),
     dataType: 'json',
     success: function(msg) {
       console.log(JSON.stringify(msg))

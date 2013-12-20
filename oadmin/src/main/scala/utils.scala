@@ -1,9 +1,6 @@
 package schola
 package oadmin
 
-import domain.{ContactInfo, AddressInfo}
-import akka.actor.Actor
-
 package object utils {
 
   def genPasswd(key: String) = passwords.crypt(key)
@@ -18,7 +15,7 @@ package object utils {
   val xxHash = {
     import net.jpountz.xxhash.XXHashFactory
 
-    val f = XXHashFactory.nativeInstance().hash32
+    val f = XXHashFactory.fastestInstance().hash32
 
     (bytes: Array[Byte]) => {
       val x = f.hash(bytes, 0, bytes.length, 0xCAFEBABE)
@@ -69,7 +66,7 @@ package object utils {
 
   trait UserSpec {
 
-    case class ContactInfoSpec(toRem: Set[ContactInfo] = Set(), toAdd: Set[ContactInfo] = Set()) extends SetSpec[domain.ContactInfo]
+    case class ContactInfoSpec(toRem: Set[domain.ContactInfo] = Set(), toAdd: Set[domain.ContactInfo] = Set()) extends SetSpec[domain.ContactInfo]
 
     def contacts: Option[ContactInfoSpec]
 
@@ -98,9 +95,9 @@ package object utils {
 
     val contacts: Option[ContactInfoSpec] = None
 
-    val homeAddress = UpdateSpecImpl[AddressInfo]()
+    val homeAddress = UpdateSpecImpl[domain.AddressInfo]()
 
-    val workAddress = UpdateSpecImpl[AddressInfo]()
+    val workAddress = UpdateSpecImpl[domain.AddressInfo]()
 
     val email: Option[String] = None
 

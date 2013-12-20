@@ -42,7 +42,7 @@ package object oauth2 {
             val refresh = sRefreshToken
             val value = sAccessToken
             val clientId = sClientId
-            override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
+            override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
           }
       } getOrElse (throw NotFoundException("could not refresh token"))
 
@@ -61,7 +61,7 @@ package object oauth2 {
               val refresh = sRefreshToken
               val value = sAccessToken
               val clientId = sClientId
-              override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
+              override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
             }
         }
 
@@ -98,7 +98,7 @@ package object oauth2 {
                 val refresh = sRefreshToken
                 val value = sAccessToken
                 val clientId = sClientId
-                override val extras = Map("secret" -> macKey, "issued_time" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
+                override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
               }
 
             case _ => throw BadTokenException("Token not created")
@@ -270,13 +270,6 @@ package object oauth2 {
       case unfiltered.mac.MacAuthorization(id, _, _, _, _) => Some(id)
       case unfiltered.request.Authorization(BearerHeader(token)) => Some(token)
       case unfiltered.request.Params(BearerParam(token)) => Some(token)
-      case _ => None
-    }
-  }
-
-  object TokenA {
-    def unapply[T](req: unfiltered.request.HttpRequest[T]) = req match {
-      case Token(token) => Façade.oauthService.getToken(token)
       case _ => None
     }
   }

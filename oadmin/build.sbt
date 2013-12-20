@@ -25,7 +25,7 @@ libraryDependencies ++= List(
   "net.databinder" %% "unfiltered-oauth2" % "0.7.1",
   //"net.databinder" %% "unfiltered-directives" % "0.7.1",
   "net.databinder" %% "unfiltered-spec" % "0.7.1" % "test",
-  //"net.databinder" %% "unfiltered-filter-async" % "0.7.1",
+  "net.databinder" %% "unfiltered-filter-async" % "0.7.1",
   "net.databinder" %% "unfiltered-filter-uploads" % "0.7.1",
   "io.webcrank" %% "webcrank-password" % "0.3",
   "org.bouncycastle" % "bcprov-jdk14" % "1.49",
