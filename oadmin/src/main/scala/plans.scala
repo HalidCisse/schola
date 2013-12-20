@@ -62,7 +62,7 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.getUsers
 
-        case GET(ContextPath(_, Seg("users" :: "trash" :: Nil))) =>
+        case GET(ContextPath(_, Seg("users" :: "_trash" :: Nil))) =>
 
           routeHandler.getTrash
 
@@ -106,7 +106,7 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.removeContacts(userId)
 
-        case DELETE(ContextPath(_, Seg("user" :: userId :: "purge" :: Nil))) =>
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "_purge" :: Nil))) =>
 
           routeHandler.purgeUsers(Set(userId))
       }

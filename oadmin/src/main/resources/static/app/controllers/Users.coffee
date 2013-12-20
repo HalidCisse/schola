@@ -2,7 +2,7 @@ Spine = require('spine')
 
 class Users
 
-  @mainTmpl: require('users/main.jade')
+  @mainTmpl: require('users/main')
 
 # Base class for toolbars
 class Users.Toolsbar extends Spine.Controller

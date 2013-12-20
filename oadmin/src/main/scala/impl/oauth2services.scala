@@ -383,7 +383,9 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         q.firstOption map {
           case (sUser, (sAccessToken, sClientId, sRefreshToken, sMacKey, sUA, sExpiresIn, sRefreshExpiresIn, sCreatedAt, sLastAccessTime, sScopes)) =>
 
-            scala.util.control.Exception.allCatch.opt {
+            import scala.util.control.Exception.allCatch
+
+            allCatch.opt {
               OAuthTokens map(_.lastAccessTime) update(System.currentTimeMillis)
             } // Touch session
 
@@ -398,9 +400,9 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               sLastAccessTime,
               user = sUser copy(password = None),
               userAgent = sUA,
-              roles = Set(accessControlService.getUserRoles(sUser.id map(_.toString) get) map(_.role) : _*), // TODO: is this dependency safe
+              roles = Set(accessControlService.getUserRoles(sUser.id map(_.toString) get) map(_.role) : _*),
               permissions = {
-                val userPermissions = accessControlService.getUserPermissions(sUser.id map(_.toString) get)
+                val userPermissions = accessControlService.getUserPermissions(sUser.id map(_.toString) get) // TODO: is this dependency safe
                 Map(accessControlService.getPermissions map(p => (p.name, userPermissions contains p.name)) : _*)
               },
               scopes = sScopes

@@ -1,8 +1,16 @@
 require('lib/setup')
 
-Spine = require('spine')
+Spine   = require('spine')
+Session = require('lib/session')
 
 class App extends Spine.Controller
+  
+  session: new Session(@)
+
+  users: require('lib/users')
+
+  roles: require('lib/roles')
+
   constructor: ->
     super
     
