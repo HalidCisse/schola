@@ -666,11 +666,11 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
     def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
       implicit val tm = Timeout(10 seconds)
 
-      val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
+      val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[T]
 
       allCatch.opt {
         Await.result(q, tm.duration)
-      } getOrElse None
+      }
     }
 
     def purge(params: impl.CacheActor.Params) {

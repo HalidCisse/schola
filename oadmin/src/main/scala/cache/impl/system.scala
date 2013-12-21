@@ -5,7 +5,6 @@ package impl
 import akka.actor._
 import org.clapper.avsl.Logger
 
-//import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit, ThreadPoolExecutor}
 import scala.concurrent.{Future, ExecutionContext}
 
@@ -13,7 +12,18 @@ trait CacheSystemProvider {
   val cacheSystem: CacheSystem
 }
 
-class CacheSystem(val maxTTL: Int)(implicit system: ActorSystem = system) {
+object CacheSystem {
+
+  case object UpdateCacheForNow
+
+}
+
+class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system: ActorSystem = system) {
+
+  import CacheSystem._
+  import CacheActor._
+  import scala.concurrent.duration._
+
   val log = Logger("oadmin.cacheSystem")
 
   system.registerOnTermination {
@@ -22,15 +32,15 @@ class CacheSystem(val maxTTL: Int)(implicit system: ActorSystem = system) {
   }
 
   def createCacheActor(cacheName: String,
-//                       scheduleDelay: FiniteDuration,
-                       actorCreator: CacheSystem => Actor) = {
+                       actorCreator: CacheSystem => Actor,
+                       scheduleDelay: FiniteDuration = 10 seconds) = {
 
     val actor = system.actorOf(Props(actorCreator(this)), name = cacheName + "CacheActor")
 
     // TODO: use pro-active caching
-    //    system.scheduler.schedule(scheduleDelay,
-    //      updateIntervalMin minutes,
-    //      actor, UpdateCacheForNow)
+    system.scheduler.schedule(scheduleDelay,
+      updateIntervalMin minutes,
+      actor, UpdateCacheForNow)
 
     //    if (!DateUtil.isNowInActiveBusinessDay) {
     //      actorSystem.scheduler.scheduleOnce(scheduleDelay, actor,
@@ -40,27 +50,33 @@ class CacheSystem(val maxTTL: Int)(implicit system: ActorSystem = system) {
     actor
   }
 
-//  def findCachedObject[T](key: String,
-//                          finder: () => T): Option[T] = {
-//
-//    val element = Cache.get(key)
-//
-//    if (element eq None)
-//      findObjectForCache(key, finder)
-//    else
-//      Some(element.asInstanceOf[T])
-//  }
+  //  def findCachedObject[T](key: String,
+  //                          finder: () => T): Option[T] = {
+  //
+  //    val element = Cache.get(key)
+  //
+  //    if (element eq None)
+  //      findObjectForCache(key, finder)
+  //    else
+  //      Some(element.asInstanceOf[T])
+  //  }
 
   def findObjectForCache[T](key: String,
-                            default: () => T): Option[T] = {
+                            default: () => T): Option[T] =
+    default() match {
+      case els: List[_] =>
 
-    val domainObj = default()
+        Cache.set(key, els, maxTTL)
+        Some(els.asInstanceOf[T])
 
-    if (domainObj != None) {
-      Cache.set(key, domainObj, maxTTL)
-      Some(domainObj)
-    } else None
-  }
+      case Some(opt) =>
+
+        Cache.set(key, opt, maxTTL)
+        Some(opt.asInstanceOf[T])
+
+      case _ => None
+    }
+
 
   //  def clearAllCaches() {
   //    Cache.foreach(_.removeAll())
@@ -71,6 +87,7 @@ abstract class CacheActor(cacheSystem: CacheSystem)
   extends Actor with ActorLogging {
 
   import CacheActor._
+  import CacheSystem._
   import akka.pattern._
 
   def findValueReceive: Receive = {
@@ -81,6 +98,12 @@ abstract class CacheActor(cacheSystem: CacheSystem)
     case PurgeValue(params) => purgeValueForSender(params)
   }
 
+  def updateCacheForNowReceive: Receive = {
+    case UpdateCacheForNow => updateCacheForNow()
+  }
+
+  def updateCacheForNow()
+
   def purgeValueForSender(params: Params) {
     Cache.remove(params.cacheKey)
   }
@@ -89,7 +112,7 @@ abstract class CacheActor(cacheSystem: CacheSystem)
     val key = params.cacheKey
     val elem = Cache.get(key)
 
-    if (elem ne None)
+    if (elem ne null)
       sender ! elem
     else
       Future {
@@ -126,13 +149,20 @@ object CacheActor {
 class OAdminCacheActor(cacheSystem: CacheSystem)
   extends CacheActor(cacheSystem) {
 
-  override def receive = findValueReceive orElse purgeValueReceive
+  override def receive =
+    findValueReceive orElse purgeValueReceive orElse updateCacheForNowReceive
 
-  //  override def updateCacheForDate(date: Date) {
-  //    import DateCacheActor._
-  //    Future { findObject(new Service1Params(date, true)) }
-  //    Future { findObject(new Service1Params(date, false)) }
-  //  }
+  def updateCacheForNow() {
+    log.info("updating cache for now . . .")
+
+    val users = Façade.oauthService.getUsers
+
+    users foreach {
+      user => Cache.set(user.id.get.toString, user, cacheSystem.maxTTL)
+    }
+
+    Cache.set("users", users)
+  }
 }
 
 case class UserParams(cacheKey: String)

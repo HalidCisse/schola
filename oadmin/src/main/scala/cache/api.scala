@@ -121,31 +121,6 @@ object Cache {
   def get(key: String): Option[Any] =
     cacheAPI.get(key)
 
-  /**
-   * Retrieve a value from the cache, or set it from a default function.
-   *
-   * @param key Item key.
-   * @param expiration expiration period in seconds.
-   * @param orElse The default function to invoke if the value was found in cache.
-   */
-  def getOrElse[A: scala.reflect.ClassTag](key: String, expiration: Int = 0)(orElse: => A): A =
-    getAs[A](key) getOrElse {
-      val value = orElse
-      set(key, value, expiration)
-      value
-    }
-
-  /**
-   * Retrieve a value from the cache for the given type
-   *
-   * @param key Item key.
-   * @return result as Option[T]
-   */
-  def getAs[T: scala.reflect.ClassTag](key: String): Option[T] =
-    get(key) flatMap {
-      item =>
-        if (TypeUtils.isInstance(item, implicitly[scala.reflect.ClassTag[T]].runtimeClass)) Some(item.asInstanceOf[T]) else None
-    }
 
   def remove(key: String) {
     cacheAPI.remove(key)

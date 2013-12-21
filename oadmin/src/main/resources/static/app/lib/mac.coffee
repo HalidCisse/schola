@@ -20,7 +20,7 @@ class Mac
     CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA1(request, secret))
 
   @reqString: (nonce, method, uri, hostname, port, bodyHash, ext) ->
-    [nonce, method.toUpperCase(), uri, hostname, port, bodyHash||"", ext||""].join("\n") + "\n"
+    [nonce, method, uri, hostname, port, bodyHash||"", ext||""].join("\n") + "\n"
 
   @createHeader: (id, nonce, mac, bodyHash) ->
     bodyHash = if bodyHash then ",bodyhash=\"#{bodyHash}\"" else ''
