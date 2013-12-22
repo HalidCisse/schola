@@ -272,13 +272,13 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def roleExists(name: String) = {
       import Database.dynamicSession
 
-      val byName = for {
-        name <- Parameters[String]
-        r <- Roles if r.name.toLowerCase is name
-      } yield true
+      val q = {
+        val findByName = Roles.findBy(_.name.toLowerCase)
+        findByName(name.toLowerCase)
+      }
 
       db.withDynSession {
-        byName(name.toLowerCase).firstOption
+        Query(q.extract.exists).firstOption
       } getOrElse false
     }
 

@@ -5,6 +5,7 @@ import unfiltered.oauth2._
 import unfiltered.request.HttpRequest
 
 import org.clapper.avsl.Logger
+import unfiltered.response.HttpResponse
 
 package object oauth2 {
 
@@ -162,7 +163,7 @@ package object oauth2 {
 
     object OAuthorizationServer
       extends AuthorizationServer
-      with Clients with Tokens with OAuthService with DefaultAuthorizationPaths {
+      with Clients with Tokens with OAuthService/* with DefaultAuthorizationPaths {
 
       import unfiltered.oauth2.ResourceOwner
       import OAuthorization._
@@ -201,7 +202,7 @@ package object oauth2 {
 
         case x => super.apply(x)
       }
-    }
+    }*/
 
     val auth = OAuthorizationServer
   }
@@ -279,6 +280,10 @@ package object oauth2 {
     object OAuth2MacAuth extends MacAuth {
       val algorithm = MACAlgorithm
       def tokenSecret(key: String) = Façade.oauthService.getTokenSecret(key)
+    }
+
+    override def fallback = {
+      case null => null
     }
 
     val schemes = Seq(OAuth2MacAuth)

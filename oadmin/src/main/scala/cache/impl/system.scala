@@ -28,7 +28,7 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
 
   system.registerOnTermination {
     log.info("Terminating execution context...")
-    CacheActor.findValueThreadPoolExecutor.shutdown()
+    CacheActor.cacheSystemThreadPoolExecutor.shutdown()
   }
 
   def createCacheActor(cacheName: String,
@@ -62,20 +62,28 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
   //  }
 
   def findObjectForCache[T](key: String,
-                            default: () => T): Option[T] =
-    default() match {
-      case els: List[_] =>
+                            default: () => T): Option[T] = {
+    val obj = default()
 
-        Cache.set(key, els, maxTTL)
-        Some(els.asInstanceOf[T])
-
-      case Some(opt) =>
-
-        Cache.set(key, opt, maxTTL)
-        Some(opt.asInstanceOf[T])
-
-      case _ => None
+    if(obj != None) {
+      Cache.set(key, obj, maxTTL)
+      Some(obj)
     }
+    else None
+  }
+//    default() match {
+//      case els: Traversable[_] =>
+//
+//        Cache.set(key, els, maxTTL)
+//        Some(els.asInstanceOf[T])
+//
+//      case s@Some(_) =>
+//
+//        Cache.set(key, s, maxTTL)
+//        s.asInstanceOf[Option[T]]
+//
+//      case _ => None
+//    }
 
 
   //  def clearAllCaches() {
@@ -112,7 +120,7 @@ abstract class CacheActor(cacheSystem: CacheSystem)
     val key = params.cacheKey
     val elem = Cache.get(key)
 
-    if (elem ne null)
+    if (elem ne None)
       sender ! elem
     else
       Future {
@@ -137,13 +145,13 @@ object CacheActor {
   // Thread pool used by findValueForSender() & utils.Avatars
   val FUTURE_POOL_SIZE = 4 // TODO: make `FUTURE_POOL_SIZE` a config value
 
-  private[impl] lazy val findValueThreadPoolExecutor =
+  private[impl] lazy val cacheSystemThreadPoolExecutor =
     new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
       1, TimeUnit.MINUTES,
       new ArrayBlockingQueue(FUTURE_POOL_SIZE, true))
 
   implicit lazy val findValueExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutor(findValueThreadPoolExecutor)
+    ExecutionContext.fromExecutor(cacheSystemThreadPoolExecutor)
 }
 
 class OAdminCacheActor(cacheSystem: CacheSystem)
@@ -155,13 +163,12 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
   def updateCacheForNow() {
     log.info("updating cache for now . . .")
 
-    val users = Façade.oauthService.getUsers
-
-    users foreach {
-      user => Cache.set(user.id.get.toString, user, cacheSystem.maxTTL)
+    val elapsed = utils.timeF {
+      for(user <- Façade.oauthService.getUsers)
+        Façade.oauthService.getUser(user.id.get.toString)
     }
 
-    Cache.set("users", users)
+    log.info(s"cache successfully updated in  $elapsed msecs")
   }
 }
 

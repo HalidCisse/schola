@@ -37,6 +37,8 @@ libraryDependencies ++= List(
   "commons-validator" % "commons-validator" % "1.4.0",
   "org.apache.commons" % "commons-lang3" % "3.1",
   "net.spy" % "spymemcached" % "2.10.3",
-  "net.jpountz.lz4" % "lz4" % "1.2.0"
+  "net.jpountz.lz4" % "lz4" % "1.2.0",
+  "net.databinder.dispatch" %% "dispatch-core" % "0.11.0",
+  "net.databinder.dispatch" %% "dispatch-json4s-native" % "0.11.0"
  // "org.mockito" % "mockito-core" % "1.9.5" % "test"
 )

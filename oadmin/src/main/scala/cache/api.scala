@@ -30,6 +30,11 @@ trait CacheAPI {
    * Remove a value from the cache
    */
   def remove(key: String)
+
+  /**
+   * Remove all values from the cache
+   */
+  def clearAll()
 }
 
 /**
@@ -124,5 +129,9 @@ object Cache {
 
   def remove(key: String) {
     cacheAPI.remove(key)
+  }
+
+  def clearAll() {
+    cacheAPI.clearAll()
   }
 }

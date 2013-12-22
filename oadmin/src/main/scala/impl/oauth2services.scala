@@ -598,14 +598,13 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def emailExists(email: String) = {
       import Database.dynamicSession
 
-      val byEmail = for {
-        email <- Parameters[String]
-        u <- Users if u.email.toLowerCase is email
-      } yield true
-
+      val q = {
+        val findByEmail = Users.findBy(_.email.toLowerCase)
+        findByEmail(email.toLowerCase)
+      }
 
       db.withDynSession {
-        byEmail(email.toLowerCase).firstOption
+        Query(q.extract.exists).firstOption
       } getOrElse false
     }
   }
@@ -659,18 +658,18 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
 
   protected val cachingServices = new CachingServicesImpl
 
-  private lazy val cacheActor = cacheSystem.createCacheActor("OAdmin", new impl.OAdminCacheActor(_))
+  protected lazy val cacheActor = cacheSystem.createCacheActor("OAdmin", new impl.OAdminCacheActor(_))
 
   class CachingServicesImpl extends CachingServices {
 
     def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
       implicit val tm = Timeout(10 seconds)
 
-      val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[T]
+      val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
 
       allCatch.opt {
         Await.result(q, tm.duration)
-      }
+      } getOrElse None
     }
 
     def purge(params: impl.CacheActor.Params) {

@@ -12,25 +12,166 @@ class Plans(val factory: HandlerFactory) {
 
   import oauth2._
   import unfiltered.request._
+  import unfiltered.filter._
   import unfiltered.filter.request.ContextPath
   import unfiltered.response._
 
+  import scala.util.control.Exception.allCatch
+
   import unfiltered.filter.request.{MultiPart, MultiPartParams}
+
+  private lazy val xHttp = dispatch.Http // TODO: configure executor service
+
+  system.registerOnTermination {
+    log.info("Stopping http client . . . ")
+    xHttp.shutdown()
+  }
+
+  object Email
+    extends Params.Extract("email", Params.first ~> Params.nonempty ~> Params.trimmed ~> Params.pred(EmailValidator.getInstance.isValid))
+
+  object Passwd extends Params.Extract("password", Params.first ~> Params.nonempty ~> Params.trimmed)
+
+  def /(protectionPlan: Plan) = async.Planify {
+
+    case req =>
+
+      def isAuthorized = protectionPlan.intent.isDefinedAt(req)
+
+      object UserPasswd {
+        def unapply(params: Map[String, scala.Seq[String]]) =
+          allCatch.opt { (Email.unapply(params).get, Passwd.unapply(params).get) }
+      }
+
+      req match {
+
+        case ContextPath(_, "/") & UserAgent(uA) if isAuthorized =>
+
+          val session =
+            Façade.oauthService.getUserSession(
+              Map(
+                "bearerToken" -> oauth2.Token.unapply(req).get,
+                "userAgent" -> uA)
+            ).get
+
+          req.respond(
+            if(session.user.passwordValid) utils.Scalate(req, "index.jade", "session" -> session)
+            else utils.Scalate(req, "changepasswd.jade", "session" -> session)
+          )
+
+        case GET(ContextPath(_, "/")) =>
+
+          req.respond(utils.Scalate(req, "login.jade"))
+
+
+        case POST(ContextPath(_, "/")) & UserAgent(uA) & Params(UserPasswd(username, passwd)) =>
+
+          import dispatch._
+          import scala.concurrent.ExecutionContext.Implicits.global
+
+          val localhost = host("localhost", 3000)
+
+          val token = localhost / "oauth" / "token"
+          val api = localhost / "api" / "v1"
+
+          val client = domain.OAuthClient(
+            "oadmin", "oadmin",
+            localhost.toString
+          )
+
+          // --------------------------------------------------------------------------------------------------------------
+
+          def withMac[T](session: Façade.oauthService.SessionLike, method: String, uri: String)(f: Map[String, String] => T) {
+
+            def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
+
+            val nonce = _genNonce(session.issuedTime)
+
+            val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, "localhost", 3000, "", "")
+            unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
+              _ => req.respond(utils.Scalate(req, "login.jade", "error" -> true))
+            }, {
+              mac =>
+
+                val auth = Map(
+                  "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
+                  "User-Agent" -> uA
+                )
+
+                f(auth)
+            })
+          }
+
+          def withSession[T](username: String, passwd: String)(fn: Either[Throwable, Façade.oauthService.SessionLike] => T) {
+
+            for(e <- xHttp(token << Map(
+              "grant_type" -> "password",
+              "client_id" -> client.id,
+              "client_secret" -> client.secret,
+              "username" -> username,
+              "password" -> passwd
+            ) <:< Map("User-Agent" -> uA) OK as.json4s.Json).either) {
+
+              e.fold(
+                res => fn(Left(res)),
+                info => {
+
+                  def findVal(field: String) =
+                    info findField {
+                      case org.json4s.JField(`field`, _) => true
+                      case _ => false
+                    } collect {
+                      case org.json4s.JField(_, org.json4s.JString(s)) => s
+                    }
+
+                  val key = findVal("access_token").get
+                  val session = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> uA))
+
+                  fn(Right(session.get))
+                }
+              )
+            }
+          }
+
+          withSession(username, passwd) {
+            case Left(e) =>
+              req.respond(utils.Scalate(req, "login.jade", "error" -> true))
+
+            case Right(session) =>
+
+              withMac(session, "GET", "/api/v1/session") { auth =>
+
+                for {
+                  e <- xHttp(
+                    api / "session" << auth OK as.String
+                  ).either
+                } {
+                  req.respond(e.fold(
+                    _ => utils.Scalate(req, "login.jade", "error" -> true),
+                    _ =>
+                      if(session.user.passwordValid) utils.Scalate(req, "index.jade", "session" -> session)
+                      else utils.Scalate(req, "changepasswd.jade", "session" -> session)
+                  ))
+                }
+              }
+          }
+
+        case _ => Pass
+      }
+  }
 
   val routes = unfiltered.filter.async.Planify {
     case req =>
 
       object Name extends Params.Extract("name", Params.first ~> Params.nonempty ~> Params.trimmed)
 
-      object Email extends Params.Extract("email", Params.first ~> Params.nonempty ~> Params.trimmed ~> Params.pred(EmailValidator.getInstance.isValid))
-
       object Roles extends Params.Extract("roles[]", new Params.ParamMapper(f => Some(Set(f: _*))))
 
       object Permissions extends Params.Extract("permissions[]", new Params.ParamMapper(f => Some(Set(f: _*))))
 
-      val routeHandler = factory(req)
+      type Intent = async.Plan.Intent
 
-      type Intent = unfiltered.filter.async.Plan.Intent
+      val routeHandler = factory(req)
 
       val usersIntent: Intent = {
 

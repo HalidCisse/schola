@@ -23,6 +23,12 @@ package object utils {
     }
   }
 
+  def timeF(thunk: => Any) = {
+    val start = System.currentTimeMillis
+    thunk
+    System.currentTimeMillis - start
+  }
+
 
   //  val generateNonce = {
   //    import java.security.SecureRandom
@@ -216,7 +222,7 @@ package object utils {
 
   // ---------------------------------------------------------------------------------------------------------------
 
-  import unfiltered.oauth2._
+/*  import unfiltered.oauth2._
 
   /** Configured Authorization server module */
   case class OAuthorization(auth: unfiltered.oauth2.AuthorizationServer) extends Authorized
@@ -246,7 +252,7 @@ package object utils {
         case ErrorResponse(error, desc, euri, state) =>
           errorResponder(error, desc, euri, state)
       }
-  }
+  }*/
 
   // ---------------------------------------------------------------------------------------------------------------
 

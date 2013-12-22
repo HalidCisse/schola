@@ -85,6 +85,7 @@ package caching {
       def set(key: String, value: Any, expiration: Int){}
       def get(key: String) = None
       def remove(key: String){}
+      def clearAll(){}
     }
 
     val api = if(Enabled) new CacheAPI {
@@ -125,6 +126,11 @@ package caching {
       def remove(key: String) {
         client.delete(Namespace + "." + hash(key))
       }
+
+      def clearAll(){
+        client.flush()
+      }
+
     } else NullApi
 
     protected def hash(key: String): String =

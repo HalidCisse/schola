@@ -611,15 +611,24 @@ with HandlerFactory {
 
     def drop() = db withTransaction {
       implicit session =>
+        import scala.slick.jdbc.{StaticQuery=>T}
+
         val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
         ddl.drop
+
+        T.updateNA("DROP EXTENSION \"uuid-ossp\";")
     }
 
     def init(userId: java.util.UUID) = db withTransaction {
       implicit session =>
+
+        import scala.slick.jdbc.{StaticQuery=>T}
+
         val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
         //    ddl.createStatements foreach (stmt => println(stmt+";"))
         ddl.create
+
+        T.updateNA("CREATE EXTENSION \"uuid-ossp\";")
 
         // Add a client - oadmin:oadmin
         val _1 = (OAuthClients ++= List(

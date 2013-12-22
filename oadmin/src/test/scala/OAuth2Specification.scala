@@ -107,7 +107,7 @@ object OAuth2Specification extends org.specs.Specification
         def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
         val (key, nonce, method,  uri, hostname, hport) = (
-          map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/v1/session",  "localhost", port)
+          map("secret").toString, _genNonce(map("issuedTime").toString.toLong), "GET", "/api/v1/session",  "localhost", port)
 
         val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
         unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
@@ -141,7 +141,7 @@ object OAuth2Specification extends org.specs.Specification
 
         {
           val (key, nonce, method,  uri, hostname, hport) = (
-            map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/v1/logout",  "localhost", port)
+            map("secret").toString, _genNonce(map("issuedTime").toString.toLong), "GET", "/api/v1/logout",  "localhost", port)
 
           val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
           unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
@@ -159,7 +159,7 @@ object OAuth2Specification extends org.specs.Specification
 
           {
             val (key, nonce, method,  uri, hostname, hport) = (
-              map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/session",  "http://localhost", 80)
+              map("secret").toString, _genNonce(map("issuedTime").toString.toLong), "GET", "/api/v1/session",  "localhost", port)
 
             val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
             unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
@@ -237,7 +237,7 @@ object OAuth2Specification extends org.specs.Specification
           // old access token should be revoked
           {
             val (key, nonce, method,  uri, hostname, hport) = (
-              map("secret").toString, _genNonce(map("issued_time").toString.toLong), "GET", "/api/session",  "localhost", port)
+              map("secret").toString, _genNonce(map("issuedTime").toString.toLong), "GET", "/api/session",  "localhost", port)
 
             val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, hport, "", "")
             unfiltered.mac.Mac.macHash(MACAlgorithm, key)(normalizedRequest).fold({
