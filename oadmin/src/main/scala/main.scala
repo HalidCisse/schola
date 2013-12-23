@@ -17,27 +17,27 @@ object main extends App {
 
   val server = Http(3000)
 
-  val protection = OAuth2Protection(new OAdminAuthSource)
-
   server
-    .context("/"){
-     _.filter(Plans / protection)
-    }
+    .context("/") {
+    _.filter(Plans /)
+  }
     .context("/assets") {
-      _.resources(getClass.getResource("/static/public"))
-    }
+    _.resources(getClass.getResource("/static/public"))
+  }
     .context("/oauth") {
-      _.filter(unfiltered.filter.Planify{
-        case unfiltered.request.UserAgent(uA) & req =>
-          OAuthorization(new AuthServerProvider(uA).auth).intent.lift(req).getOrElse(Pass)
-      })
-    }
+    _.filter(unfiltered.filter.Planify {
+      case unfiltered.request.UserAgent(uA) & req =>
+        OAuthorization(new AuthServerProvider(uA).auth).intent.lift(req).getOrElse(Pass)
+    })
+  }
     .context("/api/v1") {
-      _.filter(protection)
-       .filter(Plans.routes)
-    }
+    _.filter(OAuth2Protection(new OAdminAuthSource))
+      .filter(Plans.routes)
+  }
 
-  try Façade.drop() catch { case _: Throwable => }
+  try Façade.drop() catch {
+    case _: Throwable =>
+  }
 
   Façade.init(SuperUser.id.get)
   server.start()

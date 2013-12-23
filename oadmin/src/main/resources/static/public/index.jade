@@ -1,1 +1,44 @@
-h1 Login
+!!! 5
+html(lang="en")
+  head
+    meta(charset='utf-8')
+    meta(name='description' content='')
+    meta(name='author' content='Amadou Cisse')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    title Schola
+    link(href='/assets/css/bootstrap.css' rel='stylesheet' type='text/css' charset='utf-8')
+    link(rel='stylesheet' href='/assets/application.css' type='text/css' charset='utf-8')
+  body
+    .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
+      .container
+        .navbar-header
+          button.navbar-toggle(type='button' data-toggle='collapse' data-target='.navbar-collapse')
+            span.sr-only Toggle navigation
+            span.icon-bar
+            span.icon-bar
+            span.icon-bar
+          a.navbar-brand(href='#') Schola
+        .collapse.navbar-collapse
+          ul.nav.navbar-nav
+    .container
+      .starter-template
+        h1 Bootstrap starter template
+        p.lead
+          | Use this document as a way to quickly start any new project.
+          br
+          | All you get is this text and a mostly barebones HTML document.
+    script(src='/assets/application.js' type='text/javascript' charset='utf-8')
+    script(src='/assets/javascripts/crypto/hmac-sha1.js' type='text/javascript' charset='utf-8')
+    script(src='/assets/javascripts/crypto/enc-base64-min.js' type='text/javascript' charset='utf-8')
+    script(src='/assets/javascripts/crypto/mac.js' type='text/javascript' charset='utf-8')
+    :javascript
+      var jQuery  = require("jqueryify");
+    script(src='/assets/javascripts/jquery.upload.js')
+    script(src='/assets/javascripts/bootstrap.js')
+    :javascript
+
+      var exports = this;
+      jQuery(function(){
+      // var App = require("index");
+      // exports.app = new App({el: $("body")});
+      });

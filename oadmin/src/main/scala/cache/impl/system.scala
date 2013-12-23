@@ -112,11 +112,11 @@ abstract class CacheActor(cacheSystem: CacheSystem)
 
   def updateCacheForNow()
 
-  def purgeValueForSender(params: Params) {
+  def purgeValueForSender(params: CacheActor.Params) {
     Cache.remove(params.cacheKey)
   }
 
-  def findValueForSender[T](params: Params, default: () => T, sender: ActorRef) {
+  def findValueForSender[T](params: CacheActor.Params, default: () => T, sender: ActorRef) {
     val key = params.cacheKey
     val elem = Cache.get(key)
 
@@ -128,7 +128,7 @@ abstract class CacheActor(cacheSystem: CacheSystem)
       } pipeTo sender
   }
 
-  def findObject[T](params: Params, default: () => T): Option[Any] =
+  def findObject[T](params: CacheActor.Params, default: () => T): Option[Any] =
     cacheSystem.findObjectForCache(params.cacheKey, default)
 }
 
@@ -138,12 +138,12 @@ object CacheActor {
 
   case class PurgeValue(params: Params)
 
-  trait Params {
+  sealed trait Params {
     def cacheKey: String
   }
 
   // Thread pool used by findValueForSender() & utils.Avatars
-  val FUTURE_POOL_SIZE = 4 // TODO: make `FUTURE_POOL_SIZE` a config value
+  val FUTURE_POOL_SIZE = 8 // TODO: make `FUTURE_POOL_SIZE` a config value
 
   private[impl] lazy val cacheSystemThreadPoolExecutor =
     new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
@@ -168,13 +168,11 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
         Façade.oauthService.getUser(user.id.get.toString)
     }
 
-    log.info(s"cache successfully updated in  $elapsed msecs")
+    log.info(s"cache successfully updated in  ${elapsed / 1000} secs")
   }
 }
 
-case class UserParams(cacheKey: String)
+case class Params(cacheKey: String)
   extends CacheActor.Params
 
-case class UsersParams(offset: Int = 0, size: Int = 50) extends CacheActor.Params {
-  def cacheKey = "users"
-}
+case class ManyParams(cacheKey: String, offset: Int = 0, size: Int = 50) extends CacheActor.Params

@@ -1,10 +1,21 @@
-h1 Login
-
-form(method=POST)
-  label Username
-  input(name=username, type=text)
-
-  label Password
-  input(name=password, type=password)   
-
-  input(type=submit, value=Login)
+!!! 5
+html(lang='en')
+  head
+    meta(charset='utf-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    meta(name='description' content='')
+    meta(name='author' content='Amadou Cisse')
+    link(rel='shortcut icon' href='/assets/ico/favicon.png')
+    title Schola - Signin
+    link(href='/assets/css/bootstrap.css' rel='stylesheet')
+    link(href='/assets/css/signin.css' rel='stylesheet')
+  body
+    .container
+      form.form-signin(role='form' method='POST')
+        h2.form-signin-heading Please sign in
+        input.form-control(name='username' type='text' placeholder='Email address' required='required' autofocus='autofocus')
+        input.form-control(name='password' type='password' placeholder='Password' required='required')
+        label.checkbox
+          input(name='remember_me' type='checkbox' value='remember-me')
+            | Remember me
+        button.btn.btn-lg.btn-primary.btn-block(type='submit') Sign in

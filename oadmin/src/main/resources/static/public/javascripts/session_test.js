@@ -314,26 +314,6 @@ function getAvatar(userId) {
   });     
 }
 
-login().done( function(){
-  addUser("cisse.amadou.9@gmail.com", "amsayk", 'Ousman', 'Cisse', 'Male', {
-          city: 'RABAT',
-          country: 'Morocco',
-          zipCode: 10032,
-          addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-        }, {
-          city: 'RABAT',
-          country: 'Morocco',
-          zipCode: 10032,
-          addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-        }, [], true)
-})
-
-// addContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
-
-// removeContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
-
-// addAddress(id, {homeAddress: {city: 'CASABLANCA', 'country': 'Morocco', zipCode: '10032', addressLine: '5, Rue Jabal Tazaka, Agdal'}})
-
 function grantRoles(id, roles) {
  return $.ajax({
     type:"PUT",
@@ -439,3 +419,25 @@ function revokePermissions(role, permissions) {
     }
   });       
 }
+
+// -------------------------------------
+
+login().done( function(){
+  addUser("cisse.amadou.9@gmail.com", "amsayk", 'Ousman', 'Cisse', 'Male', {
+          city: 'RABAT',
+          country: 'Morocco',
+          zipCode: 10032,
+          addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+        }, {
+          city: 'RABAT',
+          country: 'Morocco',
+          zipCode: 10032,
+          addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+        }, [], true)
+})
+
+// addContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
+
+// removeContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
+
+// addAddress(id, {homeAddress: {city: 'CASABLANCA', 'country': 'Morocco', zipCode: '10032', addressLine: '5, Rue Jabal Tazaka, Agdal'}})

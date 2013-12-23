@@ -610,8 +610,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
   }
 }
 
-trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl{
-  self: CachingServicesComponent with OAuthServicesRepoComponent with impl.CacheSystemProvider =>
+trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl with AccessControlServicesComponentImpl{
+  self: CachingServicesComponent with OAuthServicesRepoComponent with AccessControlServicesRepoComponent with impl.CacheSystemProvider =>
 
   import caching._
 
@@ -626,24 +626,71 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl{
   class CachingOAuthServicesImpl extends OAuthServicesImpl {
 
     override def getUsers =
-      cachingServices.get[List[domain.User]](UsersParams()) { super.getUsers.asInstanceOf[List[domain.User]] } getOrElse Nil
+      cachingServices.get[List[domain.User]](ManyParams("users")) { super.getUsers.asInstanceOf[List[domain.User]] } getOrElse Nil
 
     override def getUser(id: String) =
-      cachingServices.get[Option[domain.User]](UserParams(id)) { super.getUser(id).asInstanceOf[Option[domain.User]] } getOrElse None
+      cachingServices.get[Option[domain.User]](Params(id)) { super.getUser(id).asInstanceOf[Option[domain.User]] } getOrElse None
 
     override def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) =
       super.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid) collect{
         case my: domain.User =>
-          cachingServices.purge(UserParams(my.id.get.toString))
+          cachingServices.purge(Params(my.id.get.toString))
+          cachingServices.purge(ManyParams("users"))
           my
       }
 
     override def updateUser(id: String, spec: utils.UserSpec) =
       super.updateUser(id, spec) collect {
         case my: domain.User =>
-          cachingServices.purge(UserParams(my.id.get.toString))
-           my
+          cachingServices.purge(Params(my.id.get.toString))
+          cachingServices.purge(ManyParams("users"))
+          my
       }
+
+    override def removeUser(id: String): Boolean =
+      if(super.removeUser(id)){
+        cachingServices.purge(Params(id))
+        cachingServices.purge(ManyParams("users"))
+        true
+      } else false
+
+    override def purgeUsers(users: Set[String]) {
+      super.purgeUsers(users)
+      users foreach(o => cachingServices.purge(Params(o)))
+      cachingServices.purge(ManyParams("users"))
+    }
+  }
+
+  override val accessControlService = new CachingAccessControlServicesImpl
+
+  class CachingAccessControlServicesImpl extends AccessControlServicesImpl {
+
+    override def getRoles =
+      cachingServices.get[List[domain.Role]](ManyParams("roles")) { super.getRoles.asInstanceOf[List[domain.Role]] } getOrElse Nil
+
+    override def getRole(roleName: String) =
+      cachingServices.get[Option[domain.Role]](Params(roleName)) { super.getRole(roleName).asInstanceOf[Option[domain.Role]] } getOrElse None
+
+    override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) =
+      super.saveRole(name, parent, createdBy) collect{
+        case my: domain.Role =>
+          cachingServices.purge(Params(my.name))
+          cachingServices.purge(ManyParams("roles"))
+          my
+      }
+
+    override def updateRole(name: String, newName: String, parent: Option[String]) =
+      if(super.updateRole(name, newName, parent)) {
+        cachingServices.purge(Params(newName))
+        cachingServices.purge(ManyParams("roles"))
+        true
+      } else false
+
+    override def purgeRoles(roles: Set[String]) {
+      super.purgeRoles(roles)
+      roles foreach(o => cachingServices.purge(Params(o)))
+      cachingServices.purge(ManyParams("roles"))
+    }
   }
 }
 

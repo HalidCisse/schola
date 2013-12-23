@@ -251,7 +251,7 @@ package object oauth2 {
         case _ => Left("Bad Token")
       }
 
-    override def realm: Option[String] = Some("schola")
+    override def realm: Option[String] = Some("/")
   }
 
   object Token {
