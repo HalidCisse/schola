@@ -10,7 +10,7 @@ html(lang='en')
     link(rel='shortcut icon' href={uri("/assets/ico/favicon.png")})
     title Schola - Edit profile
     link(href={uri("/assets/css/bootstrap.css")} rel='stylesheet')
-    link(href={uri("/assets/css/signin.css")} rel='stylesheet')
+    link(href={uri("/assets/css/editprofile.css")} rel='stylesheet')
   body
     .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
       .container
@@ -21,27 +21,154 @@ html(lang='en')
             li.dropdown
               a.dropdown-toggle(href='#' data-toggle='dropdown')
                 span.glyphicon.glyphicon-wrench
-                b.caret
-                ul.dropdown-menu
-                  li
-                    a(href='/ChangePasswd') ChangePasswd
+                span.caret
+              ul.dropdown-menu
+                li
+                  a(href='/ChangePasswd') Change Password
             li
               a(href='/Logout')
-                span.glyphicon.glyphicon-log-out          
+                span.glyphicon.glyphicon-log-out  
     .container
-      form.form-signin(role='form' method='POST')
-        h2.form-signin-heading Please sign in
-        input.form-control(name='username' type='text' placeholder='Email address' required autofocus)
-        input.form-control(name='password' type='password' placeholder='Password' required)
-        label.checkbox
-          input(name='remember_me' type='checkbox' value='remember-me')
-            | Remember me
-        button.btn.btn-lg.btn-primary.btn-block(type='submit') Sign in
+      .page-header
+        h3
+          | Edit your profile                        
+    .container
+      form.form-editprofile(role='form' method='POST')
+        ul#profiles.nav.nav-tabs
+          li.active
+            a(href='#' data-toggle='tab' data-tab='#basic') Basic
+          li
+            a(href='#' data-toggle='tab' data-tab='#addresses') Addresses
+          li
+            a(href='#' data-toggle='tab' data-tab='#contacts') Contacts
+        fieldset
+          #profiles_content.tab-content
+            #basic.tab-pane.active
+              .row
+                .col-xs-6.col-md-3
+                  a.thumbnail(href='#')
+                    img(style='height: 180px; width: 100%; display: block;' src='')              
+                .col-xs-12.col-md-6
+                  #name.form-group
+                    input.form-control(type='file' name='f' id='f' style='display:none;')
+                    input.form-control(type='text' name='firstname' placeholder='First name' required) &nbsp; &nbsp;
+                    input.form-control(type='text' name='lastname' placeholder='Last name' required)
+              .form-group
+                input.form-control(type='text' name='email' placeholder='Enter email' required autofocus)
+              .form-group
+                input.form-control(type='password' name='old_password' placeholder='Enter current password' required)
+              .form-group
+                input.form-control(type='password' name='new_password' placeholder='New Password' required)
+              .form-group
+                input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password' required)                  
+              #gender.form-group
+                label Gender
+                label.radio-inline
+                  input(type='radio' name='gender' value='Male' checked)
+                  | Male
+                label.radio-inline
+                  input(type='radio' name='gender' value='Female')
+                  | Female              
+            #addresses.tab-pane
+              .container
+                .page-header
+                  h4
+                    | Work
+                .form-group
+                  select#work-country.form-control(name='workAddress[country]' placeholder='Select country' selected='' required autofocus)
+                .form-group
+                  input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City' required)
+                .form-group
+                  textarea.form-control(name='workAddress[addressLine]' placeholder='Address' required)
+              .container
+                .page-header
+                  h4
+                    | Home
+                .form-group
+                  select#home-country.form-control(name='homeAddress[country]' placeholder='Select country' selected='' required)
+                .form-group
+                  input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City' required)
+                .form-group
+                  textarea.form-control(name='homeAddress[addressLine]' placeholder='Address' required)              
+            #contacts.tab-pane 
+              .container
+                .page-header
+                  h4
+                    | Mobile
+                .form-group
+                  input.form-control(type='text' name='contacts.0.number' placeholder='Enter mobile number')
+
+              .container    
+                .page-header
+                  h4
+                    | Work
+                .form-group
+                  input.form-control(type='text' name='contacts.1.phone' placeholder='Enter phone number')
+                .form-group
+                  input.form-control(type='text' name='contacts.1.fax' placeholder='Fax')
+                .form-group
+                  input.form-control(type='text' name='contacts.1.email' placeholder='Email')             
+
+              .container
+                .page-header
+                  h4
+                    | Home
+                .form-group
+                  input.form-control(type='text' name='contacts.2.phone' placeholder='Enter phone number')
+                .form-group
+                  input.form-control(type='text' name='contacts.2.fax' placeholder='Fax')
+                .form-group
+                  input.form-control(type='text' name='contacts.2.email' placeholder='Email')              
+            br
+            button.btn.btn-lg.btn-default(type='submit') Save
+            |&nbsp;
+            a.btn.btn-lg.btn-primary(href='/') Cancel            
     script(src={uri("/assets/javascripts/countries.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/bootstrap.js")})
+    script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
     :javascript
-      jquery(function($){
+      jQuery(function($){
           // construct countries list with selected country
           // Set up cities auto-complete
+          
+
+          $('#profiles a').click(function (e) {
+            var tab = $(this).attr('data-tab')
+            e.preventDefault();
+            $("#profiles_content .tab-pane").removeClass('active');
+            $(tab).addClass('active');
+          });
+
+          var options = '';
+          for(var i in countries) {
+            options += '<option value="' + countries[i]['code'] + '"">' + countries[i]['name'] + '</option>';
+          }
+
+          $('#addresses select').each(function(){
+              $(this).html(options);
+            });
+
+          $('#work-city').typeahead({
+              source: function(q, process) {
+                var filter = $("#work-country").val();
+                filter = filter ? ("&filter=" + filter) : '';
+
+                var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
+                
+                $.getJSON(url, process)
+              }
+            });
+
+          $('#home-city').typeahead({
+              source: function(q, process) {
+                var filter = $("#home-country").val();
+                filter = filter ? ("&filter=" + filter) : '';
+
+                var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
+                
+                $.getJSON(url, process)
+              }
+            });          
+
         })

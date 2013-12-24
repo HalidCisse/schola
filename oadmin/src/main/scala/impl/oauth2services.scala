@@ -222,7 +222,6 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     }
 
     def getRefreshToken(refreshToken: String) = {
-      import Database.dynamicSession
 
       val q = for {
         (t, c) <- OAuthTokens leftJoin OAuthClients on (_.clientId is _.id) if t.refreshToken is refreshToken
@@ -240,7 +239,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           t.lastAccessTime,
           t.scopes)
 
-      val result = db.withDynSession {
+      val result = db.withSession { implicit session =>
         q.firstOption
       }
 

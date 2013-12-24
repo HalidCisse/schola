@@ -68,6 +68,20 @@ class Plans(val factory: HandlerFactory) {
 
       // --------------------------------------------------------------------------------------------------------------
 
+      def Logout[B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], s: Façade.oauthService.SessionLike, userAgent: String) {
+        withMac(s, "GET", "/api/v1/logout", userAgent) {
+          auth =>
+
+            for (_ <- xHttp(
+              api / "logout" <:< auth
+            ).either) {
+
+              req.respond(
+                SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
+            }
+        }
+      }
+
       /*
       *
       *  Get associated session and refresh it if it is expired . . !
@@ -120,17 +134,7 @@ class Plans(val factory: HandlerFactory) {
 
               else
 
-                withMac(s, "GET", "/api/v1/logout", uA) {
-                  auth =>
-
-                    for (_ <- xHttp(
-                      api / "logout" <:< auth OK as.String
-                    ).either) {
-
-                      req.respond(
-                        SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
-                    }
-                }
+                Logout(req, s, userAgent)
 
             }
 
@@ -140,7 +144,7 @@ class Plans(val factory: HandlerFactory) {
         }
       }
 
-      def withMac[T](session: Façade.oauthService.SessionLike, method: String, uri: String, uA: String)(f: Map[String, String] => T) {
+      def withMac[T](session: Façade.oauthService.SessionLike, method: String, uri: String, userAgent: String)(f: Map[String, String] => T) {
 
         def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
@@ -154,14 +158,14 @@ class Plans(val factory: HandlerFactory) {
 
             val auth = Map(
               "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
-              "User-Agent" -> uA
+              "User-Agent" -> userAgent
             )
 
             f(auth)
         })
       }
 
-      def withSession[T](username: String, passwd: String, uA: String)(fn: Either[Throwable, Façade.oauthService.SessionLike] => T) {
+      def withSession[T](username: String, passwd: String, userAgent: String)(fn: Either[Throwable, Façade.oauthService.SessionLike] => T) {
 
         for (e <- xHttp(token << Map(
           "grant_type" -> "password",
@@ -169,7 +173,7 @@ class Plans(val factory: HandlerFactory) {
           "client_secret" -> client.secret,
           "username" -> username,
           "password" -> passwd
-        ) <:< Map("User-Agent" -> uA) OK as.json4s.Json).either) {
+        ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
 
           e.fold(
             res => fn(Left(res)),
@@ -270,17 +274,7 @@ class Plans(val factory: HandlerFactory) {
           inSession(req, key, uA) {
             case Some(session) =>
 
-              withMac(session, "GET", "/api/v1/logout", uA) {
-                auth =>
-
-                  for (_ <- xHttp(
-                    api / "logout" <:< auth OK as.String
-                  ).either) {
-
-                    req.respond(
-                      SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
-                  }
-              }
+              Logout(req, session, uA)
 
             case _ =>
 

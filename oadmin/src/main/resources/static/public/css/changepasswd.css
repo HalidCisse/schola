@@ -1,8 +1,9 @@
 body {
   padding-top: 40px;
   padding-bottom: 40px;
-  background-color: #eee;
 }
+
+.page-header{border-bottom:none}
 
 .form-changepasswd {
   max-width: 330px;
