@@ -1,1 +1,46 @@
-h1 Please change your password.
+-@ val sessionKey: String
+!!! 5
+html(lang='en')
+  head
+    meta(charset='utf-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    meta(name='description' content='')
+    meta(name='author' content='Amadou Cisse')
+    link(rel='shortcut icon' href={uri("/assets/ico/favicon.png")})
+    title Schola - Change password
+    link(href={uri("/assets/css/bootstrap.css")} rel='stylesheet')
+    link(href={uri("/assets/css/changepasswd.css")} rel='stylesheet')
+  body
+    .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
+      .container
+        .navbar-header
+          a.navbar-brand(href='/') Schola
+        .collapse.navbar-collapse
+          ul.nav.navbar-nav.navbar-right
+            li.dropdown
+              a.dropdown-toggle(href='#' data-toggle='dropdown')
+                span.glyphicon.glyphicon-wrench
+                b.caret
+                ul.dropdown-menu
+                  li
+                    a(href='/EditProfile') Edit Profile
+            li
+              a(href='/Logout')
+                span.glyphicon.glyphicon-log-out 
+    .container
+      .page-header
+      h2
+        | Change your password
+    .container
+      form.form-changepasswd(role='form')
+        fieldset
+          .form-group
+            input.form-control(type='password' name='old_password' placeholder='Enter current password' required autofocus)
+          .form-group
+            input.form-control(type='password' name='new_passwd' placeholder='New Password' required)
+          .form-group
+            input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password' required)
+          button.btn.btn-lg.btn-default(type='submit') Ok
+          a.btn.btn-lg.btn-primary(href='/') Cancel
+    script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/bootstrap.js")})

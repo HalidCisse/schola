@@ -1,3 +1,4 @@
+-@ val rememberMe: Boolean = false
 !!! 5
 html(lang='en')
   head
@@ -7,15 +8,22 @@ html(lang='en')
     meta(name='author' content='Amadou Cisse')
     link(rel='shortcut icon' href='/assets/ico/favicon.png')
     title Schola - Signin
-    link(href='/assets/css/bootstrap.css' rel='stylesheet')
-    link(href='/assets/css/signin.css' rel='stylesheet')
+    link(href={uri("/assets/css/bootstrap.css")} rel='stylesheet')
+    link(href={uri("/assets/css/signin.css")} rel='stylesheet')
   body
+    .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
+      .container
+        .navbar-header
+          a.navbar-brand(href='/') Schola
     .container
       form.form-signin(role='form' method='POST')
-        h2.form-signin-heading Please sign in
-        input.form-control(name='username' type='text' placeholder='Email address' required='required' autofocus='autofocus')
-        input.form-control(name='password' type='password' placeholder='Password' required='required')
+        h2.form-signin-heading Sign in
+        input.form-control(name='username' type='text' placeholder='Email address' required autofocus)
+        input.form-control(name='password' type='password' placeholder='Password' required)
         label.checkbox
-          input(name='remember_me' type='checkbox' value='remember-me')
-            | Remember me
+          - if(rememberMe)
+            input(name='remember_me' type='checkbox' value='remember-me' checked=true)
+          - else
+            input(name='remember_me' type='checkbox' value='remember-me' checked=false)
+          | Remember me
         button.btn.btn-lg.btn-primary.btn-block(type='submit') Sign in

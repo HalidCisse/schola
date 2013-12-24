@@ -20,7 +20,7 @@ class Plans(val factory: HandlerFactory) {
 
   import unfiltered.filter.request.{MultiPart, MultiPartParams}
 
-  private lazy val xHttp = dispatch.Http // TODO: configure executor service
+  private lazy val xHttp = dispatch.Http // TODO: configure dispatch-reboot executor service
 
   system.registerOnTermination {
     log.info("Stopping http client . . . ")
@@ -51,8 +51,8 @@ class Plans(val factory: HandlerFactory) {
           allCatch.opt {
             (Username.unapply(params).get,
               Passwd.unapply(params).get,
-                NewPasswd.unapply(params),
-                  params("remember_me").nonEmpty)
+              NewPasswd.unapply(params),
+              params("remember_me") nonEmpty)
           }
       }
 
@@ -67,6 +67,78 @@ class Plans(val factory: HandlerFactory) {
       )
 
       // --------------------------------------------------------------------------------------------------------------
+
+      /*
+      *
+      *  Get associated session and refresh it if it is expired . . !
+      *
+      * */
+      def inSession[T, B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], sessionKey: String, userAgent: String)(fn: Option[Façade.oauthService.SessionLike] => T) {
+        val session =
+          Façade.oauthService.getUserSession(
+            Map(
+              "bearerToken" -> sessionKey,
+              "userAgent" -> userAgent)
+          )
+
+        def isExpired(s: Façade.oauthService.SessionLike) = s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
+
+        session match {
+
+          case o@Some(s) =>
+
+            if (isExpired(s)) {
+
+              if(s.refresh.isDefined)
+
+                for (e <- xHttp(token << Map(
+                  "grant_type" -> "refresh_token",
+                  "client_id" -> client.id,
+                  "client_secret" -> client.secret,
+                  "refresh_token" -> s.refresh.get
+                ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
+
+                  e.fold(
+                    _ => fn(None),
+                    info => {
+
+                      def findVal(field: String) =
+                        info findField {
+                          case org.json4s.JField(`field`, _) => true
+                          case _ => false
+                        } collect {
+                          case org.json4s.JField(_, org.json4s.JString(st)) => st
+                        }
+
+                      val key = findVal("access_token").get
+                      val session = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> userAgent))
+
+                      fn(session)
+                    }
+                  )
+                }
+
+              else
+
+                withMac(s, "GET", "/api/v1/logout", uA) {
+                  auth =>
+
+                    for (_ <- xHttp(
+                      api / "logout" <:< auth OK as.String
+                    ).either) {
+
+                      req.respond(
+                        SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
+                    }
+                }
+
+            }
+
+            else fn(o)
+
+          case _ => fn(None)
+        }
+      }
 
       def withMac[T](session: Façade.oauthService.SessionLike, method: String, uri: String, uA: String)(f: Map[String, String] => T) {
 
@@ -122,35 +194,52 @@ class Plans(val factory: HandlerFactory) {
 
       req match {
 
+        case GET(ContextPath(_, "/session")) & SessionKey(key) & Jsonp.Optional(cb) =>
+
+          inSession(req, key, uA) {
+            session =>
+
+              req.respond(session map {
+                s =>
+                  JsonContent ~> ResponseString(
+                    cb wrap conversions.json.tojson(session))
+              } getOrElse SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/Login"))
+          }
+
         case ContextPath(_, "/") & SessionKey(key) =>
 
-          val session =
-            Façade.oauthService.getUserSession(
-              Map(
-                "bearerToken" -> key,
-                "userAgent" -> uA)
-            )
+          inSession(req, key, uA) {
+            session =>
 
-          req.respond(
-            session map {
-              s =>
-                if (s.user.passwordValid) utils.Scalate(req, "index.jade", "session" -> s)
-                else Redirect("ChangePasswd")
-            } getOrElse SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/Login")
-          )
+              req.respond(session map {
+                s =>
+                  if (s.user.passwordValid) utils.Scalate(req, "index.jade", "session" -> s)
+                  else Redirect("/ChangePasswd")
+              } getOrElse SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/Login"))
+          }
 
-        case GET(ContextPath(_, "/ChangePasswd")) & SessionKey(_) =>
+        case GET(ContextPath(_, "/EditProfile")) & SessionKey(key) =>
 
-          req.respond(utils.Scalate(req, "changepasswd.jade"))
+          inSession(req, key, uA) {
+            session =>
+
+              req.respond(session map {
+                s =>
+                  utils.Scalate(req, "editprofile.jade", "sessionKey" -> key, "profile" -> s.user)
+              } getOrElse SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/Login"))
+          }
+
+        case POST(ContextPath(_, "/EditProfile")) & SessionKey(key) =>
+
+          req.respond(Redirect("/"))
+
+        case GET(ContextPath(_, "/ChangePasswd")) & SessionKey(key) =>
+
+          req.respond(utils.Scalate(req, "changepasswd.jade", "sessionKey" -> key))
 
         case POST(ContextPath(_, "/ChangePasswd")) & SessionKey(key) & Params(UserPasswd(_, passwd, Some(newPasswd), _)) =>
 
-          Façade.oauthService.getUserSession(
-            Map(
-              "bearerToken" -> key,
-              "userAgent" -> uA)
-          ) match {
-
+          inSession(req, key, uA) {
             case Some(session) =>
 
               import conversions.json.tojson
@@ -178,12 +267,7 @@ class Plans(val factory: HandlerFactory) {
 
         case GET(ContextPath(_, "/Logout")) & SessionKey(key) =>
 
-          Façade.oauthService.getUserSession(
-            Map(
-              "bearerToken" -> key,
-              "userAgent" -> uA)
-          ) match {
-
+          inSession(req, key, uA) {
             case Some(session) =>
 
               withMac(session, "GET", "/api/v1/logout", uA) {
@@ -202,22 +286,21 @@ class Plans(val factory: HandlerFactory) {
 
               req.respond(
                 SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
-
           }
 
         case SessionKey(_) =>
 
           req.respond(Redirect("/"))
 
-        case GET(ContextPath(_, "/Login")) =>
+        case GET(ContextPath(_, "/Login")) & Cookies(cookies) =>
 
-          req.respond(utils.Scalate(req, "login.jade"))
+          req.respond(utils.Scalate(req, "login.jade", "rememberMe" -> cookies("_session_rememberMe").isDefined))
 
         case POST(ContextPath(_, "/Login")) & Params(UserPasswd(username, passwd, _, rememberMe)) => // TODO: recherche more on remember-me
 
           withSession(username, passwd, uA) {
             case Left(_) =>
-              req.respond(utils.Scalate(req, "login.jade", "error" -> true))
+              req.respond(utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe))
 
             case Right(session) =>
 
@@ -230,15 +313,16 @@ class Plans(val factory: HandlerFactory) {
                     ).either
                   } {
                     req.respond(e.fold(
-                      _ => utils.Scalate(req, "login.jade", "error" -> true),
+                      _ => utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe),
                       _ =>
                         SetCookies(
                           unfiltered.Cookie(
                             "_session_key",
                             session.key,
-                            maxAge = if(rememberMe) session.refreshExpiresIn map(_.toInt) else None,
+                            maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
                             httpOnly = true
-                          )) ~> (if (session.user.passwordValid) Redirect("/") else Redirect("/ChangePasswd"))
+                          ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else Some(0))
+                        ) ~> (if (session.user.passwordValid) Redirect("/") else Redirect("/ChangePasswd"))
 
                     ))
                   }
@@ -254,9 +338,9 @@ class Plans(val factory: HandlerFactory) {
 
       object Name extends Params.Extract("name", Params.first ~> Params.nonempty ~> Params.trimmed)
 
-      object Roles extends Params.Extract("roles[]", new Params.ParamMapper(f => Some(Set(f: _*))))
+      object Roles extends Params.Extract("roles", new Params.ParamMapper(f => Some(Set(f: _*))))
 
-      object Permissions extends Params.Extract("permissions[]", new Params.ParamMapper(f => Some(Set(f: _*))))
+      object Permissions extends Params.Extract("permissions", new Params.ParamMapper(f => Some(Set(f: _*))))
 
       type Intent = async.Plan.Intent
 

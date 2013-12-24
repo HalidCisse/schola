@@ -35,11 +35,13 @@ object main extends App {
       .filter(Plans.routes)
   }
 
-  try Façade.drop() catch {
-    case _: Throwable =>
-  }
+//  Façade.test()
 
-  Façade.init(SuperUser.id.get)
+//  try Façade.drop() catch {
+//    case _: Throwable =>
+//  }
+//
+//  Façade.init(SuperUser.id.get)
   server.start()
 
   log.info("server is runing . . .")
@@ -54,5 +56,5 @@ object main extends App {
   server.stop()
   server.destroy()
 
-  Façade.drop()
+//  Façade.drop()
 }

@@ -39,6 +39,7 @@ class roles
       type: 'PUT',
       url: "/api/v1/role/_/permissions",
       dataType: 'json',
+      traditional: true,
       data: {name: roleName, permissions: permissions}
     )
 
@@ -46,6 +47,7 @@ class roles
     $.ajax(
       type: 'DELETE',
       url: "/api/v1/role/_/permissions?" + $.param({name: roleName, permissions: permissions}),
+      traditional: true,
       dataType: 'json'
     )
 

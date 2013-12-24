@@ -592,9 +592,9 @@ with HandlerFactory {
         f
       }
 
-    val cacheSystem = new impl.CacheSystem(60 * 30) // TODO: make `ttl` a config value
+    val cacheSystem = new impl.CacheSystem(60 * 30) // TODO: make `max-ttl` a config value
 
-    protected lazy val db = {
+    protected val db = {
       import com.mchange.v2.c3p0.ComboPooledDataSource
 
       val ds = new ComboPooledDataSource
@@ -691,11 +691,11 @@ with HandlerFactory {
     def test() {
       val o = accessControlService
 
-      val userId = SuperUser.id
+      val userId = SuperUser.id.get
 
-      def initialize() = init(userId.get)
+//      def initialize() = init(userId)
 
-      initialize()
+//      initialize()
 
       println(o.getRoles)
       println(o.getUserRoles(userId.toString))

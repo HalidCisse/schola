@@ -1,3 +1,4 @@
+-@ import val session: schola.oadmin.domain.Session
 !!! 5
 html(lang="en")
   head
@@ -6,35 +7,45 @@ html(lang="en")
     meta(name='author' content='Amadou Cisse')
     meta(name='viewport' content='width=device-width, initial-scale=1.0')
     title Schola
-    link(href='/assets/css/bootstrap.css' rel='stylesheet' type='text/css' charset='utf-8')
-    link(rel='stylesheet' href='/assets/application.css' type='text/css' charset='utf-8')
+    link(href={uri("/assets/css/bootstrap.css")} rel='stylesheet' type='text/css' charset='utf-8')
+    link(rel='stylesheet' href={uri("/assets/application.css")} type='text/css' charset='utf-8')
   body
     .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
       .container
         .navbar-header
-          button.navbar-toggle(type='button' data-toggle='collapse' data-target='.navbar-collapse')
-            span.sr-only Toggle navigation
-            span.icon-bar
-            span.icon-bar
-            span.icon-bar
-          a.navbar-brand(href='#') Schola
+          a.navbar-brand(href='/') Schola
         .collapse.navbar-collapse
-          ul.nav.navbar-nav
+          form#search.navbar-form.navbar-left(role='search')
+            .input-group
+              input.form-control.input-sm(type='text' placeholder='Search users, roles or permissions')
+              span.input-group-btn
+                button.btn.btn-primary.btn-search.btn-sm(type='submit')
+                  span.glyphicon.glyphicon-search
+          ul.nav.navbar-nav.navbar-right
+            li.dropdown
+              a.dropdown-toggle(href='#' data-toggle='dropdown')
+                span.glyphicon.glyphicon-wrench
+                b.caret
+                ul.dropdown-menu
+                  li
+                    a(href='/EditProfile') Edit Profile
+                  li
+                    a(href='/ChangePasswd') Change Password
+                  li.divider
+                  li
+                    a(href='#/Sessions') Sessions
+            li
+              a(href='/Logout')
+                span.glyphicon.glyphicon-log-out          
     .container
-      .starter-template
-        h1 Bootstrap starter template
-        p.lead
-          | Use this document as a way to quickly start any new project.
-          br
-          | All you get is this text and a mostly barebones HTML document.
-    script(src='/assets/application.js' type='text/javascript' charset='utf-8')
-    script(src='/assets/javascripts/crypto/hmac-sha1.js' type='text/javascript' charset='utf-8')
-    script(src='/assets/javascripts/crypto/enc-base64-min.js' type='text/javascript' charset='utf-8')
-    script(src='/assets/javascripts/crypto/mac.js' type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/application.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/crypto/hmac-sha1.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/crypto/enc-base64-min.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/crypto/mac.js")} type='text/javascript' charset='utf-8')
     :javascript
       var jQuery  = require("jqueryify");
-    script(src='/assets/javascripts/jquery.upload.js')
-    script(src='/assets/javascripts/bootstrap.js')
+    script(src={uri("/assets/javascripts/jquery.upload.js")})
+    script(src={uri("/assets/javascripts/bootstrap.js")})
     :javascript
 
       var exports = this;

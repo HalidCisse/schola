@@ -98,6 +98,7 @@ class users
       type:"PUT",
       url: "/api/v1/user/#{id}/roles",
       dataType: 'json',
+      traditional: true,
       data: {roles: roles}
     )    
 
@@ -105,6 +106,7 @@ class users
     $.ajax(
       type:"DELETE",
       url: "/api/v1/user/#{id}/roles?" + $.param({roles: roles}),
+      traditional: true,
       dataType: 'json'
     )    
 

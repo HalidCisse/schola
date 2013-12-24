@@ -320,6 +320,7 @@ function grantRoles(id, roles) {
     url: '/api/v1/user/' + id + '/roles',
     dataType: 'json',
     data: {roles: roles},
+    traditional: true,
     success: function(msg) {
       console.log(JSON.stringify(msg))
     }
@@ -331,6 +332,7 @@ function revokeRoles(id, roles) {
     type:"DELETE",
     url: '/api/v1/user/' + id + '/roles?' + $.param({roles: roles}),
     dataType: 'json',
+    traditional: true,
     success: function(msg) {
       console.log(JSON.stringify(msg))
     }
@@ -403,6 +405,7 @@ function grantPermissions(role, permissions) {
     url: '/api/v1/role/permissions',
     dataType: 'json',
     data: {role: role, permissions: permissions},
+    traditional: true,
     success: function(msg) {
       console.log(JSON.stringify(msg))
     }
@@ -414,15 +417,30 @@ function revokePermissions(role, permissions) {
     type:"DELETE",
     url: '/api/v1/role/permissions?' + $.param({role: role, permissions: permissions}),
     dataType: 'json',
+    traditional: true,
     success: function(msg) {
       console.log(JSON.stringify(msg))
     }
   });       
 }
 
+function getClientSession() {
+  return $.ajax({
+    type:"GET",
+    url: "/session",
+    dataType: 'json',
+    beforeSend: function(xhr, req) {},
+    success: function(msg) {
+      window.session = msg;
+      console.log(JSON.stringify(msg))
+    }
+  });
+}
+
 // -------------------------------------
 
-login().done( function(){
+
+getClientSession().done( function(){
   addUser("cisse.amadou.9@gmail.com", "amsayk", 'Ousman', 'Cisse', 'Male', {
           city: 'RABAT',
           country: 'Morocco',

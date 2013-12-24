@@ -250,8 +250,10 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           def expired = refreshExpires exists (_ + createdAt < System.currentTimeMillis)
 
           if(expired) {
-            if(!((OAuthTokens where(_.accessToken is accessToken) delete) == 1)) throw new Exception("getRefreshToken: can't delete expired refresh token")
-            None
+            db withTransaction { implicit session =>
+              if(!((OAuthTokens where(_.accessToken is accessToken) delete) == 1)) throw new Exception("getRefreshToken: can't delete expired refresh token")
+              None
+            }
           }
           else Some(OAuthToken(accessToken, clientId, redirectUri, userId, sRefreshToken, macKey, uA, expires, refreshExpires, createdAt, lastAccessTime, scopes = sScopes))
       }
@@ -441,7 +443,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         q.firstOption
       }
 
-      result map {
+      result collect {
         case (id, sPasswd) if passwords verify(password, sPasswd) => id.toString
       }
     }
