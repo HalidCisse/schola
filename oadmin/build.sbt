@@ -16,7 +16,7 @@ ideaExcludeFolders += ".idea"
 ideaExcludeFolders += ".idea_modules"
 
 libraryDependencies ++= List(
-  "com.typesafe.slick" %% "slick" % "2.0.0-M3",
+  "com.typesafe.slick" %% "slick" % "2.0.0-RC1",
   "com.typesafe" % "config" % "1.0.2",
   "net.databinder" %% "unfiltered-json4s" % "0.7.1",
   "c3p0" % "c3p0" % "0.9.1.2",
