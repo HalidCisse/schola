@@ -61,7 +61,6 @@ package domain {
   case class AvatarInfo(contentType: String, created: Long = System.currentTimeMillis)
 
   case class User(
-     id: Option[java.util.UUID],
      email: String,
      password: Option[String],
      firstname: String,
@@ -76,7 +75,8 @@ package domain {
      contacts: Set[ContactInfo] = Set(),
      avatar: Option[AvatarInfo] = None,
      _deleted: Boolean = false,
-     passwordValid: Boolean = false)
+     passwordValid: Boolean = false,
+     id: Option[java.util.UUID] = None)
 
   case class Role(name: String, parent: Option[String], createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID], public: Boolean = true)
 
@@ -127,12 +127,12 @@ package domain {
   object U {
     val SuperUser =
       User(
-        Some(java.util.UUID.fromString(config.getString("super-user-id"))),
         config.getString("super-user-email"),
         Some(config.getString("super-user-password")),
         config.getString("super-user-firstname"),
         config.getString("super-user-lastname"), createdAt = 0L, createdBy = None,
-        passwordValid = true)
+        passwordValid = true,
+        id = Some(java.util.UUID.fromString(config.getString("super-user-id"))))
 
     val all = Set(SuperUser)
   }

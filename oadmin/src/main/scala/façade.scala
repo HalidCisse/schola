@@ -613,10 +613,39 @@ with HandlerFactory {
       implicit session =>
         import scala.slick.jdbc.{StaticQuery=>T}
 
-        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
-        ddl.drop
+//        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
+//        ddl.drop
 
-        T.updateNA("DROP EXTENSION \"uuid-ossp\";")
+//        T.updateNA("DROP EXTENSION \"uuid-ossp\";")
+
+        T.updateNA(
+          """
+            | alter table "oauth_tokens" drop constraint "TOKEN_CLIENT_FK";
+            | alter table "oauth_tokens" drop constraint "TOKEN_USER_FK";
+            | alter table "users" drop constraint "USER_CREATOR_FK";
+            | alter table "users" drop constraint "USER_MODIFIER_FK";
+            | alter table "roles" drop constraint "ROLE_PARENT_ROLE_FK";
+            | alter table "roles" drop constraint "ROLE_USER_FK";
+            | alter table "permissions" drop constraint "PERMISSION_CLIENT_FK";
+            | alter table "users_roles" drop constraint "USER_ROLE_USER_FK";
+            | alter table "users_roles" drop constraint "USER_ROLE_ROLE_FK";
+            | alter table "users_roles" drop constraint "USER_ROLE_USER_GRANTOR_FK";
+            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_GRANTOR_FK";
+            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_ROLE_FK";
+            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PERMISSION_FK";
+            | drop table "oauth_tokens";
+            | alter table "oauth_clients" drop constraint "CLIENT_PK";
+            | drop table "oauth_clients";
+            | drop table "users";
+            | drop table "roles";
+            | drop table "permissions";
+            | alter table "users_roles" drop constraint "USER_ROLE_PK";
+            | drop table "users_roles";
+            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PK";
+            | drop table "roles_permissions";
+            | DROP EXTENSION "uuid-ossp";
+          """.stripMargin
+        ).execute()
     }
 
     def init(userId: java.util.UUID) = db withTransaction {
@@ -624,68 +653,113 @@ with HandlerFactory {
 
         import scala.slick.jdbc.{StaticQuery=>T}
 
-        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
+//        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
         //    ddl.createStatements foreach (stmt => println(stmt+";"))
-        ddl.create
+//        ddl.create
 
-        T.updateNA("CREATE EXTENSION \"uuid-ossp\";")
+//        T.updateNA("CREATE EXTENSION \"uuid-ossp\";")
 
-        // Add a client - oadmin:oadmin
-        val _1 = (OAuthClients ++= List(
-          OAuthClient("oadmin", "oadmin", "http://localhost:3880/admin"),
-          OAuthClient("schola", "schola", "http://localhost:3880/schola")
-        )) == Some(2)
+        try {
+          T.updateNA(
+            """
+              | CREATE EXTENSION "uuid-ossp";
+              | create table "oauth_tokens" ("access_token" VARCHAR(254) NOT NULL PRIMARY KEY,"client_id" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL,"user_id" uuid NOT NULL,"refresh_token" VARCHAR(254),"secret" VARCHAR(254) NOT NULL,"user_agent" text NOT NULL,"expires_in" BIGINT,"refresh_expires_in" BIGINT,"created_at" BIGINT NOT NULL,"last_access_time" BIGINT NOT NULL,"token_type" VARCHAR(254) DEFAULT 'mac' NOT NULL,"scopes" VARCHAR(254) DEFAULT '[]' NOT NULL);
+              | create table "oauth_clients" ("client_id" VARCHAR(254) NOT NULL,"client_secret" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL);
+              | alter table "oauth_clients" add constraint "CLIENT_PK" primary key("client_id","client_secret");
+              | create unique index "CLIENT_CLIENT_ID_INDEX" on "oauth_clients" ("client_id");
+              | create table "users" ("email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"firstname" VARCHAR(254) NOT NULL,"lastname" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"password_valid" BOOLEAN DEFAULT false NOT NULL,"id" uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY);
+              | create unique index "USER_USERNAME_INDEX" on "users" ("email");
+              | create index "USER_USERNAME_PASSWORD_INDEX" on "users" ("email","password");
+              | create table "roles" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"parent" VARCHAR(254),"created_at" BIGINT NOT NULL,"created_by" uuid,"public" BOOLEAN DEFAULT true NOT NULL);
+              | create unique index "ROLE_NAME_INDEX" on "roles" ("name");
+              | create table "permissions" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"client_id" VARCHAR(254) NOT NULL);
+              | create unique index "PERMISSION_NAME_INDEX" on "permissions" ("name");
+              | create table "users_roles" ("user_id" uuid NOT NULL,"role" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
+              | alter table "users_roles" add constraint "USER_ROLE_PK" primary key("user_id","role");
+              | create table "roles_permissions" ("role" VARCHAR(254) NOT NULL,"permission" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
+              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PK" primary key("role","permission");
+              | alter table "oauth_tokens" add constraint "TOKEN_CLIENT_FK" foreign key("client_id") references "oauth_clients"("client_id") on update CASCADE on delete NO ACTION;
+              | alter table "oauth_tokens" add constraint "TOKEN_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete CASCADE;
+              | alter table "users" add constraint "USER_CREATOR_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
+              | alter table "users" add constraint "USER_MODIFIER_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
+              | alter table "roles" add constraint "ROLE_PARENT_ROLE_FK" foreign key("parent") references "roles"("name") on update CASCADE on delete NO ACTION;
+              | alter table "roles" add constraint "ROLE_USER_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
+              | alter table "permissions" add constraint "PERMISSION_CLIENT_FK" foreign key("client_id") references "oauth_clients"("client_id") on update CASCADE on delete NO ACTION;
+              | alter table "users_roles" add constraint "USER_ROLE_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete RESTRICT;
+              | alter table "users_roles" add constraint "USER_ROLE_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete CASCADE;
+              | alter table "users_roles" add constraint "USER_ROLE_USER_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
+              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
+              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete RESTRICT;
+              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PERMISSION_FK" foreign key("permission") references "permissions"("name") on update NO ACTION on delete NO ACTION;
+            """.stripMargin
+          ).execute()
 
-        //Add a user
-        val _2 = (Users += SuperUser copy (password = SuperUser.password map passwords.crypt)) == 1
+          // Add a client - oadmin:oadmin
+          val _1 = (OAuthClients ++= List(
+            OAuthClient("oadmin", "oadmin", "http://localhost:3880/admin"),
+            OAuthClient("schola", "schola", "http://localhost:3880/schola")
+          )) == Some(2)
 
-        val _3 = (Roles ++= List(
-          SuperUserR,
-          AdministratorR,
-          Role("Role One", Some(AdministratorR.name), System.currentTimeMillis, None),
-          Role("Role Two", Some(AdministratorR.name), System.currentTimeMillis, None),
-          Role("Role Three", Some(AdministratorR.name), System.currentTimeMillis, Some(userId)),
-          Role("Role Four", Some(SuperUserR.name), System.currentTimeMillis, None),
-          Role("Role X", Some("Role One"), System.currentTimeMillis, Some(userId))
-        )) == Some(7)
+          //Add a user
+          val _2 = (Users += SuperUser copy (password = SuperUser.password map passwords.crypt)) == 1
 
-        /*    val _31 = (Roles += Role("Role One", None, System.currentTimeMillis, None)) == 1
-            val _32 = (Roles += Role("Role Two", None, System.currentTimeMillis, None)) == 1
-            val _33 = (Roles += Role("Role Three", None, System.currentTimeMillis, None)) == 1
-            val _34 = (Roles += Role("Role Four", None, System.currentTimeMillis, None)) == 1
-            val _35 = (Roles += Role("Role X", Some("Role One"), System.currentTimeMillis, None)) == 1
+          val _3 = (Roles ++= List(
+            SuperUserR,
+            AdministratorR,
+            Role("Role One", Some(AdministratorR.name), System.currentTimeMillis, None),
+            Role("Role Two", Some(AdministratorR.name), System.currentTimeMillis, None),
+            Role("Role Three", Some(AdministratorR.name), System.currentTimeMillis, Some(userId)),
+            Role("Role Four", Some(SuperUserR.name), System.currentTimeMillis, None),
+            Role("Role X", Some("Role One"), System.currentTimeMillis, Some(userId))
+          )) == Some(7)
 
-            val _3 = _31 && _32 && _33 && _34 && _35*/
+          /*    val _31 = (Roles += Role("Role One", None, System.currentTimeMillis, None)) == 1
+              val _32 = (Roles += Role("Role Two", None, System.currentTimeMillis, None)) == 1
+              val _33 = (Roles += Role("Role Three", None, System.currentTimeMillis, None)) == 1
+              val _34 = (Roles += Role("Role Four", None, System.currentTimeMillis, None)) == 1
+              val _35 = (Roles += Role("Role X", Some("Role One"), System.currentTimeMillis, None)) == 1
 
-        val _4 = (Permissions ++= List(
-          Permission("P1", "oadmin"),
-          Permission("P2", "oadmin"),
-          Permission("P3", "oadmin"),
-          Permission("P4", "oadmin"),
+              val _3 = _31 && _32 && _33 && _34 && _35*/
 
-          Permission("P5", "schola"),
-          Permission("P6", "schola"),
-          Permission("P7", "schola"),
-          Permission("P8", "schola"),
-          Permission("P9", "schola"),
-          Permission("P10", "schola")
-        )) == Some(10)
+          val _4 = (Permissions ++= List(
+            Permission("P1", "oadmin"),
+            Permission("P2", "oadmin"),
+            Permission("P3", "oadmin"),
+            Permission("P4", "oadmin"),
 
-        val _5 = (RolesPermissions ++= List(
-          RolePermission("Role One", "P1", grantedBy = None),
-          RolePermission("Role One", "P2", grantedBy = Some(userId)),
-          RolePermission("Role One", "P3", grantedBy = None),
-          RolePermission("Role One", "P4", grantedBy = None),
-          RolePermission("Role One", "P5", grantedBy = Some(userId))
-        )) == Some(5)
+            Permission("P5", "schola"),
+            Permission("P6", "schola"),
+            Permission("P7", "schola"),
+            Permission("P8", "schola"),
+            Permission("P9", "schola"),
+            Permission("P10", "schola")
+          )) == Some(10)
 
-        val _6 = (UsersRoles ++= List(
-          UserRole(userId, "Role One", grantedBy = None),
-          UserRole(userId, "Role Three", grantedBy = Some(userId)),
-          UserRole(userId, "Role Two", grantedBy = None)
-        )) == Some(3)
+          val _5 = (RolesPermissions ++= List(
+            RolePermission("Role One", "P1", grantedBy = None),
+            RolePermission("Role One", "P2", grantedBy = Some(userId)),
+            RolePermission("Role One", "P3", grantedBy = None),
+            RolePermission("Role One", "P4", grantedBy = None),
+            RolePermission("Role One", "P5", grantedBy = Some(userId))
+          )) == Some(5)
 
-        _1 && _2 && _3 && _4 && _5 && _6
+          val _6 = (UsersRoles ++= List(
+            UserRole(userId, "Role One", grantedBy = None),
+            UserRole(userId, "Role Three", grantedBy = Some(userId)),
+            UserRole(userId, "Role Two", grantedBy = None)
+          )) == Some(3)
+
+          _1 && _2 && _3 && _4 && _5 && _6
+        }
+        catch {
+          case e: java.sql.SQLException =>
+            var cur = e
+            while(cur ne null){
+              cur.printStackTrace()
+              cur = cur.getNextException
+            }
+            false
+        }
     }
 
     def test() {

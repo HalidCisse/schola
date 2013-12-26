@@ -227,7 +227,7 @@ package object oauth2 {
 
             case Some(
               domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
-                domain.User(Some(userId), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _), userAgent, _, _, scopes)
+                domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId)), userAgent, _, _, scopes)
             ) if userAgent == uA =>
 
               expiresIn match {

@@ -73,8 +73,6 @@ trait OAuthServicesComponent {
 
     def purgeUsers(users: Set[String])
 
-    def getToken(bearerToken: String): Option[TokenLike]
-
     def getTokenSecret(accessToken: String): Option[String]
 
     def getRefreshToken(refreshToken: String): Option[TokenLike]
@@ -119,8 +117,6 @@ trait OAuthServicesRepoComponent {
     def getPurgedUsers: List[UserLike]
 
     def purgeUsers(users: Set[String])
-
-    def getToken(bearerToken: String): Option[TokenLike]
 
     def getTokenSecret(accessToken: String): Option[String]
 

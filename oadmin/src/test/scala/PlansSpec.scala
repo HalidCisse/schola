@@ -45,7 +45,7 @@ with unfiltered.spec.jetty.Served {
         tokenSerializer +
         new conversions.json.UUIDSerializer
 
-    implicit def tojson[T](v: T) = Serialization.write(v.asInstanceOf[AnyRef])
+    implicit def tojson[T<:AnyRef](v: T) = Serialization.write(v)
   }
 
   val log = Logger("oadmin.tests.PlansSpec")
@@ -173,7 +173,7 @@ with unfiltered.spec.jetty.Served {
   "user plans" should {
 
     "save user" in {
-      val toSave = User(None, "cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = true)
+      val toSave = User("cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = true)
 
       withSession() {
         case Right(session) =>
@@ -214,7 +214,7 @@ with unfiltered.spec.jetty.Served {
     }
 
     "force password change on non-validation" in {
-      val toSave = User(None, "cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = false)
+      val toSave = User("cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = false)
 
       withSession() {
         case Right(session) =>
