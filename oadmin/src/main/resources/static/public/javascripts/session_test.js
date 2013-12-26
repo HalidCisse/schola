@@ -206,7 +206,7 @@ function userExists(email) {
     type:"GET",
     url: "/api/v1/userexists",
     dataType: 'json',
-    data: {email: email},
+    data: {username: email},
     success: function(msg) {
       console.log(JSON.stringify(msg))
     }
@@ -451,8 +451,21 @@ getClientSession().done( function(){
           country: 'Morocco',
           zipCode: 10032,
           addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-        }, [], true)
+        }, [], true);
+  
+  addUser("amadou.cisse@epsilon.ma", "amsayk", 'Ousman', 'Cisse', 'Male', {
+            city: 'RABAT',
+            country: 'Morocco',
+            zipCode: 10032,
+            addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+          }, {
+            city: 'RABAT',
+            country: 'Morocco',
+            zipCode: 10032,
+            addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+          }, [], true)
 })
+
 
 // addContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
 

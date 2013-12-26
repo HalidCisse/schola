@@ -35,15 +35,16 @@ package object schema {
 
     def * = (accessToken, clientId, redirectUri, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, scopes) <>(OAuthToken.tupled, OAuthToken.unapply)
 
-    def user = foreignKey("TOKEN_USER_FK", userId, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.Cascade)
+    def user = foreignKey("TOKEN_USER_FK", userId, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Cascade)
 
-    def client = foreignKey("TOKEN_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade)
+    def client = foreignKey("TOKEN_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.model.ForeignKeyAction.Cascade)
   }
 
   val OAuthTokens = TableQuery[OAuthTokens]
 
-  implicit class OAuthTokensExtensions(val OAuthTokens: Query[OAuthTokens, OAuthToken]) extends AnyVal{
-    def forInsert = OAuthTokens.map { t => (t.accessToken, t.clientId, t.redirectUri, t.userId, t.refreshToken, t.macKey, t.uA, t.expiresIn, t.refreshExpiresIn, t.createdAt, t.lastAccessTime, t.tokenType, t.scopes) }
+  implicit class OAuthTokensExtensions(OAuthTokens: Query[OAuthTokens, OAuthToken]){
+    val forInsert =
+      OAuthTokens.map { t => (t.accessToken, t.clientId, t.redirectUri, t.userId, t.refreshToken, t.macKey, t.uA, t.expiresIn, t.refreshExpiresIn, t.createdAt, t.lastAccessTime, t.tokenType, t.scopes) }
   }
 
   class OAuthClients(tag: Tag) extends Table[OAuthClient](tag, "oauth_clients") {
@@ -95,28 +96,34 @@ package object schema {
 
     def passwordValid = column[Boolean]("password_valid", O.NotNull, O.Default(false))
 
-    def * = (id ?, email, password ?, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, _deleted, passwordValid) <>(User.tupled, User.unapply)
+    def * = (email, password?, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, _deleted, passwordValid, id?) <>(User.tupled, User.unapply)
 
     def idx1 = index("USER_USERNAME_INDEX", email, unique = true)
 
     def idx2 = index("USER_USERNAME_PASSWORD_INDEX", (email, password))
 
-    def _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.SetNull)
+    def _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
     
-    def _lastModifiedBy = foreignKey("USER_MODIFIER_FK", createdBy, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.SetNull)
+    def _lastModifiedBy = foreignKey("USER_MODIFIER_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
   }
 
   val Users = TableQuery[Users]
 
-  implicit class UsersExtensions(val users: Query[Users, User]) extends AnyVal{
-    def forInsert = Users.map { u => (u.id, u.email, u.password, u.firstname, u.lastname, u.createdAt, u.createdBy, u.lastModifiedAt, u.lastModifiedBy, u.gender, u.homeAddress, u.workAddress, u.contacts, u.passwordValid) }
-    def forDeletion(id: String) = Users where(_.id is java.util.UUID.fromString(id)) map { _._deleted }
+  private val usersAutoGenId =
+    Users.map(
+      u => (u.email, u.password, u.firstname, u.lastname, u.createdAt, u.createdBy, u.lastModifiedAt, u.lastModifiedBy, u.gender, u.homeAddress, u.workAddress, u.contacts, u.passwordValid)
+    ) returning Users.map(_.id) into { case (u, id) => User(u._1, Some(u._2), u._3, u._4, u._5, u._6, u._7, u._8, u._9, u._10, u._11, u._12, passwordValid = u._13, id = Some(id)) }
 
-    // val autoInc = fname ~ lname returning id into { case (c, i) => Person(c._1, c._2, i) }
+  implicit class UsersExtensions(users: Query[Users, User]){
 
-    // def insert(person: Person)(implicit session: Session): Person = {
-    //   autoInc.insert(person.fname, person.lname)
-    // }
+    def insert(email: String, password: String, firstname: String, lastname: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender.Value = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: Set[domain.ContactInfo] = Set(), passwordValid: Boolean = false)(implicit session: Q.Session): User =
+      usersAutoGenId.insert(email, password, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, passwordValid)
+
+    val forDeletion = {
+      def _innerforDeletion(id: Column[java.util.UUID]) = Users where(_.id is id) map { _._deleted }
+
+      Compiled(_innerforDeletion _)
+    }
   }
 
   class Roles(tag: Tag) extends Table[Role](tag, "roles") {
@@ -134,9 +141,9 @@ package object schema {
 
     def idx = index("ROLE_NAME_INDEX", name, unique = true)
 
-    def _createdBy = foreignKey("ROLE_USER_FK", createdBy, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.SetNull)
+    def _createdBy = foreignKey("ROLE_USER_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
 
-    def _parent = foreignKey("ROLE_PARENT_ROLE_FK", parent, Roles)(_.name, scala.slick.lifted.ForeignKeyAction.Cascade)
+    def _parent = foreignKey("ROLE_PARENT_ROLE_FK", parent, Roles)(_.name, scala.slick.model.ForeignKeyAction.Cascade)
   }
 
   val Roles = TableQuery[Roles]
@@ -146,7 +153,7 @@ package object schema {
 
     def clientId = column[String]("client_id", O.NotNull)
 
-    def client = foreignKey("PERMISSION_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade)
+    def client = foreignKey("PERMISSION_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.model.ForeignKeyAction.Cascade)
 
     def * = (name, clientId) <>(Permission.tupled, Permission.unapply)
 
@@ -166,9 +173,9 @@ package object schema {
 
     def * = (role, permission, grantedAt, grantedBy) <>(RolePermission.tupled, RolePermission.unapply)
 
-    def _role = foreignKey("ROLE_PERMISSION_ROLE_FK", role, Roles)(_.name, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.Restrict)
+    def _role = foreignKey("ROLE_PERMISSION_ROLE_FK", role, Roles)(_.name, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Restrict)
 
-    def user = foreignKey("ROLE_PERMISSION_GRANTOR_FK", grantedBy, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.SetNull)
+    def user = foreignKey("ROLE_PERMISSION_GRANTOR_FK", grantedBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
 
     def _permission = foreignKey("ROLE_PERMISSION_PERMISSION_FK", permission, Permissions)(_.name)
 
@@ -188,11 +195,11 @@ package object schema {
 
     def * = (userId, role, grantedAt, grantedBy) <>(UserRole.tupled, UserRole.unapply)
 
-    def user = foreignKey("USER_ROLE_USER_FK", userId, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.Restrict)
+    def user = foreignKey("USER_ROLE_USER_FK", userId, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Restrict)
 
-    def _user = foreignKey("USER_ROLE_USER_GRANTOR_FK", grantedBy, Users)(_.id, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.SetNull)
+    def _user = foreignKey("USER_ROLE_USER_GRANTOR_FK", grantedBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
 
-    def _role = foreignKey("USER_ROLE_ROLE_FK", role, Roles)(_.name, scala.slick.lifted.ForeignKeyAction.Cascade, scala.slick.lifted.ForeignKeyAction.Cascade)
+    def _role = foreignKey("USER_ROLE_ROLE_FK", role, Roles)(_.name, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Cascade)
 
     def pk = primaryKey("USER_ROLE_PK", (userId, role))
   }

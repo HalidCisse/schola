@@ -26,11 +26,11 @@ object ConversionSpecification extends org.specs.Specification {
 
       val o = Façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getToken("access_token.0")
+          Façade.oauthService.getUserSession(Map("bearerToken" -> "access_token.0", "userAgent" -> "Chrome"))
       }
 
       o must not be empty
-      o.get.accessToken must be equalTo "access_token.0"
+      o.get.key must be equalTo "access_token.0"
       o.get.scopes must be equalTo Set("oadmin", "schola", "orphans")
 
       val x = Façade.withTransaction {
@@ -53,30 +53,31 @@ object ConversionSpecification extends org.specs.Specification {
 
       val g = Façade.withTransaction {
         implicit session =>
-          Façade.oauthService.getToken("access_token.3")
+          Façade.oauthService.getUserSession(Map("bearerToken" -> "access_token.3", "userAgent" -> "Chrome"))
       }
 
       g must not be empty
-      g.get.accessToken must be equalTo "access_token.3"
+      g.get.key must be equalTo "access_token.3"
       g.get.scopes must be equalTo Set()
     }
 
     "be able to persist home and work addresses" in {
-      val uId = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      val u = Façade.withTransaction {
         implicit session =>
-          Users += domain.User(
-            Some(uId),
+          Users insert (
             "amsayk.0",
-            Some(passwords crypt "amsayk.0"),
+            passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
             createdBy = SuperUser.id,
             homeAddress = Some(domain.AddressInfo("RABAT", "Morocco", "10032", "Imm. B, Appt. 23, Cite Mabella, Mabella")),
             workAddress = Some(domain.AddressInfo("RABAT", "Morocco", "10000", "5, Appt. 23, Rue Jabal Tazaka"))
           )
-      } must be equalTo 1
+      } 
+
+      u must not be null
+      val uId = u.id.get
 
       val o = Façade.withTransaction {
         implicit session =>
@@ -95,21 +96,22 @@ object ConversionSpecification extends org.specs.Specification {
     }
 
     "be able to persist contacts" in {
-      val uId = java.util.UUID.randomUUID
 
       // Empty contacts {
-      Façade.withTransaction {
+      val u = Façade.withTransaction {
         implicit session =>
-          Users += domain.User(
-            Some(uId),
+          Users insert (
             "amsayk.11",
-            Some(passwords crypt "amsayk.0"),
+            passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
             createdBy = SuperUser.id,
             contacts = Set()
           )
-      } must be equalTo 1
+      } 
+
+      u must not be null
+      val uId = u.id.get
 
       val o = Façade.withTransaction {
         implicit session =>
@@ -132,20 +134,20 @@ object ConversionSpecification extends org.specs.Specification {
         domain.WorkContactInfo(domain.Email("amadou.cisse@epsilon.ma"))
       )
 
-      val uId = java.util.UUID.randomUUID
-
-      Façade.withTransaction {
+      val u = Façade.withTransaction {
         implicit session =>
-          Users += domain.User(
-            Some(uId),
+          Users insert (
             "amsayk.12",
-            Some(passwords crypt "amsayk.0"),
+            passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
             createdBy = SuperUser.id,
             contacts = contacts
           )
-      } must be equalTo 1
+      } 
+
+      u must not be null
+      val uId = u.id.get
 
       val o = Façade.withTransaction {
         implicit session =>
@@ -168,20 +170,20 @@ object ConversionSpecification extends org.specs.Specification {
         domain.MobileContactInfo(domain.PhoneNumber("+212600793152"))
       )
 
-      val uId = java.util.UUID.randomUUID
-
-      Façade.withTransaction {
+      val u = Façade.withTransaction {
         implicit session =>
-          Users += domain.User(
-            Some(uId),
+          Users insert (
             "amsayk.13",
-            Some(passwords crypt "amsayk.0"),
+            passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
             createdBy = SuperUser.id,
             contacts = contacts
           )
-      } must be equalTo 1
+      } 
+
+      u must not be null
+      val uId = u.id.get
 
       val o = Façade.withTransaction {
         implicit session =>
@@ -198,19 +200,20 @@ object ConversionSpecification extends org.specs.Specification {
     }
 
     "be able to persist gender" in {
-      val uId = java.util.UUID.randomUUID
 
-      Façade.withTransaction {
+      val u = Façade.withTransaction {
         implicit session =>
-          Users += domain.User(
-            Some(uId),
+          Users insert (
             "amsayk.10",
-            Some(passwords crypt "amsayk.0"),
+            passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
             createdBy = SuperUser.id
           )
-      } must be equalTo 1
+      } 
+
+      u must not be null
+      val uId = u.id.get
 
       val o = Façade.withTransaction {
         implicit session =>
@@ -222,20 +225,20 @@ object ConversionSpecification extends org.specs.Specification {
       passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       o.get.gender mustBe domain.Gender.Male
 
-      val uId2 = java.util.UUID.randomUUID
-
-      Façade.withTransaction {
+      val u2 = Façade.withTransaction {
         implicit session =>
-          Users += domain.User(
-            Some(uId2),
+          Users insert (
             "amsayk.40",
-            Some(passwords crypt "amsayk.0"),
+            passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
             gender = domain.Gender.Female,
             createdBy = SuperUser.id
           )
-      } must be equalTo 1
+      } 
+
+      u2 must not be null
+      val uId2 = u2.id.get
 
       val d = Façade.withTransaction {
         implicit session =>
@@ -254,20 +257,20 @@ object ConversionSpecification extends org.specs.Specification {
         domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com"))
       )
 
-      val uId = java.util.UUID.randomUUID
-
-      Façade.withTransaction {
+      val u = Façade.withTransaction {
         implicit session =>
-          Users += domain.User(
-            Some(uId),
+          Users insert (
             "amsayk.18",
-            Some(passwords crypt "amsayk.0"),
+            passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
             createdBy = SuperUser.id,
             contacts = contacts
           )
-      } must be equalTo 1
+      } 
+
+      u must not be null
+      val uId = u.id.get
 
       val o = Façade.withTransaction {
         implicit session =>

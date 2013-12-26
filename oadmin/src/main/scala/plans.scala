@@ -315,7 +315,7 @@ class Plans(val factory: HandlerFactory) {
                             session.key,
                             maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
                             httpOnly = true
-                          ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else Some(0))
+                          ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else Some(0), httpOnly = true)
                         ) ~> (if (session.user.passwordValid) Redirect("/") else Redirect("/ChangePasswd"))
 
                     ))

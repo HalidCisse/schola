@@ -6,8 +6,7 @@ import scala.reflect.ClassTag
 
 package object jdbc {
 
-  import slick.jdbc.MappedJdbcType
-  import slick.driver.JdbcDriver.simple._
+  import Q._
 
   import domain._
 
@@ -47,29 +46,29 @@ package object jdbc {
       ) + new EnumNameSerializer(domain.Gender)
 
   abstract class DBEnum extends Enumeration {
-    @transient implicit val enumMapper = MappedJdbcType.base[Value, String](_.toString, this.withName)
+    @transient implicit val enumMapper = MappedColumnType.base[Value, String](_.toString, this.withName)
   }
 
   implicit val setTypeMapper =
-    MappedJdbcType.base[Set[String], String](
+    MappedColumnType.base[Set[String], String](
       ts => write(ts),
       read[Set[String]]
     )
 
   implicit val addressInfoTypeMapper =
-    MappedJdbcType.base[AddressInfo, String](
+    MappedColumnType.base[AddressInfo, String](
       ts => write(ts),
       read[AddressInfo]
     )
 
   implicit val contactInfoTypeMapper =
-    MappedJdbcType.base[Set[ContactInfo], String](
+    MappedColumnType.base[Set[ContactInfo], String](
       ts => write(ts),
       read[Set[ContactInfo]]
     )
 
   implicit val avatarTypeMapper =
-    MappedJdbcType.base[AvatarInfo, String](
+    MappedColumnType.base[AvatarInfo, String](
       ts => write(ts),
       read[AvatarInfo]
     )
