@@ -42,7 +42,7 @@ package object jdbc {
 
   implicit lazy val formats =
     Serialization.formats(
-      ShortTypeHints(List(classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]))
+      ShortTypeHints(List(/*classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]*/))
       ) + new EnumNameSerializer(domain.Gender)
 
   abstract class DBEnum extends Enumeration {
@@ -61,10 +61,10 @@ package object jdbc {
       read[AddressInfo]
     )
 
-  implicit val contactInfoTypeMapper =
-    MappedColumnType.base[Set[ContactInfo], String](
+  implicit val contactsTypeMapper =
+    MappedColumnType.base[Contacts, String](
       ts => write(ts),
-      read[Set[ContactInfo]]
+      read[Contacts]
     )
 
   implicit val avatarTypeMapper =

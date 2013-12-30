@@ -3,35 +3,17 @@ var validBody = {
   grant_type: 'password',
   client_id: 'oadmin',
   client_secret: 'oadmin',
-  username: 'root@oadmin.o',
+  username: 'root@oadmin.pro',
   password: 'amsayk'
 };
 
-
-// function beforeSend(xhr, req){  
-//   var bodyHash = (req.type === 'POST' || req.type === 'PUT') && req.data ? CryptoJS.enc.Base64.stringify(CryptoJS.SHA1(req.data)) : undefined
-//   var nonce = Mac._genNonce(parseInt(session["issuedTime"]));
-//   var r = Mac.reqString(nonce, req.type, req.url, document.location.hostname, document.location.port||80, bodyHash);
-//   var mac = Mac.sign(session['secret'], r);
-//   var header = Mac.createHeader(session['access_token'], nonce, mac, bodyHash);
-
-//   xhr.setRequestHeader("Authorization", header);
-// }
 
 $.ajaxSetup({
   beforeSend: Mac.beforeSend
 });
 
 function login() {
-  $.ajaxSetup({
-    beforeSend: null
-  });
-
-  return $.post('/oauth/token', validBody, function(resp) { console.log(JSON.stringify(resp)); window.session = resp; }, 'json').done(function(){
-    $.ajaxSetup({
-      beforeSend: Mac.beforeSend
-    });
-  })
+  return $.post('/oauth/token', validBody, function(resp) { console.log(JSON.stringify(resp)); window.session = resp; }, 'json')
 }
 
 function logout() {
@@ -80,22 +62,22 @@ function getUsers() {
 }
 
 
-function addUser(email, password, firstname, lastname, gender, homeAddress, workAddress, contacts, passwordValid) {
+function addUser(email, password, givenName, familyName, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) {
   return $.ajax({
     type:"POST",
     url: "/api/v1/users",
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     data: JSON.stringify({
-      email: email,
+      primaryEmail: email,
       password: password,
-      firstname: firstname,
-      lastname: lastname,
+      givenName: givenName,
+      familyName: familyName,
       gender: gender,
       homeAddress: homeAddress,
       workAddress: workAddress,
       contacts: contacts,
-      passwordValid: passwordValid
+      changePasswordAtNextLogin: changePasswordAtNextLogin
     }),
     success: function(msg) {
       console.log(JSON.stringify(msg))
@@ -119,7 +101,7 @@ function modifyUser(id, data) {
 function changePasswd(id, newPasswd, old_password) {
 return modifyUser(id, {
       password: newPasswd,
-      old_password: old_password,
+      old_password: old_password
     })
 }
 
@@ -441,19 +423,10 @@ function getClientSession() {
 
 
 getClientSession().done( function(){
-  addUser("cisse.amadou.9@gmail.com", "amsayk", 'Ousman', 'Cisse', 'Male', {
-          city: 'RABAT',
-          country: 'Morocco',
-          zipCode: 10032,
-          addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-        }, {
-          city: 'RABAT',
-          country: 'Morocco',
-          zipCode: 10032,
-          addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-        }, [], true);
+
   
-  addUser("amadou.cisse@epsilon.ma", "amsayk", 'Ousman', 'Cisse', 'Male', {
+  userexists("cisse.amadou.9@gmail.com").done(function(i){
+    addUser("cisse.amadou.9@gmail.com", "amsayk", 'Ousman', 'Cisse', 'Male', {
             city: 'RABAT',
             country: 'Morocco',
             zipCode: 10032,
@@ -463,7 +436,22 @@ getClientSession().done( function(){
             country: 'Morocco',
             zipCode: 10032,
             addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-          }, [], true)
+          }, [], true);    
+  })
+
+  userexists("amadou.cisse@epsilon.ma").done(function(i){
+    addUser("amadou.cisse@epsilon.ma", "amsayk", 'Amadou', 'Cisse', 'Male', {
+              city: 'RABAT',
+              country: 'Morocco',
+              zipCode: 10032,
+              addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+            }, {
+              city: 'RABAT',
+              country: 'Morocco',
+              zipCode: 10032,
+              addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+            }, [], true)
+  })
 })
 
 

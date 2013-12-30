@@ -1,4 +1,7 @@
--@ val rememberMe: Boolean = false
+-@ val flash: Map[String, String]
+-@ val _session_rememberMe: Boolean = false
+-@ val rememberMe: Boolean = flash.get("rememberMe").map(_ == "T") getOrElse _session_rememberMe
+-@ val error: Boolean = flash.get("error").exists(_ == "T")
 !!! 5
 html(lang='en')
   head
@@ -17,13 +20,43 @@ html(lang='en')
           a.navbar-brand(href='/') Schola
     .container
       form.form-signin(role='form' method='POST')
-        h2.form-signin-heading Sign in
+        .page-header
+          h2
+            | Sign in                                            
         input.form-control(name='username' type='text' placeholder='Email address' required autofocus)
         input.form-control(name='password' type='password' placeholder='Password' required)
+        button.btn.btn-lg.btn-primary.btn-block(type='submit') Sign in
         label.checkbox
           - if(rememberMe)
-            input(name='remember_me' type='checkbox' value='remember-me' checked=true)
+            input(name='remember_me' type='checkbox' value='remember-me' checked)
           - else
-            input(name='remember_me' type='checkbox' value='remember-me' checked=false)
-          | Remember me
-        button.btn.btn-lg.btn-primary.btn-block(type='submit') Sign in
+            input(name='remember_me' type='checkbox' value='remember-me')
+          | Stay signed in       
+        span.forgot_passwd.pull-right
+          a(href='/LostPasswd') Forgot password
+    script(src={uri("/assets/javascripts/jquery.min.js")})
+    script(src={uri("/assets/javascripts/validations.js")})
+    :javascript
+
+      jQuery(function($){
+
+        $('.form-signin').submit(function(){
+
+            var email = $('.form-signin input[name="username"]');
+            var passwd = $('.form-signin input[name="password"]');
+
+            if(validEmail(email.val())) {
+              showError(email, '');
+              setTimeout(email.focus.bind(email), 0);
+              return false;
+            }
+
+            if(validEmpty(passwd.val())) {
+              hideError(passwd);
+              setTimeout(passwd.focus.bind(passwd), 0);
+              return false;
+            }
+
+            return true;
+          })
+        })

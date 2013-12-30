@@ -43,18 +43,19 @@ trait CacheAPI {
  * The underlying Cache implementation is received from plugin.
  */
 object Cache {
+  import com.typesafe.config.Config
 
-  private object MemcachedSettings extends caching.Settings {
+  class MemcachedSettings(config: Config) extends caching.Settings {
     import scala.util.control.Exception.allCatch
 
     val Hosts = {
       import net.spy.memcached.AddrUtil
 
-      val singleHost = allCatch.opt {config.getString("memcached.host")} map AddrUtil.getAddresses
-      val multipleHosts = allCatch.opt { config.getString("memcached.1.host") } map {
+      val singleHost = allCatch.opt {config.getString("host")} map AddrUtil.getAddresses
+      val multipleHosts = allCatch.opt { config.getString("host.1") } map {
         _ =>
           def acc(nb: Int): String =
-            allCatch.opt{ config.getString("memcached." + nb + ".host") } map {
+            allCatch.opt{ config.getString("host." + nb) } map {
               h => h + " " + acc(nb + 1)
             } getOrElse ""
 
@@ -65,36 +66,20 @@ object Cache {
         .getOrElse(throw new RuntimeException("Bad configuration for memcached: missing host(s)"))
     }
 
-    val User = allCatch.opt{config.getString("memcached.user")}
+    val User = allCatch.opt{config.getString("user")}
 
-    val Passwd = allCatch.opt{config.getString("memcached.password")}
+    val Passwd = allCatch.opt{config.getString("password")}
 
-    val Namespace = allCatch.opt { config.getString("memcached.namespace") } getOrElse ""
+    val Namespace = config.getString("namespace")
 
-    val Timeout = {
-      import java.util.concurrent.TimeUnit
+    val Timeout = Duration(config.getString("timeout"))
 
-      lazy val timeout: Long = allCatch.opt{config.getLong("memcached.timeout")} getOrElse(1L)
+    val Hash = config.getBoolean("hashkeys")
 
-      lazy val timeunit: TimeUnit = {
-        allCatch.opt{ config.getString("memcached.timeunit") }.getOrElse("seconds") match {
-          case "seconds" => TimeUnit.SECONDS
-          case "milliseconds" => TimeUnit.MILLISECONDS
-          case "microseconds" => TimeUnit.MICROSECONDS
-          case "nanoseconds" => TimeUnit.NANOSECONDS
-          case _ => TimeUnit.SECONDS
-        }
-      }
-
-      Duration(timeout, timeunit)
-    }
-
-    val Hash = allCatch.opt { config.getBoolean("memcached.hashkeys") } getOrElse false
-
-    val Enabled = allCatch.opt { config.getBoolean("memcached.enabled") } getOrElse false
+    val Enabled = config.getBoolean("enabled")
   }
 
-  private val cacheAPI: CacheAPI = new caching.Memcached(MemcachedSettings).api
+  private val cacheAPI: CacheAPI = new caching.Memcached(new MemcachedSettings(config getConfig "memcached")).api
 
   /**
    * Set a value into the cache.

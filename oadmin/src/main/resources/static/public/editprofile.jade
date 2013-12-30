@@ -1,4 +1,6 @@
--@ val sessionKey: String
+-@ val flash: Map[String, String]
+-@ val editPrimaryEmail: Boolean = flash.get("editPrimaryEmail").exists(_ == "T")
+-@ val error: Boolean = flash.get("error").exists(_ == "T")
 -@ import val profile: schola.oadmin.domain.User
 !!! 5
 html(lang='en')
@@ -47,20 +49,20 @@ html(lang='en')
               .row
                 .col-xs-6.col-md-3
                   a.thumbnail(href='#')
-                    img(style='height: 180px; width: 100%; display: block;' src='')              
+                    img.avatar(style='height: 180px; width: 100%; display: block;' title='Click to change your profile picture')              
                 .col-xs-12.col-md-6
                   #name.form-group
-                    input.form-control(type='file' name='f' id='f' style='display:none;')
-                    input.form-control(type='text' name='firstname' placeholder='First name' required) &nbsp; &nbsp;
+                    input.form-control(type='file' id='f' name='f' class='hidden')
+                    input.form-control(type='text' name='firstname' placeholder='First name' required autofocus) &nbsp; &nbsp;
                     input.form-control(type='text' name='lastname' placeholder='Last name' required)
               .form-group
-                input.form-control(type='text' name='email' placeholder='Enter email' required autofocus)
+                input.form-control(type='text' name='email' placeholder='Enter email' required)
               .form-group
-                input.form-control(type='password' name='old_password' placeholder='Enter current password' required)
+                input.form-control(type='password' name='old_password' placeholder='Enter current password')
               .form-group
-                input.form-control(type='password' name='new_password' placeholder='New Password' required)
+                input.form-control(type='password' name='new_password' placeholder='New Password')
               .form-group
-                input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password' required)                  
+                input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password')                  
               #gender.form-group
                 label Gender
                 label.radio-inline
@@ -75,62 +77,100 @@ html(lang='en')
                   h4
                     | Work
                 .form-group
-                  select#work-country.form-control(name='workAddress[country]' placeholder='Select country' selected='' required autofocus)
+                  select#work-country.form-control(name='workAddress[country]' placeholder='Select country' required autofocus)
                 .form-group
                   input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City' required)
                 .form-group
-                  textarea.form-control(name='workAddress[addressLine]' placeholder='Address' required)
+                  input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code' required)
+                .form-group
+                  textarea.form-control(name='workAddress[streetAddress]' placeholder='Address' required)
               .container
                 .page-header
                   h4
                     | Home
                 .form-group
-                  select#home-country.form-control(name='homeAddress[country]' placeholder='Select country' selected='' required)
+                  select#home-country.form-control(name='homeAddress[country]' placeholder='Select country' required)
                 .form-group
                   input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City' required)
                 .form-group
-                  textarea.form-control(name='homeAddress[addressLine]' placeholder='Address' required)              
+                  input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code' required)
+                .form-group
+                  textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address' required)              
             #contacts.tab-pane 
               .container
                 .page-header
                   h4
                     | Mobile
                 .form-group
-                  input.form-control(type='text' name='contacts.0.number' placeholder='Enter mobile number')
+                  input.form-control(type='text' name='mobile[phoneNumber][primary]' placeholder='Enter mobile number')
 
               .container    
                 .page-header
                   h4
                     | Work
                 .form-group
-                  input.form-control(type='text' name='contacts.1.phone' placeholder='Enter phone number')
+                  input.form-control(type='text' name='work[phoneNumber]' placeholder='Enter phone number')
                 .form-group
-                  input.form-control(type='text' name='contacts.1.fax' placeholder='Fax')
+                  input.form-control(type='text' name='work[fax]' placeholder='Fax')
                 .form-group
-                  input.form-control(type='text' name='contacts.1.email' placeholder='Email')             
+                  input.form-control(type='text' name='work[email]' placeholder='Email')             
 
               .container
                 .page-header
                   h4
                     | Home
                 .form-group
-                  input.form-control(type='text' name='contacts.2.phone' placeholder='Enter phone number')
+                  input.form-control(type='text' name='home[phoneNumer]' placeholder='Enter phone number')
                 .form-group
-                  input.form-control(type='text' name='contacts.2.fax' placeholder='Fax')
+                  input.form-control(type='text' name='home[fax]' placeholder='Fax')
                 .form-group
-                  input.form-control(type='text' name='contacts.2.email' placeholder='Email')              
+                  input.form-control(type='text' name='home[email]' placeholder='Email')              
             br
-            button.btn.btn-lg.btn-default(type='submit') Save
+            button.btn.btn-lg.btn-primary(type='submit') Save
             |&nbsp;
-            a.btn.btn-lg.btn-primary(href='/') Cancel            
+            a.btn.btn-lg.btn-default(href='/') Cancel         
     script(src={uri("/assets/javascripts/countries.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/bootstrap.js")})
     script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
+    script(src={uri("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")})
     :javascript
       jQuery(function($){
           // construct countries list with selected country
           // Set up cities auto-complete
+
+          var $avatar = $('.avatar')
+             ,$f = $('#f');
+
+          setTimeout(function(){
+            var img = new Image;
+            img.src = '/Avatar';
+
+            img.onload = function(){
+              $avatar[0].src = img.src;
+            };
+          }, 0);
+
+          $avatar.parent().click(function(){
+            $f.click();
+          });
+
+          $f.change(function(){
+            var f = this.files[0];
+
+            if(f) {
+
+              var reader = new FileReader;
+              reader.onload = function(evt) {
+                // f.size
+                $avatar[0].src = evt.target.result;
+              };                            
+
+              reader.readAsDataURL(f);
+            }
+
+            return false;
+          });
           
 
           $('#profiles a').click(function (e) {
@@ -142,12 +182,17 @@ html(lang='en')
 
           var options = '';
           for(var i in countries) {
-            options += '<option value="' + countries[i]['code'] + '"">' + countries[i]['name'] + '</option>';
+            options += '<option value="' + countries[i]['code'] + '"' + (countries[i]['code'] === sGeobytesIso2 ? ' selected' : '') + '>' + countries[i]['name'] + '</option>';
           }
 
           $('#addresses select').each(function(){
               $(this).html(options);
             });
+
+           (function(){              
+              $('#home-city').val(sGeobytesCity);
+              $('#work-city').val(sGeobytesCity);
+            }).call(this);
 
           $('#work-city').typeahead({
               source: function(q, process) {

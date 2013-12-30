@@ -3,6 +3,16 @@ package oadmin
 
 import org.clapper.avsl.Logger
 
+import akka.actor.{ Actor, DeadLetter, Props }
+
+class Listener extends Actor {
+  def receive = {
+    case d: DeadLetter =>
+      println(d)
+  }
+}
+
+
 object main extends App {
 
   import unfiltered.jetty._
@@ -35,16 +45,19 @@ object main extends App {
       .filter(Plans.routes)
   }
 
-//  Façade.test()
+  val listener = system.actorOf(Props(classOf[Listener]))
+  system.eventStream.subscribe(listener, classOf[DeadLetter])
 
-//  try Façade.drop() catch {
+//  Façade.simple.test()
+
+//  try Façade.simple.drop() catch {
 //    case _: Throwable =>
 //  }
 
-//  Façade.init(SuperUser.id.get)
+//  Façade.simple.init(SuperUser.id.get)
   server.start()
 
-  log.info("server is runing . . .")
+  log.info("The server is runing . . .")
   log.info("press any key to stop server...")
   System.in.read()
 
@@ -56,5 +69,5 @@ object main extends App {
   server.stop()
   server.destroy()
 
-//  Façade.drop()
+//  Façade.simple.drop()
 }

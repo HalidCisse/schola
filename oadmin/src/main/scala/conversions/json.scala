@@ -36,7 +36,7 @@ package object json {
     new org.json4s.Formats {
       override val typeHintFieldName = "type"
       val dateFormat = DefaultFormats.lossless.dateFormat
-      override val typeHints = ShortTypeHints(List(classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]))
+      // override val typeHints = ShortTypeHints(List(classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]))
     } +
     new jdbc.EnumNameSerializer(Gender) +
     userSerializer +

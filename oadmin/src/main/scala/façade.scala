@@ -2,19 +2,59 @@ package schola
 package oadmin
 
 import javax.servlet.http.HttpServletResponse
+import org.json4s.JsonAST.{JValue, JObject}
+import schola.oadmin.domain.{PhoneNumber, HomeContactInfo}
 
-object Façade extends Façade
-with HandlerFactory {
-
-  // --------------------------------------------------------------------------------------------------
-
+object Façade extends ServiceComponentFactory with HandlerFactory{
   import javax.servlet.http.HttpServletRequest
   import unfiltered.request._
   import unfiltered.response._
 
+  import com.typesafe.config.Config
+
   import scala.util.control.Exception.allCatch
 
-  import unfiltered.request.Jsonp
+  class CacheConfig(config: Config) {
+    val MaxTTL = config getInt "max-ttl"
+  }
+  
+  class DbConfig(config: Config) {
+    val Driver = config getString "driver-class"
+    val URL = config getString "url"
+    val User = config getString "user"
+    val Password = config getString "password"
+    val MaxPoolSize = config getInt "max-pool-size"
+    val MinPoolSize = config getInt "min-pool-size"
+  }
+
+  object dbConfig extends DbConfig(config getConfig "db")
+
+  object cacheConfig extends CacheConfig(config getConfig "cache")
+
+  object simple extends Façade {
+
+    val cacheSystem = new impl.CacheSystem(cacheConfig.MaxTTL)
+
+    protected val db = {
+      import dbConfig._
+      import com.mchange.v2.c3p0.ComboPooledDataSource
+
+      val ds = new ComboPooledDataSource
+      ds.setDriverClass(Driver)
+      ds.setJdbcUrl(URL)
+      ds.setUser(User)
+      ds.setPassword(Password)
+
+      ds.setMaxPoolSize(MaxPoolSize)
+      ds.setMinPoolSize(MinPoolSize)
+
+      Q.Database.forDataSource(ds)
+    }
+  }
+
+  def apply(req: HttpRequest[_ <: HttpServletRequest]) = new MyRouteHandler(req)
+
+  // --------------------------------------------------------------------------------------------------
 
   implicit class Ctx(val req: HttpRequest[_ <: HttpServletRequest]) {
     val Some(resourceOwner) = utils.ResourceOwner.unapply(req)
@@ -30,6 +70,7 @@ with HandlerFactory {
     import conversions.json.formats
 
     import ctx._
+    import S._
 
     // -------------------------------------------------------------------------------------------------
 
@@ -86,8 +127,8 @@ with HandlerFactory {
     // -------------------------------------------------------------------------------------------------
 
     def addUser() =
-    // email
-    // firstname and lastname
+    // primaryEmail
+    // givenName and familyName
     // gender
     // home and work addresses
     // contacts
@@ -99,7 +140,7 @@ with HandlerFactory {
         }
         passwd <- x.password
         y <- oauthService.saveUser(
-          x.email, passwd, x.firstname, x.lastname, Some(resourceOwner.id), x.gender, x.homeAddress, x.workAddress, x.contacts, x.passwordValid)
+          x.primaryEmail, passwd, x.givenName, x.familyName, Some(resourceOwner.id), x.gender, x.homeAddress, x.workAddress, x.contacts, x.changePasswordAtNextLogin)
       } yield y) match {
 
         case Some(user) =>
@@ -114,8 +155,8 @@ with HandlerFactory {
       }
 
     def updateUser(userId: String) =
-    // email
-    // firstname and lastname
+    // primaryEmail
+    // givenName and familyName
     // gender
     // home and work addresses
     // contacts
@@ -124,29 +165,19 @@ with HandlerFactory {
         json <- JsonBody(req)
         x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
 
-          def findField(field: String) =
-            json findField {
-              case org.json4s.JField(`field`, _) => true
-              case _ => false
-            } collect {
-              case org.json4s.JField(_, org.json4s.JString(s)) => s
-            }
+          val findField =
+            utils.findFieldStr(json)_
 
-          def findFieldObj(field: String) =
-            json findField {
-              case org.json4s.JField(`field`, _) => true
-              case _ => false
-            } collect {
-              case org.json4s.JField(_, o@org.json4s.JObject(_)) => o
-            }
+          val findFieldObj =
+            utils.findFieldJObj(json)_
 
-          override val email = findField("email")
+          override val primaryEmail = findField("primaryEmail")
 
           override val password = findField("password")
           override val oldPassword = findField("old_password")
 
-          override val firstname = findField("firstname")
-          override val lastname = findField("lastname")
+          override val givenName = findField("givenName")
+          override val familyName = findField("familyName")
           override val gender = findField("gender") flatMap (x => allCatch.opt {
             domain.Gender.withName(x)
           })
@@ -162,6 +193,41 @@ with HandlerFactory {
               x.extract[domain.AddressInfo]
             })
           )
+
+          override val contacts =
+            utils.findFieldJObj(json)("contacts") map{
+              contactsJson =>
+
+                ContactsSpec(
+                  home = UpdateSpecImpl[domain.HomeContactInfo](
+                    set = utils.findFieldJObj(contactsJson)("home") map (x => allCatch.opt {
+                      x.extract[domain.HomeContactInfo]
+                    })),
+
+                  work = UpdateSpecImpl[domain.WorkContactInfo](
+                    set = utils.findFieldJObj(contactsJson)("work") map (x => allCatch.opt {
+                      x.extract[domain.WorkContactInfo]
+                    })),
+
+                  mobiles = {
+                    val mobilesJson = utils.findFieldJObj(contactsJson)("mobiles") getOrElse JObject(List())
+
+                    MobileNumbersSpec(
+
+                      mobile1 = UpdateSpecImpl[domain.PhoneNumber](
+                        set = utils.findFieldJObj(mobilesJson)("mobile1") map (x => allCatch.opt {
+                          x.extract[domain.PhoneNumber]
+                        })),
+
+                      mobile2 = UpdateSpecImpl[domain.PhoneNumber](
+                        set = utils.findFieldJObj(mobilesJson)("mobile2") map (x => allCatch.opt {
+                          x.extract[domain.PhoneNumber]
+                        })
+                      )
+                    )
+                  }
+                )
+            }
         })
       } yield x) match {
 
@@ -230,68 +296,17 @@ with HandlerFactory {
       }
     }
 
-    def addContacts(userId: String) =
-      (for {
-        json <- JsonBody(req)
-        x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
+    def undeleteUsers(id: Set[String]) = {
+      val resp = allCatch.opt {
+        oauthService.undeleteUsers(id)
+        true
+      } getOrElse false
 
-          def findField(field: String) =
-            json findField {
-              case org.json4s.JField(`field`, _) => true
-              case _ => false
-            } collect {
-              case org.json4s.JField(_, x@org.json4s.JArray(_)) => x
-            }
-
-          override val contacts = Some(ContactInfoSpec(
-            toAdd = findField("contacts") flatMap (x => allCatch.opt {
-              x.extract[Set[domain.ContactInfo]]
-            }) getOrElse Set()
-          ))
-        })
-      } yield x) match {
-
-        case Some(user) =>
-
-          req.respond {
-            JsonContent ~>
-              ResponseString(cb wrap tojson(user))
-          }
-
-        case _ => req.respond(BadRequest)
+      req.respond {
+        JsonContent ~>
+          ResponseString(cb wrap s"""{"success": $resp}""")
       }
-
-    def removeContacts(userId: String) =
-      (for {
-        json <- JsonBody(req)
-        x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
-
-          def findField(field: String) =
-            json findField {
-              case org.json4s.JField(`field`, _) => true
-              case _ => false
-            } collect {
-              case org.json4s.JField(_, x@org.json4s.JArray(_)) => x
-            }
-
-          override val contacts = Some(ContactInfoSpec(
-            toRem = findField("contacts") flatMap (x => allCatch.opt {
-              x.extract[Set[domain.ContactInfo]]
-            }) getOrElse Set()
-          ))
-
-        })
-      } yield x) match {
-
-        case Some(user) =>
-
-          req.respond {
-            JsonContent ~>
-              ResponseString(cb wrap tojson(user))
-          }
-
-        case _ => req.respond(BadRequest)
-      }
+    }
 
     def grantRoles(userId: String, roles: Set[String]) = {
       val resp = allCatch.opt {
@@ -328,8 +343,8 @@ with HandlerFactory {
       }
     }
 
-    def userExists(email: String) = {
-      val resp = oauthService.emailExists(email)
+    def userExists(primaryEmail: String) = {
+      val resp = oauthService.primaryEmailExists(primaryEmail)
 
       req.respond {
         JsonContent ~>
@@ -496,292 +511,274 @@ with HandlerFactory {
         )
       }
     }
-
   }
-
-  def apply(req: HttpRequest[_ <: HttpServletRequest]) = new MyRouteHandler(req)
 }
 
-  trait RouteHandler extends Any {
+trait RouteHandler extends Any {
 
-    // -------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------
 
-    def downloadAvatar(userId: String)
+  def downloadAvatar(userId: String)
 
-    def purgeAvatar(userId: String)
+  def purgeAvatar(userId: String)
 
-    def uploadAvatar(userId: String, avatarInfo: domain.AvatarInfo, bytes: Array[Byte])
+  def uploadAvatar(userId: String, avatarInfo: domain.AvatarInfo, bytes: Array[Byte])
 
-    // -------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------
 
-    def addUser()
+  def addUser()
 
-    def updateUser(userId: String)
+  def updateUser(userId: String)
 
-    def removeUser(userId: String)
+  def removeUser(userId: String)
 
-    def getUser(userId: String)
+  def getUser(userId: String)
 
-    def getUsers
+  def getUsers
 
-    def getTrash
+  def getTrash
 
-    def purgeUsers(id: Set[String])
+  def purgeUsers(id: Set[String])
 
-    def addContacts(userId: String)
+  def undeleteUsers(id: Set[String])
 
-    def removeContacts(userId: String)
+  def grantRoles(userId: String, roles: Set[String])
 
-    def grantRoles(userId: String, roles: Set[String])
+  def revokeRoles(userId: String, roles: Set[String])
 
-    def revokeRoles(userId: String, roles: Set[String])
+  def getUserRoles(userId: String)
 
-    def getUserRoles(userId: String)
+  def userExists(primaryEmail: String)
 
-    def userExists(email: String)
+  // ---------------------------------------------------------------------------------------------------
 
-    // ---------------------------------------------------------------------------------------------------
+  def getRoles
 
-    def getRoles
+  def addRole()
 
-    def addRole()
+  def roleExists(name: String)
 
-    def roleExists(name: String)
+  def updateRole(name: String)
 
-    def updateRole(name: String)
+  def getRole(name: String)
 
-    def getRole(name: String)
+  def getUserSession
 
-    def getUserSession
+  def purgeRoles(roles: Set[String])
 
-    def purgeRoles(roles: Set[String])
+  def grantPermissions(name: String, permissions: Set[String])
 
-    def grantPermissions(name: String, permissions: Set[String])
+  def revokePermissions(name: String, permissions: Set[String])
 
-    def revokePermissions(name: String, permissions: Set[String])
+  def getPermissions
 
-    def getPermissions
+  def getRolePermissions(name: String)
 
-    def getRolePermissions(name: String)
+  def logout(token: String)
+}
 
-    def logout(token: String)
-  }
+trait ServiceComponentFactory {
+  val simple: OAuthServicesComponent with AccessControlServicesComponent
+}
 
-  trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.http.HttpServletRequest] => RouteHandler)
+trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.http.HttpServletRequest] => RouteHandler)
 
-  class Façade extends impl.OAuthServicesRepoComponentImpl
-  with impl.CachingServicesComponentImpl
-  with impl.CachingOAuthServicesComponentImpl
-  with impl.CacheSystemProvider
-  //with impl.OAuthServicesComponentImpl
-  with CachingServicesComponent
-  with impl.AccessControlServicesRepoComponentImpl
-  with impl.AccessControlServicesComponentImpl {
+trait Façade extends impl.OAuthServicesRepoComponentImpl
+with impl.CachingServicesComponentImpl
+with impl.CachingOAuthServicesComponentImpl
+with impl.CacheSystemProvider
+//with impl.OAuthServicesComponentImpl
+with CachingServicesComponent
+with impl.AccessControlServicesRepoComponentImpl
+with impl.AccessControlServicesComponentImpl {
 
-    import schema._
-    import domain._
-    import Q._
+  import schema._
+  import domain._
+  import Q._
 
-    def withTransaction[T](f: Q.Session => T) =
-      db.withTransaction {
-        f
-      }
-
-    def withSession[T](f: Q.Session => T) =
-      db.withSession {
-        f
-      }
-
-    val cacheSystem = new impl.CacheSystem(60 * 30) // TODO: make `max-ttl` a config value
-
-    protected val db = {
-      import com.mchange.v2.c3p0.ComboPooledDataSource
-
-      val ds = new ComboPooledDataSource
-      ds.setDriverClass(Db.DriverClass)
-      ds.setJdbcUrl(Db.DatabaseURL)
-      ds.setUser(Db.Username)
-      ds.setPassword(Db.Password)
-
-      ds.setMaxPoolSize(Db.MaxPoolSize)
-      ds.setMinPoolSize(Db.MinPoolSize)
-
-      Q.Database.forDataSource(ds)
+  def withTransaction[T](f: Q.Session => T) =
+    db.withTransaction {
+      f
     }
 
-    def drop() = db withTransaction {
-      implicit session =>
-        import scala.slick.jdbc.{StaticQuery=>T}
+  def withSession[T](f: Q.Session => T) =
+    db.withSession {
+      f
+    }
+
+  def drop() = db withTransaction {
+    implicit session =>
+      import scala.slick.jdbc.{StaticQuery=>T}
 
 //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
 //        ddl.drop
 
 //        T.updateNA("DROP EXTENSION \"uuid-ossp\";")
 
-        T.updateNA(
-          """
-            | alter table "oauth_tokens" drop constraint "TOKEN_CLIENT_FK";
-            | alter table "oauth_tokens" drop constraint "TOKEN_USER_FK";
-            | alter table "users" drop constraint "USER_CREATOR_FK";
-            | alter table "users" drop constraint "USER_MODIFIER_FK";
-            | alter table "roles" drop constraint "ROLE_PARENT_ROLE_FK";
-            | alter table "roles" drop constraint "ROLE_USER_FK";
-            | alter table "permissions" drop constraint "PERMISSION_CLIENT_FK";
-            | alter table "users_roles" drop constraint "USER_ROLE_USER_FK";
-            | alter table "users_roles" drop constraint "USER_ROLE_ROLE_FK";
-            | alter table "users_roles" drop constraint "USER_ROLE_USER_GRANTOR_FK";
-            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_GRANTOR_FK";
-            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_ROLE_FK";
-            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PERMISSION_FK";
-            | drop table "oauth_tokens";
-            | alter table "oauth_clients" drop constraint "CLIENT_PK";
-            | drop table "oauth_clients";
-            | drop table "users";
-            | drop table "roles";
-            | drop table "permissions";
-            | alter table "users_roles" drop constraint "USER_ROLE_PK";
-            | drop table "users_roles";
-            | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PK";
-            | drop table "roles_permissions";
-            | DROP EXTENSION "uuid-ossp";
-          """.stripMargin
-        ).execute()
-    }
+      T.updateNA(
+        """
+          | alter table "oauth_tokens" drop constraint "TOKEN_CLIENT_FK";
+          | alter table "oauth_tokens" drop constraint "TOKEN_USER_FK";
+          | alter table "users" drop constraint "USER_CREATOR_FK";
+          | alter table "users" drop constraint "USER_MODIFIER_FK";
+          | alter table "roles" drop constraint "ROLE_PARENT_ROLE_FK";
+          | alter table "roles" drop constraint "ROLE_USER_FK";
+          | alter table "permissions" drop constraint "PERMISSION_CLIENT_FK";
+          | alter table "users_roles" drop constraint "USER_ROLE_USER_FK";
+          | alter table "users_roles" drop constraint "USER_ROLE_ROLE_FK";
+          | alter table "users_roles" drop constraint "USER_ROLE_USER_GRANTOR_FK";
+          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_GRANTOR_FK";
+          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_ROLE_FK";
+          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PERMISSION_FK";
+          | drop table "oauth_tokens";
+          | alter table "oauth_clients" drop constraint "CLIENT_PK";
+          | drop table "oauth_clients";
+          | drop table "users";
+          | drop table "roles";
+          | drop table "permissions";
+          | alter table "users_roles" drop constraint "USER_ROLE_PK";
+          | drop table "users_roles";
+          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PK";
+          | drop table "roles_permissions";
+          | DROP EXTENSION "uuid-ossp";
+        """.stripMargin
+      ).execute()
+  }
 
-    def init(userId: java.util.UUID) = db withTransaction {
-      implicit session =>
+  def init(userId: java.util.UUID) = db withTransaction {
+    implicit session =>
 
-        import scala.slick.jdbc.{StaticQuery=>T}
+      import scala.slick.jdbc.{StaticQuery=>T}
 
 //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
-        //    ddl.createStatements foreach (stmt => println(stmt+";"))
+      //    ddl.createStatements foreach (stmt => println(stmt+";"))
 //        ddl.create
 
 //        T.updateNA("CREATE EXTENSION \"uuid-ossp\";")
 
-        try {
-          T.updateNA(
-            """
-              | CREATE EXTENSION "uuid-ossp";
-              | create table "oauth_tokens" ("access_token" VARCHAR(254) NOT NULL PRIMARY KEY,"client_id" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL,"user_id" uuid NOT NULL,"refresh_token" VARCHAR(254),"secret" VARCHAR(254) NOT NULL,"user_agent" text NOT NULL,"expires_in" BIGINT,"refresh_expires_in" BIGINT,"created_at" BIGINT NOT NULL,"last_access_time" BIGINT NOT NULL,"token_type" VARCHAR(254) DEFAULT 'mac' NOT NULL,"scopes" VARCHAR(254) DEFAULT '[]' NOT NULL);
-              | create table "oauth_clients" ("client_id" VARCHAR(254) NOT NULL,"client_secret" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL);
-              | alter table "oauth_clients" add constraint "CLIENT_PK" primary key("client_id","client_secret");
-              | create unique index "CLIENT_CLIENT_ID_INDEX" on "oauth_clients" ("client_id");
-              | create table "users" ("email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"firstname" VARCHAR(254) NOT NULL,"lastname" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"password_valid" BOOLEAN DEFAULT false NOT NULL,"id" uuid DEFAULT uuid_generate_v4() NOT NULL PRIMARY KEY);
-              | create unique index "USER_USERNAME_INDEX" on "users" ("email");
-              | create index "USER_USERNAME_PASSWORD_INDEX" on "users" ("email","password");
-              | create table "roles" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"parent" VARCHAR(254),"created_at" BIGINT NOT NULL,"created_by" uuid,"public" BOOLEAN DEFAULT true NOT NULL);
-              | create unique index "ROLE_NAME_INDEX" on "roles" ("name");
-              | create table "permissions" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"client_id" VARCHAR(254) NOT NULL);
-              | create unique index "PERMISSION_NAME_INDEX" on "permissions" ("name");
-              | create table "users_roles" ("user_id" uuid NOT NULL,"role" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
-              | alter table "users_roles" add constraint "USER_ROLE_PK" primary key("user_id","role");
-              | create table "roles_permissions" ("role" VARCHAR(254) NOT NULL,"permission" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
-              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PK" primary key("role","permission");
-              | alter table "oauth_tokens" add constraint "TOKEN_CLIENT_FK" foreign key("client_id") references "oauth_clients"("client_id") on update CASCADE on delete NO ACTION;
-              | alter table "oauth_tokens" add constraint "TOKEN_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete CASCADE;
-              | alter table "users" add constraint "USER_CREATOR_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
-              | alter table "users" add constraint "USER_MODIFIER_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
-              | alter table "roles" add constraint "ROLE_PARENT_ROLE_FK" foreign key("parent") references "roles"("name") on update CASCADE on delete NO ACTION;
-              | alter table "roles" add constraint "ROLE_USER_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
-              | alter table "permissions" add constraint "PERMISSION_CLIENT_FK" foreign key("client_id") references "oauth_clients"("client_id") on update CASCADE on delete NO ACTION;
-              | alter table "users_roles" add constraint "USER_ROLE_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete RESTRICT;
-              | alter table "users_roles" add constraint "USER_ROLE_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete CASCADE;
-              | alter table "users_roles" add constraint "USER_ROLE_USER_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
-              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
-              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete RESTRICT;
-              | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PERMISSION_FK" foreign key("permission") references "permissions"("name") on update NO ACTION on delete NO ACTION;
-            """.stripMargin
-          ).execute()
+      try {
+        T.updateNA(
+          """
+            | CREATE EXTENSION "uuid-ossp";
+            | create table "oauth_tokens" ("access_token" VARCHAR(254) NOT NULL PRIMARY KEY,"client_id" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL,"user_id" uuid NOT NULL,"refresh_token" VARCHAR(254),"secret" VARCHAR(254) NOT NULL,"user_agent" text NOT NULL,"expires_in" BIGINT,"refresh_expires_in" BIGINT,"created_at" BIGINT NOT NULL,"last_access_time" BIGINT NOT NULL,"token_type" VARCHAR(254) DEFAULT 'mac' NOT NULL,"scopes" VARCHAR(254) DEFAULT '[]' NOT NULL);
+            | create table "oauth_clients" ("client_id" VARCHAR(254) NOT NULL,"client_secret" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL);
+            | alter table "oauth_clients" add constraint "CLIENT_PK" primary key("client_id","client_secret");
+            | create unique index "CLIENT_CLIENT_ID_INDEX" on "oauth_clients" ("client_id");
+            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY);
+            | create unique index "USER_USERNAME_INDEX" on "users" ("primary_email");
+            | create index "USER_USERNAME_PASSWORD_INDEX" on "users" ("primary_email","password");
+            | create table "roles" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"parent" VARCHAR(254),"created_at" BIGINT NOT NULL,"created_by" uuid,"public" BOOLEAN DEFAULT true NOT NULL);
+            | create unique index "ROLE_NAME_INDEX" on "roles" ("name");
+            | create table "permissions" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"client_id" VARCHAR(254) NOT NULL);
+            | create unique index "PERMISSION_NAME_INDEX" on "permissions" ("name");
+            | create table "users_roles" ("user_id" uuid NOT NULL,"role" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
+            | alter table "users_roles" add constraint "USER_ROLE_PK" primary key("user_id","role");
+            | create table "roles_permissions" ("role" VARCHAR(254) NOT NULL,"permission" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
+            | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PK" primary key("role","permission");
+            | alter table "oauth_tokens" add constraint "TOKEN_CLIENT_FK" foreign key("client_id") references "oauth_clients"("client_id") on update CASCADE on delete NO ACTION;
+            | alter table "oauth_tokens" add constraint "TOKEN_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete CASCADE;
+            | alter table "users" add constraint "USER_CREATOR_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
+            | alter table "users" add constraint "USER_MODIFIER_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
+            | alter table "roles" add constraint "ROLE_USER_FK" foreign key("created_by") references "users"("id") on update CASCADE on delete SET NULL;
+            | alter table "roles" add constraint "ROLE_PARENT_ROLE_FK" foreign key("parent") references "roles"("name") on update CASCADE on delete NO ACTION;
+            | alter table "permissions" add constraint "PERMISSION_CLIENT_FK" foreign key("client_id") references "oauth_clients"("client_id") on update CASCADE on delete NO ACTION;
+            | alter table "users_roles" add constraint "USER_ROLE_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete RESTRICT;
+            | alter table "users_roles" add constraint "USER_ROLE_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete CASCADE;
+            | alter table "users_roles" add constraint "USER_ROLE_USER_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
+            | alter table "roles_permissions" add constraint "ROLE_PERMISSION_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
+            | alter table "roles_permissions" add constraint "ROLE_PERMISSION_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete RESTRICT;
+            | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PERMISSION_FK" foreign key("permission") references "permissions"("name") on update NO ACTION on delete NO ACTION;
+          """.stripMargin
+        ).execute()
 
-          // Add a client - oadmin:oadmin
-          val _1 = (OAuthClients ++= List(
-            OAuthClient("oadmin", "oadmin", "http://localhost:3880/admin"),
-            OAuthClient("schola", "schola", "http://localhost:3880/schola")
-          )) == Some(2)
+        // Add a client - oadmin:oadmin
+        val _1 = (OAuthClients ++= List(
+          OAuthClient("oadmin", "oadmin", "http://localhost:3880/admin"),
+          OAuthClient("schola", "schola", "http://localhost:3880/schola")
+        )) == Some(2)
 
-          //Add a user
-          val _2 = (Users += SuperUser copy (password = SuperUser.password map passwords.crypt)) == 1
+        //Add a user
+        val _2 = (Users += SuperUser copy (password = SuperUser.password map passwords.crypt)) == 1
 
-          val _3 = (Roles ++= List(
-            SuperUserR,
-            AdministratorR,
-            Role("Role One", Some(AdministratorR.name), System.currentTimeMillis, None),
-            Role("Role Two", Some(AdministratorR.name), System.currentTimeMillis, None),
-            Role("Role Three", Some(AdministratorR.name), System.currentTimeMillis, Some(userId)),
-            Role("Role Four", Some(SuperUserR.name), System.currentTimeMillis, None),
-            Role("Role X", Some("Role One"), System.currentTimeMillis, Some(userId))
-          )) == Some(7)
+        val _3 = (Roles ++= List(
+          SuperUserR,
+          AdministratorR,
+          Role("Role One", Some(AdministratorR.name), System.currentTimeMillis, None),
+          Role("Role Two", Some(AdministratorR.name), System.currentTimeMillis, None),
+          Role("Role Three", Some(AdministratorR.name), System.currentTimeMillis, Some(userId)),
+          Role("Role Four", Some(SuperUserR.name), System.currentTimeMillis, None),
+          Role("Role X", Some("Role One"), System.currentTimeMillis, Some(userId))
+        )) == Some(7)
 
-          /*    val _31 = (Roles += Role("Role One", None, System.currentTimeMillis, None)) == 1
-              val _32 = (Roles += Role("Role Two", None, System.currentTimeMillis, None)) == 1
-              val _33 = (Roles += Role("Role Three", None, System.currentTimeMillis, None)) == 1
-              val _34 = (Roles += Role("Role Four", None, System.currentTimeMillis, None)) == 1
-              val _35 = (Roles += Role("Role X", Some("Role One"), System.currentTimeMillis, None)) == 1
+        /*    val _31 = (Roles += Role("Role One", None, System.currentTimeMillis, None)) == 1
+            val _32 = (Roles += Role("Role Two", None, System.currentTimeMillis, None)) == 1
+            val _33 = (Roles += Role("Role Three", None, System.currentTimeMillis, None)) == 1
+            val _34 = (Roles += Role("Role Four", None, System.currentTimeMillis, None)) == 1
+            val _35 = (Roles += Role("Role X", Some("Role One"), System.currentTimeMillis, None)) == 1
 
-              val _3 = _31 && _32 && _33 && _34 && _35*/
+            val _3 = _31 && _32 && _33 && _34 && _35*/
 
-          val _4 = (Permissions ++= List(
-            Permission("P1", "oadmin"),
-            Permission("P2", "oadmin"),
-            Permission("P3", "oadmin"),
-            Permission("P4", "oadmin"),
+        val _4 = (Permissions ++= List(
+          Permission("P1", "oadmin"),
+          Permission("P2", "oadmin"),
+          Permission("P3", "oadmin"),
+          Permission("P4", "oadmin"),
 
-            Permission("P5", "schola"),
-            Permission("P6", "schola"),
-            Permission("P7", "schola"),
-            Permission("P8", "schola"),
-            Permission("P9", "schola"),
-            Permission("P10", "schola")
-          )) == Some(10)
+          Permission("P5", "schola"),
+          Permission("P6", "schola"),
+          Permission("P7", "schola"),
+          Permission("P8", "schola"),
+          Permission("P9", "schola"),
+          Permission("P10", "schola")
+        )) == Some(10)
 
-          val _5 = (RolesPermissions ++= List(
-            RolePermission("Role One", "P1", grantedBy = None),
-            RolePermission("Role One", "P2", grantedBy = Some(userId)),
-            RolePermission("Role One", "P3", grantedBy = None),
-            RolePermission("Role One", "P4", grantedBy = None),
-            RolePermission("Role One", "P5", grantedBy = Some(userId))
-          )) == Some(5)
+        val _5 = (RolesPermissions ++= List(
+          RolePermission("Role One", "P1", grantedBy = None),
+          RolePermission("Role One", "P2", grantedBy = Some(userId)),
+          RolePermission("Role One", "P3", grantedBy = None),
+          RolePermission("Role One", "P4", grantedBy = None),
+          RolePermission("Role One", "P5", grantedBy = Some(userId))
+        )) == Some(5)
 
-          val _6 = (UsersRoles ++= List(
-            UserRole(userId, "Role One", grantedBy = None),
-            UserRole(userId, "Role Three", grantedBy = Some(userId)),
-            UserRole(userId, "Role Two", grantedBy = None)
-          )) == Some(3)
+        val _6 = (UsersRoles ++= List(
+          UserRole(userId, "Role One", grantedBy = None),
+          UserRole(userId, "Role Three", grantedBy = Some(userId)),
+          UserRole(userId, "Role Two", grantedBy = None)
+        )) == Some(3)
 
-          _1 && _2 && _3 && _4 && _5 && _6
-        }
-        catch {
-          case e: java.sql.SQLException =>
-            var cur = e
-            while(cur ne null){
-              cur.printStackTrace()
-              cur = cur.getNextException
-            }
-            false
-        }
-    }
+        _1 && _2 && _3 && _4 && _5 && _6
+      }
+      catch {
+        case e: java.sql.SQLException =>
+          var cur = e
+          while(cur ne null){
+            cur.printStackTrace()
+            cur = cur.getNextException
+          }
+          false
+      }
+  }
 
-    def test() {
-      val o = accessControlService
+  def test() {
+    val o = accessControlService
 
-      val userId = SuperUser.id.get
+    val userId = SuperUser.id.get
 
 //      def initialize() = init(userId)
 
 //      initialize()
 
-      println(o.getRoles)
-      println(o.getUserRoles(userId.toString))
-      println(o.getPermissions)
-      println(o.getRolePermissions("Role One"))
-      println(o.getClientPermissions("oadmin"))
-      println(o.getUserPermissions(userId.toString))
-      println(o.saveRole("Role XI", None, None))
-      println(o.grantUserRoles(userId.toString, Set("Role Four"), None))
-      println(o.grantRolePermissions("Role X", Set("P7", "P8"), None))
-      println(o.userHasRole(userId.toString, "Role One"))
-      println(o.userHasRole(userId.toString, "Role X"))
-      println(o.roleHasPermission("Role One", Set("P1")))
-    }
+    println(o.getRoles)
+    println(o.getUserRoles(userId.toString))
+    println(o.getPermissions)
+    println(o.getRolePermissions("Role One"))
+    println(o.getClientPermissions("oadmin"))
+    println(o.getUserPermissions(userId.toString))
+    println(o.saveRole("Role XI", None, None))
+    println(o.grantUserRoles(userId.toString, Set("Role Four"), None))
+    println(o.grantRolePermissions("Role X", Set("P7", "P8"), None))
+    println(o.userHasRole(userId.toString, "Role One"))
+    println(o.userHasRole(userId.toString, "Role X"))
+    println(o.roleHasPermission("Role One", Set("P1")))
   }
+}

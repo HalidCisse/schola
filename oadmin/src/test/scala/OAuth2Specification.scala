@@ -8,6 +8,7 @@ import unfiltered.oauth2._
 
 object OAuth2Specification extends org.specs.Specification
   with unfiltered.spec.jetty.Served {
+  import S._
 
   import dispatch.classic._
   import unfiltered.request.&
@@ -24,7 +25,7 @@ object OAuth2Specification extends org.specs.Specification
   )
 
   val sPassword = config.getString("super-user-password")
-  val owner = new ResourceOwner { val id = SuperUser.email; val password = Some(sPassword) }
+  val owner = new ResourceOwner { val id = SuperUser.primaryEmail; val password = Some(sPassword) }
 
   def setup = { server =>
     try drop() catch { case _: Throwable => }
@@ -42,9 +43,7 @@ object OAuth2Specification extends org.specs.Specification
     }
   }
 
-  def initialize() = Façade.init(SuperUser.id.get)
-
-  def drop() = Façade.drop()
+  def initialize() = init(SuperUser.id.get)
 
   // turning off redirects for validation
   override def http[T](handler: Handler[T]): T = {

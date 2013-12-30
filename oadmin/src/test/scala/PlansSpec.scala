@@ -12,6 +12,8 @@ import org.clapper.avsl.Logger
 object PlansSpec extends org.specs.Specification
 with unfiltered.spec.jetty.Served {
 
+  import S._
+
   import dispatch.classic._
 
   import unfiltered.request.&
@@ -50,7 +52,7 @@ with unfiltered.spec.jetty.Served {
 
   val log = Logger("oadmin.tests.PlansSpec")
 
-  def withMac[T](session: Façade.oauthService.SessionLike, method: String, uri: String)(f: Map[String, String] => T) = {
+  def withMac[T](session: oauthService.SessionLike, method: String, uri: String)(f: Map[String, String] => T) = {
 
     def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
 
@@ -115,13 +117,11 @@ with unfiltered.spec.jetty.Served {
   )
 
   val sPassword = config.getString("super-user-password")
-  val owner = new ResourceOwner { val id = SuperUser.email; val password = Some(sPassword) }
+  val owner = new ResourceOwner { val id = SuperUser.primaryEmail; val password = Some(sPassword) }
 
-  def init() {
-    Façade.init(SuperUser.id.get)
+  def initialize() {
+    init(SuperUser.id.get)
   }
-
-  def drop() = Façade.drop()
 
   def setup = {
     server =>
@@ -129,7 +129,7 @@ with unfiltered.spec.jetty.Served {
       try drop() catch {
         case _: Throwable =>
       }
-      init()
+      initialize()
 
       server.context("/oauth") {
         _.filter(unfiltered.filter.Planify {
@@ -145,7 +145,7 @@ with unfiltered.spec.jetty.Served {
 
   case class ConnectInfo(username: String, passwd: String, clientId: String = client.id, clientSecret: String = client.secret)
 
-  def withSession[T](connectInfo: ConnectInfo = ConnectInfo(SuperUser.email, SuperUser.password.get))(f: Either[String, Façade.oauthService.SessionLike] => T) = {
+  def withSession[T](connectInfo: ConnectInfo = ConnectInfo(SuperUser.primaryEmail, SuperUser.password.get))(f: Either[String, oauthService.SessionLike] => T) = {
     val body = http(token << Map(
       "grant_type" -> "password",
       "client_id" -> connectInfo.clientId,
@@ -158,12 +158,12 @@ with unfiltered.spec.jetty.Served {
       case Right(map) =>
 
         val key = map("access_token").toString
-        val session = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> "Chrome"))
+        val session = oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> "Chrome"))
 
         session must not be empty
 
         try f(Right(session.get))
-        finally Façade.oauthService.revokeToken(session.get.key)
+        finally oauthService.revokeToken(session.get.key)
 
       case Left(res) => f(Left(res))
     }
@@ -173,7 +173,7 @@ with unfiltered.spec.jetty.Served {
   "user plans" should {
 
     "save user" in {
-      val toSave = User("cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = true)
+      val toSave = User("cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, changePasswordAtNextLogin = true)
 
       withSession() {
         case Right(session) =>
@@ -190,9 +190,9 @@ with unfiltered.spec.jetty.Served {
 
               user must not be empty
 
-              user.get.email must be equalTo toSave.email
-              user.get.firstname must be equalTo toSave.firstname
-              user.get.lastname must be equalTo toSave.lastname
+              user.get.primaryEmail must be equalTo toSave.primaryEmail
+              user.get.givenName must be equalTo toSave.givenName
+              user.get.familyName must be equalTo toSave.familyName
 
               withMac(session, "DELETE", s"/api/v1/user/${user.get.id.get.toString}") {
                 auth =>
@@ -214,7 +214,7 @@ with unfiltered.spec.jetty.Served {
     }
 
     "force password change on non-validation" in {
-      val toSave = User("cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, passwordValid = false)
+      val toSave = User("cisse.amadou.9@gmail.com", Some("amsayk"), "Amadou", "Cisse", createdBy = SuperUser.id, changePasswordAtNextLogin = false)
 
       withSession() {
         case Right(session) =>
@@ -231,9 +231,9 @@ with unfiltered.spec.jetty.Served {
 
               user must not be empty
 
-              user.get.email must be equalTo toSave.email
-              user.get.firstname must be equalTo toSave.firstname
-              user.get.lastname must be equalTo toSave.lastname
+              user.get.primaryEmail must be equalTo toSave.primaryEmail
+              user.get.givenName must be equalTo toSave.givenName
+              user.get.familyName must be equalTo toSave.familyName
 
 //              withSession(ConnectInfo(user.get.email, toSave.password.get)) {
 //                case Right(body) =>

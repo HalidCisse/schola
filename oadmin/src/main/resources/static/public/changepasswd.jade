@@ -1,4 +1,6 @@
--@ val sessionKey: String
+-@ val flash: Map[String, String]
+-@ val error: Boolean = flash.get("error").exists(_ == "T")
+-@ val forcePasswdChange: Boolean = flash.get("forcePasswdChange").exists(_ == "T")
 !!! 5
 html(lang='en')
   head
@@ -18,12 +20,13 @@ html(lang='en')
         .collapse.navbar-collapse
           ul.nav.navbar-nav.navbar-right
             li.dropdown
-              a.dropdown-toggle(href='#' data-toggle='dropdown')
-                span.glyphicon.glyphicon-wrench
-                span.caret
-              ul.dropdown-menu
-                li
-                  a(href='/EditProfile') Edit Profile
+              - if(!forcePasswdChange)
+                a.dropdown-toggle(href='#' data-toggle='dropdown')
+                  span.glyphicon.glyphicon-wrench
+                  span.caret
+                ul.dropdown-menu
+                  li
+                    a(href='/EditProfile') Edit Account
             li
               a(href='/Logout')
                 span.glyphicon.glyphicon-log-out 
@@ -32,15 +35,20 @@ html(lang='en')
         h2
           | Change your password
     .container
-      form.form-changepasswd(role='form')
+      form.form-changepasswd(role='form' method='POST')
         fieldset
+          - if(forcePasswdChange)
+            .bs-callout.bs-callout-danger
+              p
+                | This application requires that you change your password.
           .form-group
-            input.form-control(type='password' name='old_password' placeholder='Enter current password' required autofocus)
+            input.form-control(type='password' name='password' placeholder='Enter current password' required autofocus)
           .form-group
-            input.form-control(type='password' name='new_passwd' placeholder='New Password' required)
+            input.form-control(type='password' name='new_password' placeholder='New Password' required)
           .form-group
             input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password' required)
-          button.btn.btn-lg.btn-default(type='submit') Ok
-          a.btn.btn-lg.btn-primary(href='/') Cancel
+          button.btn.btn-lg.btn-primary(type='submit') Change Password
+          - if(!forcePasswdChange)
+            a.btn.btn-lg.btn-default(href='/') Cancel
     script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/bootstrap.js")})

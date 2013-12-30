@@ -29,19 +29,37 @@ package object utils {
     System.currentTimeMillis - start
   }
 
+  // ---------------------------------------------------------------------------------------------------
 
-  //  val generateNonce = {
-  //    import java.security.SecureRandom
-  //    import org.bouncycastle.util.encoders.Hex
-  //
-  //    val b = new Array[Byte](8)
-  //    val random = SecureRandom.getInstance("SHA1PRNG")
-  //
-  //    (size: Int) => b.synchronized{
-  //      random.nextBytes(b)
-  //      Hex.toHexString(b)
-  //    }
-  //  }
+  import org.json4s._
+
+  def findFieldStr(json: JValue)(field: String) =
+    json findField {
+      case org.json4s.JField(`field`, _) => true
+      case _ => false
+    } collect {
+      case org.json4s.JField(_, org.json4s.JString(s)) => s
+    }
+
+  def findFieldJArr(json: JValue)(field: String) =
+    json findField {
+      case org.json4s.JField(`field`, _) => true
+      case _ => false
+    } collect {
+      case org.json4s.JField(_, a@org.json4s.JArray(_)) => a
+    }
+
+  def findFieldJObj(json: JValue)(field: String) =
+    json findField {
+      case org.json4s.JField(`field`, _) => true
+      case _ => false
+    } collect {
+      case org.json4s.JField(_, o@org.json4s.JObject(_)) => o
+    }
+}
+
+package utils {
+  import domain._
 
   object ResourceOwner {
 
@@ -72,52 +90,59 @@ package object utils {
 
   trait UserSpec {
 
-    case class ContactInfoSpec(toRem: Set[domain.ContactInfo] = Set(), toAdd: Set[domain.ContactInfo] = Set()) extends SetSpec[domain.ContactInfo]
+    case class UpdateSpecImpl[T: scala.reflect.ClassTag](set: Option[Option[T]] = None) extends UpdateSpec[T]
 
-    def contacts: Option[ContactInfoSpec]
+    case class MobileNumbersSpec(
+      mobile1: UpdateSpecImpl[PhoneNumber] = UpdateSpecImpl[PhoneNumber](),
+      mobile2: UpdateSpecImpl[PhoneNumber] = UpdateSpecImpl[PhoneNumber]())
 
-    def homeAddress: UpdateSpec[domain.AddressInfo]
+    case class ContactsSpec(
+      home: UpdateSpecImpl[HomeContactInfo] = UpdateSpecImpl[HomeContactInfo](),
+      work: UpdateSpecImpl[WorkContactInfo] = UpdateSpecImpl[WorkContactInfo](),
+      mobiles: MobileNumbersSpec = MobileNumbersSpec())
 
-    def workAddress: UpdateSpec[domain.AddressInfo]
+    def contacts: Option[ContactsSpec]
 
-    def email: Option[String]
+    def homeAddress: UpdateSpec[AddressInfo]
+
+    def workAddress: UpdateSpec[AddressInfo]
+
+    def primaryEmail: Option[String]
 
     def password: Option[String] // Though this is an Option, its required!
 
     def oldPassword: Option[String]
 
-    def firstname: Option[String]
+    def givenName: Option[String]
 
-    def lastname: Option[String]
+    def familyName: Option[String]
 
-    def gender: Option[domain.Gender.Value]
+    def gender: Option[Gender.Value]
 
-    def avatar: UpdateSpec[(domain.AvatarInfo, Array[Byte])]
+    def avatar: UpdateSpec[(AvatarInfo, Array[Byte])]
   }
 
   class DefaultUserSpec extends UserSpec {
 
-    case class UpdateSpecImpl[T: scala.reflect.ClassTag](set: Option[Option[T]] = None) extends UpdateSpec[T]
+    val contacts: Option[ContactsSpec] = None
 
-    val contacts: Option[ContactInfoSpec] = None
+    val homeAddress = UpdateSpecImpl[AddressInfo]()
 
-    val homeAddress = UpdateSpecImpl[domain.AddressInfo]()
+    val workAddress = UpdateSpecImpl[AddressInfo]()
 
-    val workAddress = UpdateSpecImpl[domain.AddressInfo]()
-
-    val email: Option[String] = None
+    val primaryEmail: Option[String] = None
 
     val password: Option[String] = None
 
     val oldPassword: Option[String] = None
 
-    val firstname: Option[String] = None
+    val givenName: Option[String] = None
 
-    val lastname: Option[String] = None
+    val familyName: Option[String] = None
 
-    val gender: Option[domain.Gender.Value] = None
+    val gender: Option[Gender.Value] = None
 
-    val avatar: UpdateSpec[(domain.AvatarInfo, Array[Byte])] = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])]()
+    val avatar: UpdateSpec[(AvatarInfo, Array[Byte])] = UpdateSpecImpl[(AvatarInfo, Array[Byte])]()
   }
 
   class AvatarWorkers(gfsPhotos: com.mongodb.gridfs.GridFS) extends akka.actor.Actor with akka.actor.ActorLogging {
@@ -141,9 +166,9 @@ package object utils {
       val f = gfsPhotos.findOne(id)
 
       if (f eq null)
-        Façade.oauthService.getUser(id) map {
+        Façade.simple.oauthService.getUser(id) map {
           user =>
-            (domain.AvatarInfo("image/png"), if (user.gender eq domain.Gender.Male) DefaultAvatars.Male else DefaultAvatars.Female)
+            (AvatarInfo("image/png"), if (user.gender eq Gender.Male) DefaultAvatars.M else DefaultAvatars.F)
         }
 
       else {
@@ -161,13 +186,13 @@ package object utils {
         read()
         in.close()
 
-        Some((domain.AvatarInfo(f.getContentType), com.owtelse.codec.Base64.encode(bos.toByteArray)))
+        Some((AvatarInfo(f.getContentType), com.owtelse.codec.Base64.encode(bos.toByteArray)))
       }
     }
 
     def receive = {
       case Avatars.Add(id, info, data) =>
-        uploadAvatar(id, info.contentType, data)
+        uploadAvatar(id, info.mimeType, data)
 
       case Avatars.Get(id) =>
 
@@ -187,19 +212,22 @@ package object utils {
     }
   }
 
-  class Avatars extends akka.actor.Actor with akka.actor.ActorLogging {
+  class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.ActorLogging {
+
     import akka.actor._
     import akka.routing._
 
-    val gfsPhotos = {
-      val mongo = new com.mongodb.Mongo(MongoDB.Hostname, MongoDB.Port)
-      val db = mongo.getDB(MongoDB.DatabaseName)
+    import config._
 
-      new com.mongodb.gridfs.GridFS(db, MongoDB.CollectionName)
+    val gfsPhotos = {
+      val mongo = new com.mongodb.Mongo(Host, Port)
+      val db = mongo.getDB(DatabaseName)
+
+      new com.mongodb.gridfs.GridFS(db, CollectionName)
     }
 
     val workerPool = context.actorOf(
-      props = RandomPool(3).props(Props(classOf[AvatarWorkers], gfsPhotos)).withDeploy(Deploy.local),
+      props = RandomPool(3/* Workers */).props(Props(classOf[AvatarWorkers], gfsPhotos)/*.withDispatcher(Dispatcher)*/).withDeploy(Deploy.local), // Add Workers and BalancingDispatcher to config
       name = "Avatars_upload-workers")
 
     def receive = {
@@ -212,47 +240,13 @@ package object utils {
 
     sealed trait Msg
 
-    case class Add(id: String, info: domain.AvatarInfo, data: Array[Byte]) extends Msg
+    case class Add(id: String, info: AvatarInfo, data: Array[Byte]) extends Msg
 
     case class Get(id: String) extends Msg
 
     case class Purge(id: String) extends Msg
 
   }
-
-  // ---------------------------------------------------------------------------------------------------------------
-
-/*  import unfiltered.oauth2._
-
-  /** Configured Authorization server module */
-  case class OAuthorization(auth: unfiltered.oauth2.AuthorizationServer) extends Authorized
-  with DefaultAuthorizationPaths with DefaultValidationMessages {
-
-    override def onPassword(
-                             userName: String, password: String,
-                             clientId: String, clientSecret: String, scope: Seq[String]) =
-      auth(PasswordRequest(
-        userName, password, clientId, clientSecret, scope)) match {
-
-        case AccessTokenResponse(
-        accessToken, tokenType, expiresIn, refreshToken, aScope, _, extras) =>
-          accessResponder(
-            accessToken, tokenType, expiresIn, refreshToken, aScope, extras
-          )
-
-        case ErrorResponse("changepasswd", id, _, _) =>
-
-          utils.Scalate(
-            TokenPath,
-            "changepasswd.jade",
-            "id" -> java.net.URLEncoder.encode(id, "utf-8")
-          )
-
-
-        case ErrorResponse(error, desc, euri, state) =>
-          errorResponder(error, desc, euri, state)
-      }
-  }*/
 
   // ---------------------------------------------------------------------------------------------------------------
 
@@ -264,6 +258,11 @@ package object utils {
 
   object Scalate {
 
+    import libs.Flash
+
+    def flash[A](req: HttpRequest[A]) =
+      unfiltered.request.Cookies(req).get(Flash.COOKIE_NAME).map(Flash.decodeFromCookie(_).data).getOrElse(Map[String, String]())
+
     def apply[A, B](request: HttpRequest[A],
                     template: String,
                     attributes: (String, Any)*)
@@ -272,7 +271,7 @@ package object utils {
                     contextBuilder: ToRenderContext = defaultRenderContext,
                     bindings: List[Binding] = Nil,
                     additionalAttributes: Seq[(String, Any)] = Nil
-                     ): ResponseWriter = apply(Path(request), template, attributes: _*)
+                     ): ResponseWriter = apply(Path(request), template, Seq("flash" -> flash(request)) ++ attributes: _*)
 
     /** Constructs a ResponseWriter for Scalate templates.
       * Note that any parameter in the second, implicit set
@@ -310,11 +309,71 @@ package object utils {
     (String, PrintWriter, TemplateEngine) => RenderContext
 
     private val defaultTemplateDirs =
-      new File(config.getString("jade.template-dir")) :: Nil
+      new File(config.getString("templates.dir")) :: Nil
     private val defaultEngine = new TemplateEngine(defaultTemplateDirs)
     private val defaultRenderContext: ToRenderContext =
       (path, writer, engine) =>
         new DefaultRenderContext(path, engine, writer)
   }
 
+  // -------------------------------------------------------------------------------------------------------------------------
+
+  object Crypto {
+
+    import java.security.SecureRandom
+
+    import javax.crypto._
+    import javax.crypto.spec.SecretKeySpec
+
+    import org.bouncycastle.util.encoders.Hex
+
+    val secret = config.getString("secret")
+
+    private val random = new SecureRandom
+
+    def sign(message: String, key: Array[Byte]): String = {
+      val mac = Mac.getInstance("HmacSHA1")
+      mac.init(new SecretKeySpec(key, "HmacSHA1"))
+      Hex.toHexString(mac.doFinal(message.getBytes("utf-8")))
+    }
+
+    def sign(message: String): String =
+      sign(message, secret.getBytes("utf-8"))
+
+    val generateToken = {
+      val bytes = new Array[Byte](12)
+
+      () => bytes.synchronized {
+        random.nextBytes(bytes)
+        new String(Hex.toHexString(bytes))
+      }
+    }
+
+    def generateSignedToken = signToken(generateToken())
+
+    def signToken(token: String) = {
+      val nonce = System.currentTimeMillis()
+      val joined = nonce + "-" + token
+      sign(joined) + "-" + joined
+    }
+
+    def extractSignedToken(token: String) = {
+      token.split("-", 3) match {
+        case Array(signature, nonce, raw) if constantTimeEquals(signature, sign(nonce + "-" + raw)) => Some(raw)
+        case _ => None
+      }
+    }
+
+    def constantTimeEquals(a: String, b: String) = {
+      if (a.length != b.length) {
+        false
+      } else {
+        var equal = 0
+        for (i <- 0 until a.length) {
+          equal |= a(i) ^ b(i)
+        }
+        equal == 0
+      }
+    }
+  }
 }

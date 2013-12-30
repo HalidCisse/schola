@@ -157,16 +157,26 @@ object CacheActor {
 class OAdminCacheActor(cacheSystem: CacheSystem)
   extends CacheActor(cacheSystem) {
 
-  override def receive =
-    findValueReceive orElse purgeValueReceive orElse updateCacheForNowReceive
+  override def receive = _busy
+    
+  private val _busy = findValueReceive orElse purgeValueReceive orElse updateCacheForNowReceive
 
-  def updateCacheForNow() {
+  def updateCacheForNow() { // TODO: Fix UpdateCacheForNow
     log.info("updating cache for now . . .")
 
+    context.become({ case _ => () })
+
     val elapsed = utils.timeF {
-      for(user <- Façade.oauthService.getUsers)
-        Façade.oauthService.getUser(user.id.get.toString)
+      // import S._
+      
+      // val users = oauthService.getUsers // Bug: Call the one that will not visit the cache
+
+      // Cache.set("users", users)
+
+      // users foreach(user => Cache.set(user.id.get.toString, Some(user)))
     }
+
+    context.become(_busy)
 
     log.info(s"cache successfully updated in  ${elapsed / 1000} secs")
   }

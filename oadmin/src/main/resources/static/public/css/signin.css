@@ -8,12 +8,19 @@ body {
   padding: 15px;
   margin: 0 auto;
 }
+.page-header {
+  border-bottom:none;
+}
 .form-signin .form-signin-heading,
 .form-signin .checkbox {
   margin-bottom: 10px;
 }
 .form-signin .checkbox {
   font-weight: normal;
+  display: inline-block;
+}
+.form-signin .forgot_passwd {
+margin-top: 10px;
 }
 .form-signin .form-control {
   position: relative;
@@ -32,6 +39,10 @@ body {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
+.form-signin button[type="submit"] {
+  margin-bottom: 3px;
+}
+
 .form-signin input[type="password"] {
   margin-bottom: 10px;
   border-top-left-radius: 0;

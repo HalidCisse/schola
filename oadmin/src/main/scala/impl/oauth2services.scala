@@ -22,6 +22,8 @@ trait OAuthServicesComponentImpl extends OAuthServicesComponent {
     def getPurgedUsers = oauthServiceRepo.getPurgedUsers
 
     def purgeUsers(users: Set[String]) = oauthServiceRepo.purgeUsers(users)
+    
+    def undeleteUsers(users: Set[String]) = oauthServiceRepo.undeleteUsers(users)
 
     def getTokenSecret(accessToken: String) = oauthServiceRepo.getTokenSecret(accessToken)
 
@@ -42,13 +44,13 @@ trait OAuthServicesComponentImpl extends OAuthServicesComponent {
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
       oauthServiceRepo.saveToken(accessToken, refreshToken, macKey, uA, clientId, redirectUri, userId, expiresIn, refreshExpiresIn, scopes)
 
-    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) = oauthServiceRepo.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid)
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean) = oauthServiceRepo.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
 
     def updateUser(id: String, spec: utils.UserSpec) = oauthServiceRepo.updateUser(id, spec)
 
     def getAvatar(id: String) = oauthServiceRepo.getAvatar(id)
 
-    def emailExists(email: String) = oauthServiceRepo.emailExists(email)
+    def primaryEmailExists(primaryEmail: String) = oauthServiceRepo.primaryEmailExists(primaryEmail)
   }
 }
 
@@ -70,11 +72,12 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       u <- Users if ! u._deleted
     } yield (
         u.id,
-        u.email,
-        u.firstname,
-        u.lastname,
+        u.primaryEmail,
+        u.givenName,
+        u.familyName,
         u.createdAt,
         u.createdBy,
+        u.lastLoginTime,
         u.lastModifiedAt,
         u.lastModifiedBy,
         u.gender,
@@ -82,17 +85,18 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         u.workAddress,
         u.contacts,
         u.avatar,
-        u.passwordValid))
+        u.changePasswordAtNextLogin))
 
     val trashedUsers = Compiled(for {
       u <- Users if u._deleted
     } yield (
         u.id,
-        u.email,
-        u.firstname,
-        u.lastname,
+        u.primaryEmail,
+        u.givenName,
+        u.familyName,
         u.createdAt,
         u.createdBy,
+        u.lastLoginTime,
         u.lastModifiedAt,
         u.lastModifiedBy,
         u.gender,
@@ -100,7 +104,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         u.workAddress,
         u.contacts,
         u.avatar,
-        u.passwordValid))
+        u.changePasswordAtNextLogin))
 
     val userById = {
 
@@ -109,11 +113,12 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           u <- Users if ! u._deleted && (u.id is id)
         } yield (
           u.id,
-          u.email,
-          u.firstname,
-          u.lastname,
+          u.primaryEmail,
+          u.givenName,
+          u.familyName,
           u.createdAt,
           u.createdBy,
+          u.lastLoginTime,
           u.lastModifiedAt,
           u.lastModifiedBy,
           u.gender,
@@ -121,7 +126,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           u.workAddress,
           u.contacts,
           u.avatar,
-          u.passwordValid)
+          u.changePasswordAtNextLogin)
 
       Compiled(getUser _)
     }
@@ -175,6 +180,13 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           t.scopes)
 
       Compiled(getRefreshToken _)
+    }
+
+    val bearerToken = {
+      def getAccessToken(accessToken: Column[String]) = 
+        OAuthTokens where (_.accessToken is accessToken)
+
+      Compiled(getAccessToken _)
     }
 
     val accessToken = {
@@ -256,19 +268,26 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     val auth = {
       def getUser(username: Column[String]) =
         for {
-          u <- Users if !u._deleted && (u.email is username)
+          u <- Users if !u._deleted && !u.suspended && (u.primaryEmail is username)
         } yield (u.id, u.password)
 
       Compiled(getUser _)
     }
 
-    val emailExists = {
-      def getEmail(email: Column[String]) =
+    val forLastLoginTime = {
+      def getLastLoginTime(id: Column[java.util.UUID]) =
+        Users where(_.id is id) map(_.lastLoginTime)
+
+      Compiled(getLastLoginTime _)
+    }
+
+    val primaryEmailExists = {
+      def getPrimaryEmail(primaryEmail: Column[String]) =
         for {
-          u <- Users if u.email.toLowerCase is email
+          u <- Users if u.primaryEmail.toLowerCase is primaryEmail
         } yield true
 
-      Compiled(getEmail _)
+      Compiled(getPrimaryEmail _)
     }
 
     val userUpdates = {
@@ -276,17 +295,17 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       def forPasswdAndContacts(id: Column[java.util.UUID]) =
         Users where(_.id is id) map(o => (o.password, o.contacts))
       
-      def forEmail(id: Column[java.util.UUID]) = 
-        Users where(_.id is id) map(o => (o.email, o.lastModifiedAt, o.lastModifiedBy))
+      def forPrimaryEmail(id: Column[java.util.UUID]) =
+        Users where(_.id is id) map(o => (o.primaryEmail, o.lastModifiedAt, o.lastModifiedBy))
 
       def forPasswd(id: Column[java.util.UUID]) = 
-        Users where(_.id is id) map(o => (o.password, o.passwordValid, o.lastModifiedAt, o.lastModifiedBy))
+        Users where(_.id is id) map(o => (o.password, o.changePasswordAtNextLogin, o.lastModifiedAt, o.lastModifiedBy))
 
       def forFN(id: Column[java.util.UUID]) = 
-        Users where(_.id is id) map(o => (o.firstname, o.lastModifiedAt, o.lastModifiedBy))
+        Users where(_.id is id) map(o => (o.givenName, o.lastModifiedAt, o.lastModifiedBy))
 
       def forLN(id: Column[java.util.UUID]) = 
-        Users where(_.id is id) map(o => (o.lastname, o.lastModifiedAt, o.lastModifiedBy))
+        Users where(_.id is id) map(o => (o.familyName, o.lastModifiedAt, o.lastModifiedBy))
 
       def forGender(id: Column[java.util.UUID]) = 
         Users where(_.id is id) map(o => (o.gender, o.lastModifiedAt, o.lastModifiedBy))
@@ -305,10 +324,10 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       new {
         val passwdAndContacts = Compiled(forPasswdAndContacts _)
-        val email = Compiled(forEmail _)
+        val primaryEmail = Compiled(forPrimaryEmail _)
         val password = Compiled(forPasswd _)
-        val firstname = Compiled(forFN _)
-        val lastname = Compiled(forLN _)
+        val givenName = Compiled(forFN _)
+        val familyName = Compiled(forLN _)
         val gender = Compiled(forGender _)
         val homeAddress = Compiled(forHomeAddress _)
         val workAddress = Compiled(forWorkAddress _)
@@ -334,8 +353,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result map {
-        case (id, email, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(email, None, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid, id = Some(id))
+        case (id, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin) =>
+          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(id))
       }
     }
 
@@ -349,8 +368,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result map {
-        case (sId, email, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(email, None, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid, id = Some(sId))
+        case (sId, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin) =>
+          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(sId))
       }
     }
 
@@ -374,17 +393,27 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result map {
-        case (id, email, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid) =>
-          User(email, None, firstname, lastname, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, passwordValid = passwordValid, id = Some(id))
+        case (id, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin) =>
+          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(id))
       }
     }
 
-    def purgeUsers(users: Set[String]) = db.withTransaction { implicit sesssion =>
+    def purgeUsers(users: Set[String]) = {
       val q = for { u <- Users if u.id inSet (users map java.util.UUID.fromString) } yield u
 
       users foreach(id => avatars ! utils.Avatars.Purge(id))
 
-      q.delete
+      db.withTransaction { implicit sesssion =>
+        q.delete
+      }
+    }
+
+    def undeleteUsers(users: Set[String]) = {
+      val q = for { u <- Users if u._deleted && (u.id inSet (users map java.util.UUID.fromString)) } yield u._deleted
+      
+      db.withTransaction { implicit sesssion =>
+        q.update(false)
+      }
     }
 
     def getTokenSecret(accessToken: String) = {
@@ -408,11 +437,12 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       result flatMap {
         case (accessToken, clientId, redirectUri, userId, sRefreshToken, macKey, uA, expires, refreshExpires, createdAt, lastAccessTime, sScopes) =>
 
-          def expired = refreshExpires exists (_ + createdAt < System.currentTimeMillis)
+          def isExpired = refreshExpires exists (_ * 1000 + createdAt < System.currentTimeMillis)
 
-          if(expired) {
+          if(isExpired) {
             db withTransaction { implicit session =>
-              if(q.tokenSecret(accessToken).delete != 1) throw new Exception("getRefreshToken: can't delete expired refresh token")
+              if(q.bearerToken(accessToken).delete != 1)
+                throw new Exception("getRefreshToken: can't delete expired refresh token")
               None
             }
           }
@@ -427,8 +457,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       token.firstOption flatMap {
         case (aAccessToken, clientId, redirectUri, userId, uA, Some(aRefreshToken), issuedTime, expiresIn, refreshExpiresIn, aScopes) if refreshExpiresIn map(issuedTime + 1000 * _ > System.currentTimeMillis) getOrElse true => //aRefreshToken exists
 
-          def generateToken = utils.SHA3Utils digest s"$clientId:$userId:${System.nanoTime}"
-          def generateRefreshToken(accessToken: String) = utils.SHA3Utils digest s"$accessToken:$userId:${System.nanoTime}"
+          def generateToken = utils.Crypto.generateToken() // utils.SHA3Utils digest s"$clientId:$userId:${System.nanoTime}"
+          def generateRefreshToken(accessToken: String) = utils.Crypto.generateToken() // utils.SHA3Utils digest s"$accessToken:$userId:${System.nanoTime}"
           def generateMacKey = utils.genPasswd(s"$userId:${System.nanoTime}")
 
           val accessToken = generateToken
@@ -444,7 +474,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           newToken.firstOption map {
             case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, dCreatedAt, dLastAccessTime, dScopes) =>
 
-              if(q.tokenSecret(aAccessToken).delete != 1) throw new Exception("couldn't create new token")
+              if(q.bearerToken(aAccessToken).delete != 1)
+                throw new Exception("couldn't delete old token")
 
               OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, dCreatedAt, dLastAccessTime, scopes = dScopes)
           }
@@ -491,6 +522,8 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               q.lastAccessTime update(System.currentTimeMillis)
             } // Touch session
 
+            val userId = sUser.id map(_.toString) get
+
             Session(
               sAccessToken,
               sMacKey,
@@ -502,10 +535,10 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               sLastAccessTime,
               user = sUser copy(password = None),
               userAgent = sUA,
-              roles = Set(accessControlService.getUserRoles(sUser.id map(_.toString) get) map(_.role) : _*),
-              permissions = {
-                val userPermissions = accessControlService.getUserPermissions(sUser.id map(_.toString) get) // TODO: is this dependency safe
-                Map(accessControlService.getPermissions map(p => (p.name, userPermissions contains p.name)) : _*)
+              hasRole = Map(accessControlService.getRoles map(r => (r.name, accessControlService.userHasRole(userId, r.name))) : _*) withDefaultValue(false),
+              hasPermission = {
+                val userPermissions = accessControlService.getUserPermissions(userId) // TODO: is this dependency safe
+                Map(accessControlService.getPermissions map(p => (p.name, userPermissions contains p.name)) : _*) withDefaultValue(false)
               },
               scopes = sScopes
             )
@@ -528,42 +561,51 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     }
 
     def authUser(username: String, password: String) = {
-      import Database.dynamicSession
-
       val user = q.auth(username)
 
-      val result = db.withDynSession {
+      val result = db.withSession { implicit session =>
         user.firstOption
       }
 
       result collect {
-        case (id, sPasswd) if passwords verify(password, sPasswd) => id.toString
+        case (id, sPasswd) if passwords verify(password, sPasswd) =>
+
+          db.withTransaction { implicit session =>
+            q.forLastLoginTime(id) update(Some(System.currentTimeMillis))
+          }
+
+          id.toString
       }
     }
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
-      db.withTransaction { implicit session =>
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) = {
+      val currentTimestamp = System.currentTimeMillis
 
-        val currentTimestamp = System.currentTimeMillis
+      if(
+        db.withTransaction { implicit session =>
+          (OAuthTokens.forInsert += (accessToken, clientId, redirectUri, java.util.UUID.fromString(userId), refreshToken, macKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", scopes)) != 1
+        }) throw new IllegalStateException("can't save token")
 
-        if((OAuthTokens.forInsert += (accessToken, clientId, redirectUri, java.util.UUID.fromString(userId), refreshToken, macKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", scopes)) != 1) throw new IllegalArgumentException("can't save token")
+      val token = q.accessToken(accessToken)
 
-        val token = q.accessToken(accessToken)
-
-        token.firstOption map {
-          case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, sScopes) =>
-            OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, scopes = sScopes)
-        }
+      val result = db.withSession { implicit session =>
+        token.firstOption
       }
 
-    def saveUser(email: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) =
+      result map {
+        case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, sScopes) =>
+          OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, scopes = sScopes)
+      }
+    }
+
+    def saveUser(primaryEmail: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean) =
       db.withTransaction { implicit session =>
         val currentTimestamp = System.currentTimeMillis
 
         scala.util.control.Exception.allCatch.opt {
 
           Users insert(
-            email, passwords crypt password, firstname, lastname, currentTimestamp, createdBy map java.util.UUID.fromString, Some(currentTimestamp), createdBy map java.util.UUID.fromString, gender, homeAddress, workAddress, contacts, passwordValid)
+            primaryEmail, passwords crypt password, givenName, familyName, currentTimestamp, createdBy map java.util.UUID.fromString, Some(currentTimestamp), createdBy map java.util.UUID.fromString, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
         }
       }
 
@@ -580,44 +622,44 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
             val currentTimestamp = Some(System.currentTimeMillis)
 
-            val _1 = spec.email map {
-              email =>
-                q.userUpdates.email(uuid).update(email, currentTimestamp, Some(uuid)) == 1
+            val _1 = spec.primaryEmail map {
+              primaryEmail =>
+                q.userUpdates.primaryEmail(uuid).update(primaryEmail, currentTimestamp, Some(uuid)) == 1
             } getOrElse true
 
-            val _2 = spec.password map {
+            val _2 = _1 && (spec.password map {
               password =>
                 spec.oldPassword.nonEmpty &&
                   (passwords verify(spec.oldPassword.get, sPassword)) &&
-                  (q.userUpdates.password(uuid).update(passwords crypt password, true, currentTimestamp, Some(uuid)) == 1)
-            } getOrElse true
+                  (q.userUpdates.password(uuid).update(passwords crypt password, false, currentTimestamp, Some(uuid)) == 1)
+            } getOrElse true)
 
-            val _3 = spec.firstname map {
-              firstname =>
-                q.userUpdates.firstname(uuid).update(firstname, currentTimestamp, Some(uuid)) == 1
-            } getOrElse true
+            val _3 = _2 && (spec.givenName map {
+              givenName =>
+                q.userUpdates.givenName(uuid).update(givenName, currentTimestamp, Some(uuid)) == 1
+            } getOrElse true)
 
-            val _4 = spec.lastname map {
-              lastname =>
-                q.userUpdates.firstname(uuid).update(lastname, currentTimestamp, Some(uuid)) == 1
-            } getOrElse true
+            val _4 = _3 && (spec.familyName map {
+              familyName =>
+                q.userUpdates.givenName(uuid).update(familyName, currentTimestamp, Some(uuid)) == 1
+            } getOrElse true)
 
-            val _5 = spec.gender map {
+            val _5 = _4 && (spec.gender map {
               gender =>
                 q.userUpdates.gender(uuid).update(gender, currentTimestamp, Some(uuid)) == 1
-            } getOrElse true
+            } getOrElse true)
 
-            val _6 = spec.homeAddress foreach {
+            val _6 = _5 && (spec.homeAddress foreach {
               case homeAddress =>
                 q.userUpdates.homeAddress(uuid).update(homeAddress, currentTimestamp, Some(uuid)) == 1
-            }
+            })
 
-            val _7 = spec.workAddress foreach {
+            val _7 = _6 && (spec.workAddress foreach {
               case workAddress =>
                 q.userUpdates.workAddress(uuid).update(workAddress, currentTimestamp, Some(uuid)) == 1
-            }
+            })
 
-            val _8 = spec.avatar foreach {
+            val _8 = _7 && (spec.avatar foreach {
               case Some((avatar, data)) =>
                 avatars ! utils.Avatars.Add(id, avatar, data)
                 q.userUpdates.avatar(uuid).update(Some(avatar), currentTimestamp, Some(uuid)) == 1
@@ -625,11 +667,29 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               case _ =>
                 avatars ! utils.Avatars.Purge(id)
                 q.userUpdates.avatar(uuid).update(None, currentTimestamp, Some(uuid)) == 1
+            })
+
+            _8 && {
+
+              spec.contacts map{
+                case s =>
+
+                  val qContacts = q.userUpdates.contacts(uuid)
+
+                  val Contacts(curHome, curWork, MobileNumbers(curMobile1, curMobile2)) = sContacts
+
+                  (qContacts update(
+                    Contacts(
+                      home = if(s.home.set eq None) curHome else s.home.set.get,
+                      work = if(s.work.set eq None) curWork else s.work.set.get,
+                      mobiles = MobileNumbers(if(s.mobiles.mobile1.set eq None) curMobile1 else s.mobiles.mobile1.set.get, if(s.mobiles.mobile2.set eq None) curMobile2 else s.mobiles.mobile2.set.get)),
+                    currentTimestamp,
+                    Some(uuid)
+                    )) == 1
+
+              } getOrElse true
             }
 
-            val _9 = spec.contacts map (contacts => q.userUpdates.contacts(uuid).update(contacts.diff(sContacts), currentTimestamp, Some(uuid)) == 1) getOrElse true
-
-            _1 && _2 && _3 && _4 && _5 && _6 && _7 && _8 && _9
         }) getUser(id)
 
         else None
@@ -653,11 +713,11 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       } getOrElse None
     }
 
-    def emailExists(email: String) = {
+    def primaryEmailExists(primaryEmail: String) = {
       import Database.dynamicSession
 
       db.withDynSession {
-        q.emailExists(email.toLowerCase).firstOption
+        q.primaryEmailExists(primaryEmail.toLowerCase).firstOption
       } getOrElse false
     }
   }
@@ -679,14 +739,14 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl with 
   class CachingOAuthServicesImpl extends OAuthServicesImpl {
 
     override def getUsers =
-      cachingServices.get[List[domain.User]](ManyParams("users")) { super.getUsers.asInstanceOf[List[domain.User]] } getOrElse Nil
+      cachingServices.get[List[UserLike]](ManyParams("users")) { super.getUsers } getOrElse Nil
 
     override def getUser(id: String) =
-      cachingServices.get[Option[domain.User]](Params(id)) { super.getUser(id).asInstanceOf[Option[domain.User]] } getOrElse None
+      cachingServices.get[Option[UserLike]](Params(id)) { super.getUser(id) } flatten
 
-    override def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean) =
-      super.saveUser(username, password, firstname, lastname, createdBy, gender, homeAddress, workAddress, contacts, passwordValid) collect{
-        case my: domain.User =>
+    override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean) =
+      super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) collect{
+        case my: UserLike =>
           cachingServices.purge(Params(my.id.get.toString))
           cachingServices.purge(ManyParams("users"))
           my
@@ -694,18 +754,18 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl with 
 
     override def updateUser(id: String, spec: utils.UserSpec) =
       super.updateUser(id, spec) collect {
-        case my: domain.User =>
+        case my: UserLike =>
           cachingServices.purge(Params(my.id.get.toString))
           cachingServices.purge(ManyParams("users"))
           my
       }
 
     override def removeUser(id: String): Boolean =
-      if(super.removeUser(id)){
+      super.removeUser(id) && {
         cachingServices.purge(Params(id))
         cachingServices.purge(ManyParams("users"))
         true
-      } else false
+      }
 
     override def purgeUsers(users: Set[String]) {
       super.purgeUsers(users)
@@ -719,25 +779,25 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl with 
   class CachingAccessControlServicesImpl extends AccessControlServicesImpl {
 
     override def getRoles =
-      cachingServices.get[List[domain.Role]](ManyParams("roles")) { super.getRoles.asInstanceOf[List[domain.Role]] } getOrElse Nil
+      cachingServices.get[List[RoleLike]](ManyParams("roles")) { super.getRoles } getOrElse Nil
 
     override def getRole(roleName: String) =
-      cachingServices.get[Option[domain.Role]](Params(roleName)) { super.getRole(roleName).asInstanceOf[Option[domain.Role]] } getOrElse None
+      cachingServices.get[Option[RoleLike]](Params(roleName)) { super.getRole(roleName) } flatten
 
     override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) =
       super.saveRole(name, parent, createdBy) collect{
-        case my: domain.Role =>
+        case my: RoleLike =>
           cachingServices.purge(Params(my.name))
           cachingServices.purge(ManyParams("roles"))
           my
       }
 
     override def updateRole(name: String, newName: String, parent: Option[String]) =
-      if(super.updateRole(name, newName, parent)) {
+      super.updateRole(name, newName, parent) && {
         cachingServices.purge(Params(newName))
         cachingServices.purge(ManyParams("roles"))
         true
-      } else false
+      }
 
     override def purgeRoles(roles: Set[String]) {
       super.purgeRoles(roles)
@@ -763,7 +823,7 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
   class CachingServicesImpl extends CachingServices {
 
     def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
-      implicit val tm = Timeout(10 seconds)
+      implicit val tm = Timeout(60 seconds)
 
       val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
 

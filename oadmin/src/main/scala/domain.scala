@@ -14,8 +14,8 @@ package domain {
     lastAccessTime: Long,
     user: User,
     userAgent: String,
-    roles: Set[String] = Set(),
-    permissions: Map[String, Boolean] = Map(),
+    hasRole: Map[String, Boolean] = Map(),
+    hasPermission: Map[String, Boolean] = Map(),
     scopes: Set[String] = Set())
 
   case class OAuthToken(
@@ -44,38 +44,39 @@ package domain {
     val Female = Value
   }
 
-  sealed trait ContactValue
+  case class Email(email: String)
+  case class PhoneNumber(phoneNumber: String)
+  case class Fax(fax: String)
 
-  case class Email(email: String) extends ContactValue
-  case class PhoneNumber(number: String) extends ContactValue
-  case class Fax(fax: String) extends ContactValue
+  case class HomeContactInfo(email: Option[Email], phoneNumer: Option[PhoneNumber], fax: Option[Fax])
+  case class WorkContactInfo(email: Option[Email], phoneNumer: Option[PhoneNumber], fax: Option[Fax])
 
-  sealed trait ContactInfo
+  case class MobileNumbers(mobile1: Option[PhoneNumber], mobile2: Option[PhoneNumber])
 
-  case class HomeContactInfo(home: ContactValue) extends ContactInfo
-  case class WorkContactInfo(work: ContactValue) extends ContactInfo
-  case class MobileContactInfo(mobile: PhoneNumber) extends ContactInfo
+  case class Contacts(home: Option[HomeContactInfo], work: Option[WorkContactInfo], mobiles: MobileNumbers)
 
-  case class AddressInfo(city: String, country: String, zipCode: String, addressLine: String)
+  case class AddressInfo(city: String, country: String, postalCode: String, streetAddress: String)
 
-  case class AvatarInfo(contentType: String, created: Long = System.currentTimeMillis)
+  case class AvatarInfo(mimeType: String, created: Long = System.currentTimeMillis)
 
   case class User(
-     email: String,
+     primaryEmail: String,
      password: Option[String],
-     firstname: String,
-     lastname: String,
+     givenName: String,
+     familyName: String,
      createdAt: Long = System.currentTimeMillis,
      createdBy: Option[java.util.UUID],
+     lastLoginTime: Option[Long] = None,
      lastModifiedAt: Option[Long] = None,
      lastModifiedBy: Option[java.util.UUID] = None,
      gender: Gender.Value = Gender.Male,
      homeAddress: Option[AddressInfo] = None,
      workAddress: Option[AddressInfo] = None,
-     contacts: Set[ContactInfo] = Set(),
+     contacts: Contacts = Contacts(None, None, MobileNumbers(None, None)),
      avatar: Option[AvatarInfo] = None,
      _deleted: Boolean = false,
-     passwordValid: Boolean = false,
+     suspended: Boolean = false,
+     changePasswordAtNextLogin: Boolean = false,
      id: Option[java.util.UUID] = None)
 
   case class Role(name: String, parent: Option[String], createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID], public: Boolean = true)
@@ -117,9 +118,9 @@ package domain {
   }
 
   object R {
-    val SuperUserR = Role(config.getString("super-user-role-name"), None, createdAt = 0L, createdBy = None, public = false)
+    val SuperUserR = Role(config.getString("oauth2.super-user-role-name"), None, createdAt = 0L, createdBy = None, public = false)
 
-    val AdministratorR = Role(config.getString("administrator-role-name"), Some(SuperUserR.name), createdAt = 0L, createdBy = None, public = false)
+    val AdministratorR = Role(config.getString("oauth2.administrator-role-name"), Some(SuperUserR.name), createdAt = 0L, createdBy = None, public = false)
 
     val all = Set(SuperUserR, AdministratorR)
   }
@@ -127,12 +128,11 @@ package domain {
   object U {
     val SuperUser =
       User(
-        config.getString("super-user-email"),
-        Some(config.getString("super-user-password")),
-        config.getString("super-user-firstname"),
-        config.getString("super-user-lastname"), createdAt = 0L, createdBy = None,
-        passwordValid = true,
-        id = Some(java.util.UUID.fromString(config.getString("super-user-id"))))
+        config.getString("root.primaryEmail"),
+        Some(config.getString("root.password")),
+        config.getString("root.givenName"),
+        config.getString("root.familyName"), createdAt = 0L, createdBy = None,
+        id = Some(java.util.UUID.fromString(config.getString("root.id"))))
 
     val all = Set(SuperUser)
   }

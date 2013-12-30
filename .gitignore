@@ -1,5 +1,6 @@
+project/project
+project/target
 target
-project
 .idea
 .idea_modules
 oadmin.sublime-project

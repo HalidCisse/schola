@@ -6,7 +6,7 @@ import org.apache.commons.validator.routines.EmailValidator
 
 object Plans extends Plans(Façade)
 
-class Plans(val factory: HandlerFactory) {
+class Plans(val f: ServiceComponentFactory with HandlerFactory) {
 
   val log = Logger("oadmin.plans")
 
@@ -19,6 +19,10 @@ class Plans(val factory: HandlerFactory) {
   import scala.util.control.Exception.allCatch
 
   import unfiltered.filter.request.{MultiPart, MultiPartParams}
+
+  import libs.Flash
+
+  import f.simple._
 
   private lazy val xHttp = dispatch.Http // TODO: configure dispatch-reboot executor service
 
@@ -36,295 +40,440 @@ class Plans(val factory: HandlerFactory) {
 
   object SessionKey {
     def unapply[T](req: HttpRequest[T]) =
-      Cookies.unapply(req) flatMap (_("_session_key")) map (_.value)
+      Cookies.unapply(req) flatMap (_(SESSION_KEY) flatMap (c=>utils.Crypto.extractSignedToken(c.value)))
   }
 
-  def / = async.Planify {
+  val / = {
 
-    case UserAgent(uA) & HostPort(hostname, port) & req =>
+    import dispatch._
+    import scala.concurrent.ExecutionContext.Implicits.global // TODO: change this to a real ExecutionContext
 
-      import dispatch._
-      import scala.concurrent.ExecutionContext.Implicits.global
+    object UserPasswd {
+      def unapply(params: Map[String, Seq[String]]) =
+        allCatch.opt {
+          (Username.unapply(params).get,
+            Passwd.unapply(params).get,
+            params("remember_me") exists(_ == "remember-me"))
+        }
+    }
+    object Passwds {
+      def unapply(params: Map[String, Seq[String]]) =
+        allCatch.opt {
+          (Passwd.unapply(params).get,
+            NewPasswd.unapply(params).get)
+        }
+    }
 
-      object UserPasswd {
-        def unapply(params: Map[String, scala.Seq[String]]) =
-          allCatch.opt {
-            (Username.unapply(params).get,
-              Passwd.unapply(params).get,
-              NewPasswd.unapply(params),
-              params("remember_me") nonEmpty)
+    object ReCaptcha {
+      val PublicKey = config.getString("recaptcha.public_key")
+      
+      val PrivateKey = config.getString("recaptcha.private_key")
+      
+      def unapply(params: Map[String, Seq[String]]) =
+        allCatch.opt(
+            params("recaptcha_challenge_field")(0),
+            params("recaptcha_response_field")(0))
+    }
+
+    val hostname = "localhost"
+    val port = 3000
+
+    val localhost = host(hostname, port)
+
+    val token = localhost / "oauth" / "token"
+    val api = localhost / "api" / "v1"
+
+    val client = domain.OAuthClient(
+      "oadmin", "oadmin",
+      "http://%s:%d" format(hostname, port)
+    )
+
+    // --------------------------------------------------------------------------------------------------------------
+
+    implicit class WithFlash(rf: unfiltered.response.ResponseFunction[javax.servlet.http.HttpServletResponse]) {      
+      def flashing(flash: Flash)  =
+        SetCookies(Flash.encodeAsCookie(flash)) ~> rf
+
+      def flashing(values: (String, String)*): unfiltered.response.ResponseFunction[javax.servlet.http.HttpServletResponse] = flashing(Flash(values.toMap))
+    }
+
+
+    def Logout[B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], s: oauthService.SessionLike, userAgent: String) {
+      withMac(req, s, "GET", "/api/v1/logout", userAgent) {
+        auth =>
+
+          for (_ <- xHttp(
+            api / "logout" <:< auth
+          ).either) {
+
+            req.respond(
+              SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
           }
       }
+    }
 
-      val localhost = host(hostname, port)
+    /*
+    *
+    *  Get associated session and refresh it if it is expired . . !
+    *
+    * */
+    def withSession[T, B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], sessionKey: String, userAgent: String)(fn: Either[(unfiltered.response.ResponseFunction[C], oauthService.SessionLike), Option[oauthService.SessionLike]] => T) {
+      val session =
+        oauthService.getUserSession(
+          Map(
+            "bearerToken" -> sessionKey,
+            "userAgent" -> userAgent)
+        )
 
-      val token = localhost / "oauth" / "token"
-      val api = localhost / "api" / "v1"
+      def isExpired(s: oauthService.SessionLike) = s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
 
-      val client = domain.OAuthClient(
-        "oadmin", "oadmin",
-        localhost.toString
-      )
+      session match {
 
-      // --------------------------------------------------------------------------------------------------------------
+        case o@Some(s) =>
 
-      def Logout[B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], s: Façade.oauthService.SessionLike, userAgent: String) {
-        withMac(s, "GET", "/api/v1/logout", userAgent) {
-          auth =>
+          if (isExpired(s)) {
 
-            for (_ <- xHttp(
-              api / "logout" <:< auth
-            ).either) {
+            if (s.refresh.isDefined) {
 
-              req.respond(
-                SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
+              for (e <- xHttp(token << Map(
+                "grant_type" -> "refresh_token",
+                "client_id" -> client.id,
+                "client_secret" -> client.secret,
+                "refresh_token" -> s.refresh.get
+              ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
+
+                e.fold(
+                  msg => fn(Right(None)),
+                  info => {
+
+                    def findVal(field: String) =
+                      info findField {
+                        case org.json4s.JField(`field`, _) => true
+                        case _ => false
+                      } collect {
+                        case org.json4s.JField(_, org.json4s.JString(st)) => st
+                      }
+
+                    val key = findVal("access_token").get
+                    val ss = oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> userAgent)).get
+                    val rememberMe = Cookies(req).get("_session_rememberMe").isDefined
+
+                    fn(Left(SetCookies(
+                      unfiltered.Cookie(
+                        SESSION_KEY,
+                        ss.key,
+                        maxAge = if (rememberMe) ss.refreshExpiresIn map (_.toInt) else None,
+                        httpOnly = true
+                      )), ss))
+                  }
+                )
+              }
             }
-        }
-      }
 
-      /*
-      *
-      *  Get associated session and refresh it if it is expired . . !
-      *
-      * */
-      def inSession[T, B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], sessionKey: String, userAgent: String)(fn: Option[Façade.oauthService.SessionLike] => T) {
-        val session =
-          Façade.oauthService.getUserSession(
-            Map(
-              "bearerToken" -> sessionKey,
-              "userAgent" -> userAgent)
+            else Logout(req, s, userAgent)
+
+          }
+
+          else fn(Right(o))
+
+        case _ => fn(Right(None))
+      }
+    }
+
+    def withMac[T, B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike, method: String, uri: String, userAgent: String)(f: Map[String, String] => T) {
+
+      def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
+
+      val nonce = _genNonce(session.issuedTime)
+
+      val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, port, "", "")
+      unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
+        _ => req.respond(SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
+      }, {
+        mac =>
+
+          val auth = Map(
+            "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
+            "User-Agent" -> userAgent
           )
 
-        def isExpired(s: Façade.oauthService.SessionLike) = s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
+          f(auth)
+      })
+    }
 
-        session match {
+    def Login[T](username: String, passwd: String, userAgent: String)(fn: Either[Throwable, oauthService.SessionLike] => T) {
 
-          case o@Some(s) =>
+      for (e <- xHttp(token << Map(
+        "grant_type" -> "password",
+        "client_id" -> client.id,
+        "client_secret" -> client.secret,
+        "username" -> username,
+        "password" -> passwd
+      ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
 
-            if (isExpired(s)) {
+        e.fold(
+          res => fn(Left(res)),
+          info => {
 
-              if(s.refresh.isDefined)
+            def findVal(field: String) =
+              info findField {
+                case org.json4s.JField(`field`, _) => true
+                case _ => false
+              } collect {
+                case org.json4s.JField(_, org.json4s.JString(s)) => s
+              }
 
-                for (e <- xHttp(token << Map(
-                  "grant_type" -> "refresh_token",
-                  "client_id" -> client.id,
-                  "client_secret" -> client.secret,
-                  "refresh_token" -> s.refresh.get
-                ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
+            val key = findVal("access_token").get
+            val session = oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> userAgent))
 
-                  e.fold(
-                    _ => fn(None),
-                    info => {
+            fn(Right(session.get))
+          }
+        )
+      }
+    }
 
-                      def findVal(field: String) =
-                        info findField {
-                          case org.json4s.JField(`field`, _) => true
-                          case _ => false
-                        } collect {
-                          case org.json4s.JField(_, org.json4s.JString(st)) => st
+    val gCapcha = url("http://www.google.com/recaptcha/api/verify")
+
+    def reCaptchaVerify[T, Rq<:javax.servlet.http.HttpServletRequest, Rp<:javax.servlet.http.HttpServletResponse](req: HttpRequest[Rq] with unfiltered.Async.Responder[Rp], challenge: String, response: String, remoteAddr: String)(onSuccess: => T) {
+      val params = Map(
+        "challenge" -> challenge,
+        "response" -> response,
+        "remoteip" -> remoteAddr,
+        "privatekey" -> ReCaptcha.PrivateKey)
+
+      def isSuccess(msg: String) =
+        msg.split("""\n""")(0) == "true"
+
+      def onError() =
+        req.respond(Redirect("/LostPasswd") flashing("error" -> "T", "Msg" -> "Invalid captcha"))
+
+      for(e <- xHttp(
+        gCapcha << params OK as.String).either) {
+
+        e.fold(
+          _ => onError(),
+          msg => if(isSuccess(msg)) onSuccess else onError()
+        )
+      }
+    }
+
+    async.Planify {
+
+      case UserAgent(uA) & req =>
+
+        req match {
+
+          case SessionKey(key) =>
+
+            req match {
+
+              case GET(ContextPath(_, "/session")) & Jsonp.Optional(cb) =>
+
+                withSession(req, key, uA) {
+                  case Right(session) =>
+
+                    req.respond(session map {
+                      s =>
+                        JsonContent ~> ResponseString(
+                          cb wrap conversions.json.tojson(session))
+                    } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
+
+                  case Left((rf, session)) =>
+
+                    req.respond(
+                      rf ~> JsonContent ~> ResponseString(
+                        cb wrap conversions.json.tojson(session)))
+                }
+
+              case ContextPath(_, "/") =>
+
+                withSession(req, key, uA) {
+                  case Right(session) =>
+
+                    req.respond(session map {
+                      s =>
+                        if (s.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing("forcePasswdChange" -> "T")
+                        else Flash.discard ~> utils.Scalate(req, "index.jade", "session" -> s)
+                    } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
+
+                  case Left((rf, session)) =>
+
+                    req.respond(
+                      rf ~> (if (session.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing("forcePasswdChange" -> "T")
+                      else Flash.discard ~> utils.Scalate(req, "index.jade", "session" -> session)))
+                }
+
+              case ContextPath(_, "/Avatar") => // TODO: implement Cache & If-Not-Modified
+
+                def getAvatar(user: oauthService.UserLike) =
+                  oauthService.getAvatar(user.id map(_.toString) get) match {
+                    case Some((domain.AvatarInfo(mimeType, _), data)) =>
+                      CharContentType(mimeType) ~> ResponseBytes(com.owtelse.codec.Base64.decode(data))
+
+                    case _ =>
+                      CharContentType("image/png") ~> (if(user.gender eq domain.Gender.Male)
+                        ResponseBytes(com.owtelse.codec.Base64.decode(DefaultAvatars.M))
+                      else ResponseBytes(com.owtelse.codec.Base64.decode(DefaultAvatars.F)))
+                  }
+
+                withSession(req, key, uA) {
+                  case Right(session) =>
+
+
+                    req.respond(session map {
+                      s => getAvatar(s.user)
+                    } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
+
+
+                  case Left((rf, session)) =>
+
+                    req.respond(getAvatar(session.user))
+                }
+
+              case GET(ContextPath(_, "/EditProfile")) =>
+
+                withSession(req, key, uA) {
+                  case Right(session) =>
+
+                    req.respond(session map {
+                      s =>
+                        utils.Scalate(req, "editprofile.jade", "editPrimaryEmail" -> s.hasRole(domain.R.SuperUserR.name), "profile" -> s.user)
+                    } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
+
+
+                  case Left((rf, session)) =>
+
+                    req.respond(
+                      rf ~> utils.Scalate(req, "editprofile.jade", "profile" -> session.user))
+
+                }
+
+              case POST(ContextPath(_, "/EditProfile")) =>
+
+                ???
+
+              case GET(ContextPath(_, "/ChangePasswd")) =>
+
+                req.respond(utils.Scalate(req, "changepasswd.jade"))
+
+              case POST(ContextPath(_, "/ChangePasswd")) & Params(Passwds(passwd, newPasswd)) =>
+
+                withSession(req, key, uA) {
+                  case Right(Some(session)) =>
+
+                    import conversions.json.tojson
+                    import org.json4s.JsonDSL._
+
+                    withMac(req, session, "PUT", s"/api/v1/user/${session.user.id.get.toString}", uA) {
+                      auth =>
+
+                        for (e <- xHttp(
+                          api.PUT / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
+                        ).either) {
+
+                          req.respond(e.fold(
+                            _ => Redirect("/ChangePasswd") flashing("error" -> "T"), // utils.Scalate(req, "changepasswd.jade", "error" -> true),
+                            _ => Flash.discard ~> Redirect("/")
+                          ))
                         }
-
-                      val key = findVal("access_token").get
-                      val session = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> userAgent))
-
-                      fn(session)
                     }
-                  )
+
+                  case Left((rf, session)) =>
+
+                    import conversions.json.tojson
+                    import org.json4s.JsonDSL._
+
+                    withMac(req, session, "PUT", s"/api/v1/user/${session.user.id.get.toString}", uA) {
+                      auth =>
+
+                        for (e <- xHttp(
+                          api / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
+                        ).either) {
+
+                          req.respond(e.fold(
+                            _ => rf ~> Redirect("/ChangePasswd") flashing("error" -> "T"), // rf ~> utils.Scalate(req, "changepasswd.jade", "error" -> true),
+                            _ => rf ~> Flash.discard ~> Redirect("/")
+                          ))
+                        }
+                    }
+
+                  case Right(None) =>
+
+                    req.respond(
+                      SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
                 }
 
-              else
+              case GET(ContextPath(_, "/Logout")) =>
 
-                Logout(req, s, userAgent)
+                oauthService.getUserSession(
+                  Map(
+                    "bearerToken" -> key,
+                    "userAgent" -> uA)
+                ) match {
+                  case Some(s) =>
+                    Logout(req, s, uA)
 
-            }
-
-            else fn(o)
-
-          case _ => fn(None)
-        }
-      }
-
-      def withMac[T](session: Façade.oauthService.SessionLike, method: String, uri: String, userAgent: String)(f: Map[String, String] => T) {
-
-        def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
-
-        val nonce = _genNonce(session.issuedTime)
-
-        val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, port, "", "")
-        unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
-          _ => req.respond(utils.Scalate(req, "login.jade", "error" -> true))
-        }, {
-          mac =>
-
-            val auth = Map(
-              "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
-              "User-Agent" -> userAgent
-            )
-
-            f(auth)
-        })
-      }
-
-      def withSession[T](username: String, passwd: String, userAgent: String)(fn: Either[Throwable, Façade.oauthService.SessionLike] => T) {
-
-        for (e <- xHttp(token << Map(
-          "grant_type" -> "password",
-          "client_id" -> client.id,
-          "client_secret" -> client.secret,
-          "username" -> username,
-          "password" -> passwd
-        ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
-
-          e.fold(
-            res => fn(Left(res)),
-            info => {
-
-              def findVal(field: String) =
-                info findField {
-                  case org.json4s.JField(`field`, _) => true
-                  case _ => false
-                } collect {
-                  case org.json4s.JField(_, org.json4s.JString(s)) => s
+                  case _ =>
+                    req.respond(
+                      SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
                 }
 
-              val key = findVal("access_token").get
-              val session = Façade.oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> uA))
-
-              fn(Right(session.get))
+              case _ => req.respond(Redirect("/"))
             }
-          )
+
+          /* Requests without being logged in */
+
+          case GET(ContextPath(_, "/Login")) & Cookies(cookies) =>
+
+            req.respond(utils.Scalate(req, "login.jade", "_session_rememberMe" -> cookies("_session_rememberMe").exists(_.value == "remember-me")))
+
+          case POST(ContextPath(_, "/Login")) & Params(UserPasswd(username, passwd, rememberMe)) => // TODO: recherche more on remember-me
+
+            Login(username, passwd, uA) {
+              case Left(_) =>
+                req.respond(Redirect("/Login") flashing("error" -> "T", "rememberMe" -> (if(rememberMe) "T" else "F")))
+
+              case Right(session) =>
+
+                withMac(req, session, "GET", "/api/v1/session", uA) {
+                  auth =>
+
+                    for {
+                      e <- xHttp(
+                        api / "session" <:< auth
+                      ).either
+                    } {
+                      req.respond(e.fold(
+                        _ => Redirect("/Login") flashing("error" -> "T", "rememberMe" -> (if(rememberMe) "T" else "F")), // utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe),
+                        _ =>
+                          SetCookies(
+                            unfiltered.Cookie(
+                              SESSION_KEY,
+                              utils.Crypto.signToken(session.key),
+                              maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
+                              httpOnly = true
+                            ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */), httpOnly = true)
+                          ) ~> Flash.discard ~> Redirect("/")))
+                    }
+                }
+            }
+
+          case GET(ContextPath(_, "/LostPasswd")) =>
+
+            req.respond(utils.Scalate(req, "lostpasswd.jade", "publicKey" -> ReCaptcha.PublicKey))
+
+          case POST(ContextPath(_, "/LostPasswd")) & RemoteAddr(remoteAddr) & Params(ReCaptcha(challenge, response)) & Params(Username(username)) =>
+
+            reCaptchaVerify(req, challenge, response, remoteAddr) {
+              // Save password change request . . . !
+              req.respond(Redirect("/") flashing("success" -> "T", "Msg" -> ""))
+            }
+
+          /* Any request in this context */
+
+          case _ => req.respond(Redirect("/Login"))
         }
-      }
-
-      req match {
-
-        case GET(ContextPath(_, "/session")) & SessionKey(key) & Jsonp.Optional(cb) =>
-
-          inSession(req, key, uA) {
-            session =>
-
-              req.respond(session map {
-                s =>
-                  JsonContent ~> ResponseString(
-                    cb wrap conversions.json.tojson(session))
-              } getOrElse SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/Login"))
-          }
-
-        case ContextPath(_, "/") & SessionKey(key) =>
-
-          inSession(req, key, uA) {
-            session =>
-
-              req.respond(session map {
-                s =>
-                  if (s.user.passwordValid) utils.Scalate(req, "index.jade", "session" -> s)
-                  else Redirect("/ChangePasswd")
-              } getOrElse SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/Login"))
-          }
-
-        case GET(ContextPath(_, "/EditProfile")) & SessionKey(key) =>
-
-          inSession(req, key, uA) {
-            session =>
-
-              req.respond(session map {
-                s =>
-                  utils.Scalate(req, "editprofile.jade", "sessionKey" -> key, "profile" -> s.user)
-              } getOrElse SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/Login"))
-          }
-
-        case POST(ContextPath(_, "/EditProfile")) & SessionKey(key) =>
-
-          req.respond(Redirect("/"))
-
-        case GET(ContextPath(_, "/ChangePasswd")) & SessionKey(key) =>
-
-          req.respond(utils.Scalate(req, "changepasswd.jade", "sessionKey" -> key))
-
-        case POST(ContextPath(_, "/ChangePasswd")) & SessionKey(key) & Params(UserPasswd(_, passwd, Some(newPasswd), _)) =>
-
-          inSession(req, key, uA) {
-            case Some(session) =>
-
-              import conversions.json.tojson
-              import org.json4s.JsonDSL._
-
-              withMac(session, "PUT", s"/api/v1/user/${session.user.id.get.toString}", uA) {
-                auth =>
-
-                  for (e <- xHttp(
-                    api / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
-                  ).either) {
-
-                    req.respond(e.fold(
-                      _ => utils.Scalate(req, "changepasswd.jade", "error" -> true),
-                      _ => Redirect("/")
-                    ))
-                  }
-              }
-
-            case _ =>
-
-              req.respond(
-                SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
-          }
-
-        case GET(ContextPath(_, "/Logout")) & SessionKey(key) =>
-
-          inSession(req, key, uA) {
-            case Some(session) =>
-
-              Logout(req, session, uA)
-
-            case _ =>
-
-              req.respond(
-                SetCookies(unfiltered.Cookie("_session_key", "", maxAge = Some(0))) ~> Redirect("/"))
-          }
-
-        case SessionKey(_) =>
-
-          req.respond(Redirect("/"))
-
-        case GET(ContextPath(_, "/Login")) & Cookies(cookies) =>
-
-          req.respond(utils.Scalate(req, "login.jade", "rememberMe" -> cookies("_session_rememberMe").isDefined))
-
-        case POST(ContextPath(_, "/Login")) & Params(UserPasswd(username, passwd, _, rememberMe)) => // TODO: recherche more on remember-me
-
-          withSession(username, passwd, uA) {
-            case Left(_) =>
-              req.respond(utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe))
-
-            case Right(session) =>
-
-              withMac(session, "GET", "/api/v1/session", uA) {
-                auth =>
-
-                  for {
-                    e <- xHttp(
-                      api / "session" <:< auth
-                    ).either
-                  } {
-                    req.respond(e.fold(
-                      _ => utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe),
-                      _ =>
-                        SetCookies(
-                          unfiltered.Cookie(
-                            "_session_key",
-                            session.key,
-                            maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
-                            httpOnly = true
-                          ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else Some(0), httpOnly = true)
-                        ) ~> (if (session.user.passwordValid) Redirect("/") else Redirect("/ChangePasswd"))
-
-                    ))
-                  }
-              }
-          }
-
-        case _ => req.respond(Redirect("/Login"))
-      }
+    }
   }
 
   val routes = unfiltered.filter.async.Planify {
@@ -338,7 +487,7 @@ class Plans(val factory: HandlerFactory) {
 
       type Intent = async.Plan.Intent
 
-      val routeHandler = factory(req)
+      val routeHandler = f(req)
 
       val usersIntent: Intent = {
 
@@ -354,9 +503,9 @@ class Plans(val factory: HandlerFactory) {
           val fs = MultiPartParams.Memory(req).files("f")
 
           fs match {
-            case Seq(f, _*) =>
+            case Seq(fp, _*) =>
 
-              routeHandler.uploadAvatar(userId, domain.AvatarInfo(f.contentType), f.bytes)
+              routeHandler.uploadAvatar(userId, domain.AvatarInfo(fp.contentType), fp.bytes)
 
             case _ => BadRequest
           }
@@ -405,17 +554,13 @@ class Plans(val factory: HandlerFactory) {
 
           routeHandler.revokeRoles(userId, roles)
 
-        case PUT(ContextPath(_, Seg("user" :: userId :: "contacts" :: Nil))) =>
-
-          routeHandler.addContacts(userId)
-
-        case DELETE(ContextPath(_, Seg("user" :: userId :: "contacts" :: Nil))) =>
-
-          routeHandler.removeContacts(userId)
-
         case DELETE(ContextPath(_, Seg("user" :: userId :: "_purge" :: Nil))) =>
 
           routeHandler.purgeUsers(Set(userId))
+
+        case POST(ContextPath(_, Seg("user" :: userId :: "_undelete" :: Nil))) =>
+
+          routeHandler.undeleteUsers(Set(userId))          
       }
 
       val rolesIntent: Intent = {

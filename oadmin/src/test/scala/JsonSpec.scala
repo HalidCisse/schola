@@ -3,43 +3,42 @@ package oadmin
 package test
 
 object JsonSpec extends org.specs.Specification {
+  import S._
 
   import conversions.json._
 
   val userId = SuperUser.id.get
 
-  def initialize() = Façade.init(userId)
-
-  def drop() = Façade.drop()
+  def initialize() = init(userId)
 
   "domain objects" should {
 
     "convert user to json" in {
 
-      val o = Façade.oauthService.saveUser(
-        "username0",
-        "amsayk.0",
-        "Amadou",
-        "Cisse",
-        Some(userId.toString),
-        domain.Gender.Female,
-        Some(domain.AddressInfo("RABAT", "Morocco", "10032", "Imm. B, Appt. 23, Cite Mabella, Mabella")),
-        Some(domain.AddressInfo("RABAT", "Morocco", "10000", "5, Appt. 23, Rue Jabal Tazaka")),
-        Set[domain.ContactInfo](
-          domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
-          domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com")),
-          domain.MobileContactInfo(domain.PhoneNumber("+212600793159"))
-        ),
-        passwordValid = true
-      )
-
-      o must not be empty
-      println(tojson(o.get))
+//      val o = oauthService.saveUser(
+//        "username0",
+//        "amsayk.0",
+//        "Amadou",
+//        "Cisse",
+//        Some(userId.toString),
+//        domain.Gender.Female,
+//        Some(domain.AddressInfo("RABAT", "Morocco", "10032", "Imm. B, Appt. 23, Cite Mabella, Mabella")),
+//        Some(domain.AddressInfo("RABAT", "Morocco", "10000", "5, Appt. 23, Rue Jabal Tazaka")),
+//        Set[domain.ContactInfo](
+//          domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
+//          domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com")),
+//          domain.MobileContactInfo(domain.PhoneNumber("+212600793159"))
+//        ),
+//        changePasswordAtNextLogin = true
+//      )
+//
+//      o must not be empty
+//      println(tojson(o.get))
     }
 
     "convert to json" in {
 
-      val o = Façade.accessControlService
+      val o = accessControlService
 
       println(tojson (o.getRoles))
       println(tojson (o.getUserRoles(userId.toString)))

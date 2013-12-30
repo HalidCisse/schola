@@ -5,9 +5,9 @@ import unfiltered.oauth2._
 import unfiltered.request.HttpRequest
 
 import org.clapper.avsl.Logger
-import unfiltered.response.HttpResponse
 
 package object oauth2 {
+  import S._
 
   val log = Logger("oadmin.oauth2")
 
@@ -19,7 +19,7 @@ package object oauth2 {
 
     trait Clients extends ClientStore {
       def client(clientId: String, secret: Option[String]) =
-      Façade.oauthService.getClient(clientId, secret getOrElse "") map {
+      oauthService.getClient(clientId, secret getOrElse "") map {
         case domain.OAuthClient(cId, cSecret, cRedirectUri) =>
           new Client {
             val id = cId
@@ -32,7 +32,7 @@ package object oauth2 {
     trait Tokens extends TokenStore {
 
       // Given a refresh token gives a new access token
-      def refresh(other: Token) = Façade.oauthService.exchangeRefreshToken(other.refresh getOrElse "") map {
+      def refresh(other: Token) = oauthService.exchangeRefreshToken(other.refresh getOrElse "") map {
         case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes) =>
           new Token {
             val tokenType = Some(sTokenType)
@@ -51,7 +51,7 @@ package object oauth2 {
 
       // Returns the refreshToken for the accessToken
       def refreshToken(refreshToken: String) =
-        Façade.oauthService.getRefreshToken(refreshToken) map {
+        oauthService.getRefreshToken(refreshToken) map {
           case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, uA, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes) if uA == userAgent =>
             new Token {
               val tokenType = Some(sTokenType)
@@ -79,14 +79,14 @@ package object oauth2 {
       def generatePasswordToken(owner: ResourceOwner, client: Client,
                                 scopes: Seq[String]) = {
 
-        def generateToken = utils.SHA3Utils digest s"${client.id}:${owner.id}:${System.nanoTime}"
-        def generateRefresh(accessToken: String) = utils.SHA3Utils digest s"$accessToken:${owner.id}:${System.nanoTime}"
+        def generateToken = utils.Crypto.generateToken() // utils.SHA3Utils digest s"${client.id}:${owner.id}:${System.nanoTime}"
+        def generateRefresh(accessToken: String) = utils.Crypto.generateToken() // utils.SHA3Utils digest s"$accessToken:${owner.id}:${System.nanoTime}"
         def generateMacKey = utils.genPasswd(s"${owner.id}:${System.nanoTime}")
 
         try {
 
           val accessToken = generateToken
-          Façade.oauthService.saveToken(
+          oauthService.saveToken(
             accessToken, Some(generateRefresh(accessToken)), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(scopes : _*)
           ) match {
             case Some(domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes)) =>
@@ -135,7 +135,7 @@ package object oauth2 {
       def resourceOwner[T](req: Req[T]): Option[ResourceOwner] = ??? /* Not for password requests */
 
       def resourceOwner(userName: String, password: String): Option[ResourceOwner] =
-        Façade.oauthService.authUser(userName, password) map {
+        oauthService.authUser(userName, password) map {
           uId =>
             new ResourceOwner {
               val password = None
@@ -163,46 +163,7 @@ package object oauth2 {
 
     object OAuthorizationServer
       extends AuthorizationServer
-      with Clients with Tokens with OAuthService/* with DefaultAuthorizationPaths {
-
-      import unfiltered.oauth2.ResourceOwner
-      import OAuthorization._
-      import AuthorizationServer._
-
-      val log = Logger("oadmin.authorizationServer")
-
-      object User {
-        def unapply(owner: Option[ResourceOwner]) =
-          owner flatMap(o => Façade.oauthService.getUser(o.id))
-      }
-
-      override def apply(r: AccessRequest): AccessResponse = r match {
-        case PasswordRequest(userName, password, clientId, clientSecret, scope) =>
-          client(clientId, Some(clientSecret)) match {
-            case Some(c) =>
-              resourceOwner(userName, password) match {
-                case User(owner) =>
-
-                  if(owner.passwordValid) {
-
-                    val tok = generatePasswordToken(new ResourceOwner { val id = owner.id.get.toString; val password = None}, c, scope)
-                    AccessTokenResponse(
-                      tok.value, tok.tokenType, tok.expiresIn, tok.refresh, scope, None, tok.extras
-                    )
-                  }
-
-                  else ErrorResponse("changepasswd", owner.id.get.toString)
-
-                case _ => ErrorResponse(
-                  InvalidRequest, UnauthorizedClient, errorUri(InvalidClient), None)
-              }
-            case _ => ErrorResponse(
-              InvalidRequest, UnknownClientMsg, errorUri(InvalidClient), None)
-          }
-
-        case x => super.apply(x)
-      }
-    }*/
+      with Clients with Tokens with OAuthService
 
     val auth = OAuthorizationServer
   }
@@ -223,11 +184,11 @@ package object oauth2 {
           *   TODO: make sure nonce has not been used . . . ?
           *
           * */
-          Façade.oauthService.getUserSession(params) match {
+          oauthService.getUserSession(params) match {
 
             case Some(
               domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
-                domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId)), userAgent, _, _, scopes)
+                domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId)), userAgent, _, _, scopes)
             ) if userAgent == uA =>
 
               expiresIn match {
@@ -255,6 +216,7 @@ package object oauth2 {
   }
 
   object Token {
+
     object BearerHeader {
       val HeaderPattern = """Bearer ([\w\d!#$%&'\(\)\*+\-\.\/:<=>?@\[\]^_`{|}~\\,;]+)""".r
 
@@ -279,10 +241,10 @@ package object oauth2 {
 
     object OAuth2MacAuth extends MacAuth {
       val algorithm = MACAlgorithm
-      def tokenSecret(key: String) = Façade.oauthService.getTokenSecret(key)
+      def tokenSecret(key: String) = oauthService.getTokenSecret(key)
     }
 
-    override def fallback = {
+    override final def fallback = {
       case null => null
     }
 

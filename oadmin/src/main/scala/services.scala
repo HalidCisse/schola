@@ -28,12 +28,18 @@ trait OAuthServicesComponent {
       val redirectUri: String
     }
 
+//    type ContactsLike = {
+//      def home: T forSome { type T <: domain.ContactInfo }
+//      def work: T forSome { type T <: domain.ContactInfo }
+//      def mobile: T forSome { type T <: domain.ContactInfo }
+//    }
+
     type UserLike = {
       val id: Option[java.util.UUID]
-      val email: String
+      val primaryEmail: String
       val password: Option[String]
-      val firstname: String
-      val lastname: String
+      val givenName: String
+      val familyName: String
       val createdAt: Long
       val createdBy: Option[java.util.UUID]
       val lastModifiedAt: Option[Long]
@@ -41,10 +47,12 @@ trait OAuthServicesComponent {
       val gender: domain.Gender.Value
       val homeAddress: Option[domain.AddressInfo]
       val workAddress: Option[domain.AddressInfo]
-      val contacts: Set[domain.ContactInfo]
+//      val contacts: Option[ContactsLike]
+      val contacts: domain.Contacts
       val avatar: Option[domain.AvatarInfo]
       val _deleted: Boolean
-      val passwordValid: Boolean
+      val suspended: Boolean
+      val changePasswordAtNextLogin: Boolean
     }
 
     type SessionLike = {
@@ -58,8 +66,8 @@ trait OAuthServicesComponent {
       val lastAccessTime: Long
       val user: UserLike
       val userAgent: String
-      val roles: Set[String]
-      val permissions: Map[String, Boolean]
+      val hasRole: Map[String, Boolean]
+      val hasPermission: Map[String, Boolean]
       val scopes: Set[String]
     }
 
@@ -72,6 +80,8 @@ trait OAuthServicesComponent {
     def getPurgedUsers: List[UserLike]
 
     def purgeUsers(users: Set[String])
+    
+    def undeleteUsers(users: Set[String])
 
     def getTokenSecret(accessToken: String): Option[String]
 
@@ -91,13 +101,13 @@ trait OAuthServicesComponent {
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
 
-    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean): Option[UserLike]
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
 
     def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
 
     def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
 
-    def emailExists(email: String): Boolean
+    def primaryEmailExists(email: String): Boolean
   }
 }
 
@@ -118,6 +128,8 @@ trait OAuthServicesRepoComponent {
 
     def purgeUsers(users: Set[String])
 
+    def undeleteUsers(users: Set[String])
+
     def getTokenSecret(accessToken: String): Option[String]
 
     def getRefreshToken(refreshToken: String): Option[TokenLike]
@@ -136,13 +148,13 @@ trait OAuthServicesRepoComponent {
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
 
-    def saveUser(username: String, password: String, firstname: String, lastname: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Set[domain.ContactInfo], passwordValid: Boolean): Option[UserLike]
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
 
     def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
 
     def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
 
-    def emailExists(email: String): Boolean
+    def primaryEmailExists(email: String): Boolean
   }
 }
 

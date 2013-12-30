@@ -99,7 +99,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     val userRoleExists = {
       def getUserRole(id: Column[java.util.UUID], role: Column[String]) = 
         for {
-          ur <- UsersRoles if (ur.userId is id) && (ur.role.toLowerCase is role)
+          ur <- UsersRoles if (ur.userId is id) && (ur.role is role)
         } yield true
 
       Compiled(getUserRole _)

@@ -1,5 +1,4 @@
 (function() {
-
   Mac = (function() {
     function Mac() {}
 
