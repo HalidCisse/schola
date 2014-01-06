@@ -1,10 +1,10 @@
 /* =============================================================
- * bootstrap3-typeahead.js v3.0
+ * bootstrap3-typeahead.js v3.0.3
  * https://github.com/bassjobsen/Bootstrap-3-Typeahead
  * =============================================================
  * Original written by @mdo and @fat
  * =============================================================
- * Copyright 2013 Bass Jobsen @bassjobsen
+ * Copyright 2014 Bass Jobsen @bassjobsen
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
     this.options = $.extend({}, $.fn.typeahead.defaults, options)
     this.matcher = this.options.matcher || this.matcher
     this.sorter = this.options.sorter || this.sorter
+    this.select = this.options.select || this.select
     this.autoSelect = typeof this.options.autoSelect == 'boolean' ? this.options.autoSelect : true
     this.highlighter = this.options.highlighter || this.highlighter
     this.updater = this.options.updater || this.updater
@@ -40,13 +41,13 @@
     this.$menu = $(this.options.menu)
     this.shown = false
     this.listen(),
-	this.showHintOnFocus = typeof this.options.showHintOnFocus == 'boolean' ? this.options.showHintOnFocus : false
+  this.showHintOnFocus = typeof this.options.showHintOnFocus == 'boolean' ? this.options.showHintOnFocus : false
   }
 
   Typeahead.prototype = {
 
     constructor: Typeahead
-	
+  
   , select: function () {
       var val = this.$menu.find('.active').attr('data-value')
       if(this.autoSelect || val) {
@@ -63,7 +64,7 @@
 
   , setSource: function (source) {
       this.source = source;
-    }	
+    } 
 
   , show: function () {
       var pos = $.extend({}, this.$element.position(), {
@@ -94,11 +95,11 @@
 
   , lookup: function (query) {
       var items      
-	  if (typeof(query) != 'undefined' && query != null) {
-		this.query = query;
-	  } else {
-		this.query = this.$element.val() ||  '';
-	  }
+    if (typeof(query) != 'undefined' && query != null) {
+    this.query = query;
+    } else {
+    this.query = this.$element.val() ||  '';
+    }
 
       if (this.query.length < this.options.minLength) {
         return this.shown ? this.hide() : this
@@ -121,12 +122,12 @@
       if (!items.length) {
         return this.shown ? this.hide() : this
       }
-	  
-	  if (this.options.items == 'all' || this.options.minLength == 0 && !this.$element.val()) {
-		return this.render(items).show()
-	  } else {	
-		return this.render(items.slice(0, this.options.items)).show()
-	  }
+    
+    if (this.options.items == 'all' || this.options.minLength == 0 && !this.$element.val()) {
+    return this.render(items).show()
+    } else {  
+    return this.render(items.slice(0, this.options.items)).show()
+    }
     }
 
   , matcher: function (item) {
@@ -208,8 +209,21 @@
         .on('click', $.proxy(this.click, this))
         .on('mouseenter', 'li', $.proxy(this.mouseenter, this))
         .on('mouseleave', 'li', $.proxy(this.mouseleave, this))
-    }
+  }
+  , destroy : function () {
+       this.$element.data('typeahead',null)
+      this.$element
+      .off('focus')
+      .off('blur')
+      .off('keypress')
+      .off('keyup')
 
+      if (this.eventSupported('keydown')) {
+      this.$element.off('keydown')
+      }
+
+      this.$menu.remove();
+  } 
   , eventSupported: function(eventName) {
       var isSupported = eventName in this.$element
       if (!isSupported) {
@@ -245,11 +259,11 @@
 
   , keydown: function (e) {
       this.suppressKeyPressRepeat = ~$.inArray(e.keyCode, [40,38,9,13,27]);
-	  if (!this.shown && e.keyCode == 40) {
-		this.lookup("");
-	  } else {
-		this.move(e)
-	  }
+    if (!this.shown && e.keyCode == 40) {
+    this.lookup("");
+    } else {
+    this.move(e)
+    }
     }
 
   , keypress: function (e) {
@@ -259,7 +273,7 @@
 
   , keyup: function (e) {
       switch(e.keyCode) {  
-		case 40: // down arrow      
+    case 40: // down arrow      
         case 38: // up arrow
         case 16: // shift
         case 17: // ctrl
@@ -275,7 +289,7 @@
         case 27: // escape
           if (!this.shown) return
           this.hide()
-          break		
+          break   
         default:
           this.lookup()
       }
@@ -285,12 +299,13 @@
   }
 
   , focus: function (e) {
-	  if (!this.focused) {
-		  this.focused = true
-		  if (this.options.minLength == 0 && !this.$element.val() || this.options.showHintOnFocus) {
-			this.lookup(); 
-		  }
-	  }
+    console.log('focus');
+    if (!this.focused) {
+      this.focused = true
+      if (this.options.minLength == 0 && !this.$element.val() || this.options.showHintOnFocus) {
+      this.lookup(); 
+      }
+    }
     }
 
   , blur: function (e) {
@@ -325,19 +340,19 @@
   var old = $.fn.typeahead
 
   $.fn.typeahead = function (option) {
-	var arg = arguments;
+  var arg = arguments;
     return this.each(function () {
       var $this = $(this)
         , data = $this.data('typeahead')
         , options = typeof option == 'object' && option
       if (!data) $this.data('typeahead', (data = new Typeahead(this, options)))
       if (typeof option == 'string') {
-		if (arg.length > 1) {
-			data[option].apply(data, Array.prototype.slice.call(arg ,1));
-		} else {
-			data[option]()
-		}
-	  }
+    if (arg.length > 1) {
+      data[option].apply(data, Array.prototype.slice.call(arg ,1));
+    } else {
+      data[option]()
+    }
+    }
     })
   }
 

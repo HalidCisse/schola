@@ -42,7 +42,7 @@ package object jdbc {
 
   implicit lazy val formats =
     Serialization.formats(
-      ShortTypeHints(List(/*classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]*/))
+      ShortTypeHints(List(/* classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo] */))
       ) + new EnumNameSerializer(domain.Gender)
 
   abstract class DBEnum extends Enumeration {

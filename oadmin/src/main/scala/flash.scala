@@ -208,6 +208,8 @@ object Flash extends CookieBaker[Flash] {
 
   override def isSigned = true
 
+  override def httpOnly = false
+
   val emptyCookie = new Flash
 
   def deserialize(data: Map[String, String]) = new Flash(data)

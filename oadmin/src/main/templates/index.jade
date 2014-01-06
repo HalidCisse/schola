@@ -1,0 +1,116 @@
+-@ import val session: schola.oadmin.domain.Session
+-@ val flash: Map[String, String]
+-@ val error: Boolean = flash.get("error").exists(_ == "T")
+-@ val success: Boolean = flash.get("success").exists(_ == "T")
+-@ val Msg: String = flash.get("Msg") getOrElse ""
+!!! 5
+html(lang="en")
+  head
+    meta(charset='utf-8')
+    meta(name='description' content='')
+    meta(name='author' content='Amadou Cisse')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    link(rel='shortcut icon' href={uri("/assets/ico/favicon.png")})
+    title Schola
+    link(href={uri("/assets/css/bootstrap.css")} rel='stylesheet' type='text/css' charset='utf-8')
+    link(rel='stylesheet' href={uri("/assets/application.css")} type='text/css' charset='utf-8')
+  body
+    .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
+      .container
+        .navbar-header
+          a.navbar-brand(href='/') Schola
+        .collapse.navbar-collapse
+          form#search.navbar-form.navbar-left(role='search')
+            .input-group
+              input.form-control.input-sm(type='text' placeholder='Search users, roles or permissions')
+              span.input-group-btn
+                button.btn.btn-primary.btn-search.btn-sm(type='submit')
+                  span.glyphicon.glyphicon-search
+          ul.nav.navbar-nav.navbar-right
+            li.dropdown
+              a.dropdown-toggle(href='#' data-toggle='dropdown')
+                span.glyphicon.glyphicon-wrench
+                span.caret
+              ul.dropdown-menu
+                li
+                  a(href='/EditAccount') Edit Account
+                li
+                  a(href='/ChangePasswd') Change Password
+                li.divider
+                li
+                  a(href='#/Sessions') Sessions
+            li
+              a(href='/Logout' title='Logout')
+                span.glyphicon.glyphicon-log-out          
+    .container
+      footer
+        p © Amadou CISSE 2014.          
+    script(src={uri("/assets/application.js")} type='text/javascript' charset='utf-8')    
+    script(src={uri("/assets/javascripts/crypto/hmac-sha1.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/crypto/enc-base64-min.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/crypto/mac.js")} type='text/javascript' charset='utf-8')
+    :javascript
+      var jQuery = require("jqueryify");
+    script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/jquery.upload.js")})
+    script(src={uri("/assets/javascripts/bootstrap.js")})
+    :&javascript
+
+      var exports = this;
+      jQuery(function($){
+        // var App = require("index");
+        // exports.app = new App({el: $("body")});
+
+        // button state demo
+        //- $('#fat-btn')
+        //-   .click(function () {
+        //-     var btn = $(this)
+        //-     btn.button('loading')
+        //-     setTimeout(function () {
+        //-       btn.button('reset')
+        //-     }, 3000)
+        //-   });
+
+        $('button[data-dismiss=alert]').click(function(){ $(this).parent('.alert').remove(); return false; })
+
+        $('[data-toggle=tooltip]').tooltip();
+
+        setTimeout(function(){
+          $.removeCookie('#{schola.oadmin.libs.Flash.COOKIE_NAME}', { path: '/' });
+          });
+
+        if(#{error} && !!"#{Msg}")
+          ERROR("#{Msg}", "Error!");
+
+        if(#{success} && !!"#{Msg}")
+          INFO("#{Msg}", "Success!");          
+
+        function ShowMsg(msg, title, className) {
+          var htm = '';
+          if(title) htm = "<strong>" + title + "</strong> &nbsp;" + msg;
+          else htm = msg;
+
+            try { 
+              $('#msg').fadeOut();
+              window.__msgs && clearTimeout(window.__msgs);
+            } catch(e) {}
+
+          $(
+            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+              '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
+              htm,
+              '</div>'].join('')).prependTo(document.body);
+
+          $('#msg').fadeIn();
+          
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 10000);
+        }
+
+        function ERROR(msg, title) {
+          ShowMsg(msg, title, 'alert-danger')
+        }
+
+        function INFO(msg, title) {
+          ShowMsg(msg, title, 'alert-success')
+        }      
+      });

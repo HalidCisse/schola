@@ -3,16 +3,6 @@ package oadmin
 
 import org.clapper.avsl.Logger
 
-import akka.actor.{ Actor, DeadLetter, Props }
-
-class Listener extends Actor {
-  def receive = {
-    case d: DeadLetter =>
-      println(d)
-  }
-}
-
-
 object main extends App {
 
   import unfiltered.jetty._
@@ -29,36 +19,33 @@ object main extends App {
 
   server
     .context("/") {
-    _.filter(Plans /)
-  }
+      _.filter(Plans / (server.host, server.port))
+    }
     .context("/assets") {
-    _.resources(getClass.getResource("/static/public"))
-  }
+      _.resources(getClass.getResource("/static/public"))
+    }
     .context("/oauth") {
-    _.filter(unfiltered.filter.Planify {
-      case unfiltered.request.UserAgent(uA) & req =>
-        OAuthorization(new AuthServerProvider(uA).auth).intent.lift(req).getOrElse(Pass)
-    })
-  }
-    .context("/api/v1") {
-    _.filter(OAuth2Protection(new OAdminAuthSource))
-      .filter(Plans.routes)
-  }
+      _.filter(unfiltered.filter.Planify {
+        case unfiltered.request.UserAgent(uA) & req =>
+          OAuthorization(new AuthServerProvider(uA).auth).intent.lift(req).getOrElse(Pass)
+      })
+    }
+    .context(s"/api/$API_VERSION") {
+      _.filter(OAuth2Protection(new OAdminAuthSource))
+       .filter(Plans.routes)
+    }
 
-  val listener = system.actorOf(Props(classOf[Listener]))
-  system.eventStream.subscribe(listener, classOf[DeadLetter])
+//  S.test()
 
-//  Façade.simple.test()
-
-//  try Façade.simple.drop() catch {
+//  try S.drop() catch {
 //    case _: Throwable =>
 //  }
 
-//  Façade.simple.init(SuperUser.id.get)
+//  S.init(SuperUser.id.get)
   server.start()
 
   log.info("The server is runing . . .")
-  log.info("press any key to stop server...")
+  log.info("Press any key to stop server . . .")
   System.in.read()
 
   Cache.clearAll()
@@ -69,5 +56,5 @@ object main extends App {
   server.stop()
   server.destroy()
 
-//  Façade.simple.drop()
+//  S.drop()
 }

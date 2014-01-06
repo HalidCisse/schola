@@ -425,8 +425,9 @@ function getClientSession() {
 getClientSession().done( function(){
 
   
-  userexists("cisse.amadou.9@gmail.com").done(function(i){
-    addUser("cisse.amadou.9@gmail.com", "amsayk", 'Ousman', 'Cisse', 'Male', {
+  userExists("cisse.amadou.9@gmail.com").success(function(i){
+    if(i.success === false)
+      addUser("cisse.amadou.9@gmail.com", "amsayk", 'Ousman', 'Cisse', 'Male', {
             city: 'RABAT',
             country: 'Morocco',
             zipCode: 10032,
@@ -436,11 +437,12 @@ getClientSession().done( function(){
             country: 'Morocco',
             zipCode: 10032,
             addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-          }, [], true);    
+          }, {mobiles:{}}, true);    
   })
 
-  userexists("amadou.cisse@epsilon.ma").done(function(i){
-    addUser("amadou.cisse@epsilon.ma", "amsayk", 'Amadou', 'Cisse', 'Male', {
+  userExists("amadou.cisse@epsilon.ma").success(function(i){
+    if(i.success === false)
+      addUser("amadou.cisse@epsilon.ma", "amsayk", 'Amadou', 'Cisse', 'Male', {
               city: 'RABAT',
               country: 'Morocco',
               zipCode: 10032,
@@ -450,7 +452,7 @@ getClientSession().done( function(){
               country: 'Morocco',
               zipCode: 10032,
               addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
-            }, [], true)
+            }, {mobiles:{}}, true)
   })
 })
 

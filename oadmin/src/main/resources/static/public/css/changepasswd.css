@@ -68,3 +68,20 @@ body {
 .bs-callout-info h4 {
   color: #34789a;
 }
+.btn{font-size:16px}
+.container .text-muted {
+  margin: 20px 0;
+}
+#footer {
+  height: auto;
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  width: 100%;
+}
+#msg {
+position: absolute;
+left: 40%;
+top: 70px;
+display: none;
+}

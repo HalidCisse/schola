@@ -1,7 +1,7 @@
 package schola
 
 package object oadmin {
-  import com.typesafe.config._
+  import com.typesafe.config._  
 
   lazy val system = akka.actor.ActorSystem("ScholaActorSystem")
 
@@ -11,9 +11,15 @@ package object oadmin {
   val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
   val config = {
-    val g = ConfigFactory.load()
-    g.getConfig("oadmin")
+    val root = ConfigFactory.load()
+    root getConfig "oadmin"
   }
+
+  val API_VERSION = config.getString("api-version")
+
+  val MaxUploadSize = config.getInt("max-upload-size")
+
+  val PasswordMinLength = config.getInt("password-min-length")
 
   val SESSION_KEY = "_session_key"
 
@@ -31,9 +37,9 @@ package object oadmin {
   val MACAlgorithm = config.getString("oauth2.mac-algorithm")
 
   class MongoDBSettings(config: Config) {
-    val Host = config.getString("hostname")
-    val Port = config.getInt("port")
-    val DatabaseName = config.getString("dbname")
+    val Host           = config.getString("hostname")
+    val Port           = config.getInt("port")
+    val DatabaseName   = config.getString("dbname")
     val CollectionName = config.getString("dbcollection")
   }
 

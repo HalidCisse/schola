@@ -27,8 +27,8 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
   val log = Logger("oadmin.cacheSystem")
 
   system.registerOnTermination {
-    log.info("Terminating execution context...")
-    CacheActor.cacheSystemThreadPoolExecutor.shutdown()
+    log.info("Terminating cacheSystem execution context...")
+    cacheSystemThreadPoolExecutor.shutdown()
   }
 
   def createCacheActor(cacheName: String,
@@ -41,25 +41,9 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
     system.scheduler.schedule(scheduleDelay,
       updateIntervalMin minutes,
       actor, UpdateCacheForNow)
-
-    //    if (!DateUtil.isNowInActiveBusinessDay) {
-    //      actorSystem.scheduler.scheduleOnce(scheduleDelay, actor,
-    //        UpdateCacheForPreviousBusinessDay)
-    //    }
-
+    
     actor
   }
-
-  //  def findCachedObject[T](key: String,
-  //                          finder: () => T): Option[T] = {
-  //
-  //    val element = Cache.get(key)
-  //
-  //    if (element eq None)
-  //      findObjectForCache(key, finder)
-  //    else
-  //      Some(element.asInstanceOf[T])
-  //  }
 
   def findObjectForCache[T](key: String,
                             default: () => T): Option[T] = {
@@ -71,24 +55,6 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
     }
     else None
   }
-//    default() match {
-//      case els: Traversable[_] =>
-//
-//        Cache.set(key, els, maxTTL)
-//        Some(els.asInstanceOf[T])
-//
-//      case s@Some(_) =>
-//
-//        Cache.set(key, s, maxTTL)
-//        s.asInstanceOf[Option[T]]
-//
-//      case _ => None
-//    }
-
-
-  //  def clearAllCaches() {
-  //    Cache.foreach(_.removeAll())
-  //  }
 }
 
 abstract class CacheActor(cacheSystem: CacheSystem)

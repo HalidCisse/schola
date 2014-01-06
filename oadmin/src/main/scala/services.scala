@@ -108,6 +108,12 @@ trait OAuthServicesComponent {
     def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
 
     def primaryEmailExists(email: String): Boolean
+
+    def createPasswdResetReq(username: String): Unit
+
+    def checkActivationReq(username: String, ky: String): Boolean
+
+    def changePasswd(username: String, ky: String, newPasswd: String): Boolean
   }
 }
 
@@ -155,6 +161,12 @@ trait OAuthServicesRepoComponent {
     def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
 
     def primaryEmailExists(email: String): Boolean
+
+    def createPasswdResetReq(username: String): Unit
+
+    def checkActivationReq(username: String, ky: String): Boolean
+
+    def changePasswd(username: String, ky: String, newPasswd: String): Boolean
   }
 }
 
@@ -279,6 +291,6 @@ trait CachingServicesComponent {
 
     def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T]
 
-    def purge(params: impl.CacheActor.Params)
+    def evict(params: impl.CacheActor.Params)
   }
 }
