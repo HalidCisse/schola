@@ -57,7 +57,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
 
   protected val accessControlServiceRepo = new AccessControlServiceRepoImpl
 
-  private object q {
+  private object aq {
     val roles = 
       Compiled(for {
         r <- Roles
@@ -176,7 +176,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getRoles = {
       import Database.dynamicSession
 
-      val roles = q.roles
+      val roles = aq.roles
 
       val result = db.withDynSession {
         roles.list
@@ -190,7 +190,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getRole(name: String) = {
       import Database.dynamicSession
 
-      val role = q.named(name)
+      val role = aq.named(name)
 
       val result = db.withDynSession {
         role.firstOption
@@ -204,7 +204,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getUserRoles(userId: String) = {
       import Database.dynamicSession
 
-      val userRoles = q.userRoles(java.util.UUID.fromString(userId))
+      val userRoles = aq.userRoles(java.util.UUID.fromString(userId))
 
       val result = db.withDynSession {
         userRoles.list
@@ -218,7 +218,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getPermissions = {
       import Database.dynamicSession
 
-      val permissions = q.permissions
+      val permissions = aq.permissions
 
       val result = db.withDynSession {
         permissions.list
@@ -232,7 +232,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getRolePermissions(role: String) = {
       import Database.dynamicSession
 
-      val rolePermissions = q.rolePermissions(role)
+      val rolePermissions = aq.rolePermissions(role)
 
       val result = db.withDynSession {
         rolePermissions.list
@@ -246,7 +246,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getUserPermissions(userId: String) = {
       import Database.dynamicSession
 
-      val userPermissions = q.userPermissions(java.util.UUID.fromString(userId))
+      val userPermissions = aq.userPermissions(java.util.UUID.fromString(userId))
 
       Set(
         db.withDynSession {
@@ -258,7 +258,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getClientPermissions(clientId: String) = {
       import Database.dynamicSession
 
-      val clientPermissions = q.clientPermissions(clientId)
+      val clientPermissions = aq.clientPermissions(clientId)
 
       val result = db.withDynSession {
         clientPermissions.list
@@ -272,7 +272,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def saveRole(name: String, parent: Option[String], createdBy: Option[String]) = db.withTransaction { implicit session =>
       Roles += Role(name, parent orElse Some(AdministratorR.name), System.currentTimeMillis, createdBy = createdBy map java.util.UUID.fromString)
 
-      val role = q.named(name)
+      val role = aq.named(name)
 
       role.firstOption map {
         case (sName, sParent, createdAt, sCreatedBy, public) => Role(sName, sParent, createdAt, sCreatedBy, public)
@@ -307,13 +307,15 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
 
       val id = java.util.UUID.fromString(userId)
 
-      @inline def getParent(role: String) =
-        q.parent(role).firstFlatten
+      @inline 
+      def getParent(role: String) =
+        aq.parent(role).firstFlatten
 
 
-      @scala.annotation.tailrec def userHasRoleAcc(role: String): Boolean = {
+      @scala.annotation.tailrec 
+      def userHasRoleAcc(role: String): Boolean = {
 
-        val userRoleExists = q.userRoleExists(id, role)
+        val userRoleExists = aq.userRoleExists(id, role)
 
         (userRoleExists.firstOption getOrElse false) || (getParent(role) match {
           case Some(parent) => userHasRoleAcc(parent)
@@ -337,14 +339,16 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def roleExists(name: String) = {
       import Database.dynamicSession
 
+      val role = aq.roleExists(name.toLowerCase)
+
       db.withDynSession {
-        q.roleExists(name.toLowerCase).firstOption
+        role.firstOption
       } getOrElse false
     }
 
     def updateRole(name: String, newName: String, parent: Option[String]) =
-    db.withTransaction{ implicit sesssion =>
-      q.forUpdate(name).update(newName, parent) == 1
-    }
+      db.withTransaction{ implicit sesssion =>
+        aq.forUpdate(name).update(newName, parent) == 1
+      }
   }
 }

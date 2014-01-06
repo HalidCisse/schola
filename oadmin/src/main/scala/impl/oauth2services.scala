@@ -51,6 +51,12 @@ trait OAuthServicesComponentImpl extends OAuthServicesComponent {
     def getAvatar(id: String) = oauthServiceRepo.getAvatar(id)
 
     def primaryEmailExists(primaryEmail: String) = oauthServiceRepo.primaryEmailExists(primaryEmail)
+
+    def createPasswdResetReq(username: String) = oauthServiceRepo.createPasswdResetReq(username)
+
+    def checkActivationReq(username: String, ky: String) = oauthServiceRepo.checkActivationReq(username, ky)
+
+    def changePasswd(username: String, ky: String, newPasswd: String) = oauthServiceRepo.changePasswd(username, ky, newPasswd)
   }
 }
 
@@ -65,7 +71,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
   protected val oauthServiceRepo = new OAuthServicesRepoImpl
 
-  private object q {
+  private object oq {
     import schema._
 
     val users = Compiled(for {
@@ -290,6 +296,20 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       Compiled(getPrimaryEmail _)
     }
 
+    val forActivationKey = {
+      def getActivationKey(username: Column[String]) =
+        Users where(_.primaryEmail is username) map(_.activationKey)
+
+      Compiled(getActivationKey _)
+    }
+
+    val forActivation = {
+      def getActivation(username: Column[String]) =
+        Users where(_.primaryEmail is username) map(o=>(o.activationKey, o.password))
+
+      Compiled(getActivation _)
+    }    
+
     val userUpdates = {
 
       def forPasswdAndContacts(id: Column[java.util.UUID]) =
@@ -346,7 +366,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def getUsers = {
       import Database.dynamicSession
 
-      val users = q.users
+      val users = oq.users
 
       val result = db.withDynSession {
         users.list
@@ -361,7 +381,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def getUser(id: String) = {
       import Database.dynamicSession
 
-      val user = q.userById(java.util.UUID.fromString(id))
+      val user = oq.userById(java.util.UUID.fromString(id))
 
       val result = db.withDynSession {
         user.firstOption
@@ -386,7 +406,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def getPurgedUsers = {
       import Database.dynamicSession
 
-      val trash = q.trashedUsers
+      val trash = oq.trashedUsers
 
       val result = db.withDynSession {
         trash.list
@@ -419,7 +439,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def getTokenSecret(accessToken: String) = {
       import Database.dynamicSession
 
-      val token = q.tokenSecret(accessToken)
+      val token = oq.tokenSecret(accessToken)
 
       db.withDynSession {
         token.firstOption
@@ -428,7 +448,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
     def getRefreshToken(refreshToken: String) = {
 
-      val token = q.refreshToken(refreshToken)
+      val token = oq.refreshToken(refreshToken)
 
       val result = db.withSession { implicit session =>
         token.firstOption
@@ -441,7 +461,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
           if(isExpired) {
             db withTransaction { implicit session =>
-              if(q.bearerToken(accessToken).delete != 1)
+              if(oq.bearerToken(accessToken).delete != 1)
                 throw new Exception("getRefreshToken: can't delete expired refresh token")
               None
             }
@@ -452,7 +472,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
     def exchangeRefreshToken(refreshToken: String) = db.withTransaction { implicit session =>
 
-      val token = q.forExchange(refreshToken)
+      val token = oq.forExchange(refreshToken)
 
       token.firstOption flatMap {
         case (aAccessToken, clientId, redirectUri, userId, uA, Some(aRefreshToken), issuedTime, expiresIn, refreshExpiresIn, aScopes) if refreshExpiresIn map(issuedTime + 1000 * _ > System.currentTimeMillis) getOrElse true => //aRefreshToken exists
@@ -469,12 +489,12 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             (accessToken, clientId, redirectUri, userId, Some(generateRefreshToken(accessToken)), generateMacKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", aScopes)) != 1)
               throw new Exception("could not refresh Token")
 
-          val newToken = q.accessToken(accessToken)
+          val newToken = oq.accessToken(accessToken)
 
           newToken.firstOption map {
             case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, dCreatedAt, dLastAccessTime, dScopes) =>
 
-              if(q.bearerToken(aAccessToken).delete != 1)
+              if(oq.bearerToken(aAccessToken).delete != 1)
                 throw new Exception("couldn't delete old token")
 
               OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, dCreatedAt, dLastAccessTime, scopes = dScopes)
@@ -486,14 +506,14 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
     def revokeToken(accessToken: String) =
       db.withTransaction { implicit session =>
-        val token = q.tokenSecret(accessToken)
+        val token = oq.tokenSecret(accessToken)
         token.delete == 1
       }
 
     def getUserTokens(userId: String) = {
       import Database.dynamicSession
 
-      val userTokens = q.userTokens(java.util.UUID.fromString(userId))
+      val userTokens = oq.userTokens(java.util.UUID.fromString(userId))
 
       val result = db.withDynSession {
         userTokens.list
@@ -511,7 +531,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         val bearerToken = params("bearerToken")
         val userAgent = params("userAgent")
 
-        val session = q.session(bearerToken, userAgent)
+        val session = oq.session(bearerToken, userAgent)
 
         session.firstOption map {
           case (sUser, (sAccessToken, sClientId, sRefreshToken, sMacKey, sUA, sExpiresIn, sRefreshExpiresIn, sCreatedAt, sLastAccessTime, sScopes)) =>
@@ -519,7 +539,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             import scala.util.control.Exception.allCatch
 
             allCatch.opt {
-              q.lastAccessTime update(System.currentTimeMillis)
+              oq.lastAccessTime update(System.currentTimeMillis)
             } // Touch session
 
             val userId = sUser.id map(_.toString) get
@@ -548,7 +568,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def getClient(id: String, secret: String) = {
       import Database.dynamicSession
 
-      val client = q.client(id, secret)
+      val client = oq.client(id, secret)
 
       val result = db.withDynSession {
         client.firstOption
@@ -561,7 +581,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     }
 
     def authUser(username: String, password: String) = {
-      val user = q.auth(username)
+      val user = oq.auth(username)
 
       val result = db.withSession { implicit session =>
         user.firstOption
@@ -571,7 +591,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         case (id, sPasswd) if passwords verify(password, sPasswd) =>
 
           db.withTransaction { implicit session =>
-            q.forLastLoginTime(id) update(Some(System.currentTimeMillis))
+            oq.forLastLoginTime(id) update(Some(System.currentTimeMillis))
           }
 
           id.toString
@@ -586,7 +606,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           (OAuthTokens.forInsert += (accessToken, clientId, redirectUri, java.util.UUID.fromString(userId), refreshToken, macKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", scopes)) != 1
         }) throw new IllegalStateException("can't save token")
 
-      val token = q.accessToken(accessToken)
+      val token = oq.accessToken(accessToken)
 
       val result = db.withSession { implicit session =>
         token.firstOption
@@ -604,14 +624,31 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
         scala.util.control.Exception.allCatch.opt {
 
+          try
+
           Users insert(
-            primaryEmail, passwords crypt password, givenName, familyName, currentTimestamp, createdBy map java.util.UUID.fromString, Some(currentTimestamp), createdBy map java.util.UUID.fromString, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
+            primaryEmail, 
+            passwords crypt password, 
+            givenName, 
+            familyName, 
+            currentTimestamp, 
+            createdBy map java.util.UUID.fromString, 
+            Some(currentTimestamp), 
+            createdBy map java.util.UUID.fromString, 
+            gender, 
+            homeAddress, 
+            workAddress, 
+            contacts, 
+            changePasswordAtNextLogin)
+
+          finally
+            utils.Mailer.sendWelcomeEmail(primaryEmail)
         }
       }
 
     def updateUser(id: String, spec: utils.UserSpec) = {
       val uuid = java.util.UUID.fromString(id)
-      val passwdAndContacts = q.userUpdates.passwdAndContacts(uuid)
+      val passwdAndContacts = oq.userUpdates.passwdAndContacts(uuid)
 
       db.withSession {
         implicit session => passwdAndContacts.firstOption
@@ -624,68 +661,92 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
             val _1 = spec.primaryEmail map {
               primaryEmail =>
-                q.userUpdates.primaryEmail(uuid).update(primaryEmail, currentTimestamp, Some(uuid)) == 1
+                oq.userUpdates.primaryEmail(uuid).update(primaryEmail, currentTimestamp, Some(uuid)) == 1
             } getOrElse true
 
             val _2 = _1 && (spec.password map {
               password =>
                 spec.oldPassword.nonEmpty &&
                   (passwords verify(spec.oldPassword.get, sPassword)) &&
-                  (q.userUpdates.password(uuid).update(passwords crypt password, false, currentTimestamp, Some(uuid)) == 1)
+                  (oq.userUpdates.password(uuid).update(passwords crypt password, false, currentTimestamp, Some(uuid)) == 1)
             } getOrElse true)
 
             val _3 = _2 && (spec.givenName map {
               givenName =>
-                q.userUpdates.givenName(uuid).update(givenName, currentTimestamp, Some(uuid)) == 1
+                oq.userUpdates.givenName(uuid).update(givenName, currentTimestamp, Some(uuid)) == 1
             } getOrElse true)
 
             val _4 = _3 && (spec.familyName map {
               familyName =>
-                q.userUpdates.givenName(uuid).update(familyName, currentTimestamp, Some(uuid)) == 1
+                oq.userUpdates.familyName(uuid).update(familyName, currentTimestamp, Some(uuid)) == 1
             } getOrElse true)
 
             val _5 = _4 && (spec.gender map {
               gender =>
-                q.userUpdates.gender(uuid).update(gender, currentTimestamp, Some(uuid)) == 1
+                oq.userUpdates.gender(uuid).update(gender, currentTimestamp, Some(uuid)) == 1
             } getOrElse true)
 
             val _6 = _5 && (spec.homeAddress foreach {
               case homeAddress =>
-                q.userUpdates.homeAddress(uuid).update(homeAddress, currentTimestamp, Some(uuid)) == 1
+                oq.userUpdates.homeAddress(uuid).update(homeAddress, currentTimestamp, Some(uuid)) == 1
             })
 
             val _7 = _6 && (spec.workAddress foreach {
               case workAddress =>
-                q.userUpdates.workAddress(uuid).update(workAddress, currentTimestamp, Some(uuid)) == 1
+                oq.userUpdates.workAddress(uuid).update(workAddress, currentTimestamp, Some(uuid)) == 1
             })
 
             val _8 = _7 && (spec.avatar foreach {
               case Some((avatar, data)) =>
-                avatars ! utils.Avatars.Add(id, avatar, data)
-                q.userUpdates.avatar(uuid).update(Some(avatar), currentTimestamp, Some(uuid)) == 1
+                avatars ! utils.Avatars.Save(id, avatar, data)
+                oq.userUpdates.avatar(uuid).update(Some(avatar), currentTimestamp, Some(uuid)) == 1
 
               case _ =>
                 avatars ! utils.Avatars.Purge(id)
-                q.userUpdates.avatar(uuid).update(None, currentTimestamp, Some(uuid)) == 1
+                oq.userUpdates.avatar(uuid).update(None, currentTimestamp, Some(uuid)) == 1
             })
 
             _8 && {
 
               spec.contacts map{
-                case s =>
+                case s =>   
+                
+                  import utils.If               
 
-                  val qContacts = q.userUpdates.contacts(uuid)
+                  val Contacts(MobileNumbers(curMobile1, curMobile2), curHome, curWork) = sContacts
 
-                  val Contacts(curHome, curWork, MobileNumbers(curMobile1, curMobile2)) = sContacts
+                  val newHome = if(s.home eq None) curHome else Some{
+                    val tmp  = s.home.get
+                    val empt = curHome.nonEmpty                    
 
-                  (qContacts update(
+                    HomeContactInfo(
+                      email       = If(tmp.email.set eq None,  If(empt, curHome.get.email, None), tmp.email.set.get),
+                      fax         = If(tmp.fax.set eq None,  If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                      phoneNumber = If(tmp.phoneNumber.set eq None,  If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get)
+                    )
+                  }
+
+                  val newWork = if(s.work eq None) curWork else Some{
+                    val tmp  = s.work.get
+                    val empt = curWork.nonEmpty
+
+                    WorkContactInfo(
+                      email       = If(tmp.email.set eq None,  If(empt, curHome.get.email, None), tmp.email.set.get),
+                      fax         = If(tmp.fax.set eq None,  If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                      phoneNumber = If(tmp.phoneNumber.set eq None,  If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get)
+                    )
+                  }       
+
+                  val qContacts = oq.userUpdates.contacts(uuid)           
+
+                  (qContacts update((
                     Contacts(
-                      home = if(s.home.set eq None) curHome else s.home.set.get,
-                      work = if(s.work.set eq None) curWork else s.work.set.get,
-                      mobiles = MobileNumbers(if(s.mobiles.mobile1.set eq None) curMobile1 else s.mobiles.mobile1.set.get, if(s.mobiles.mobile2.set eq None) curMobile2 else s.mobiles.mobile2.set.get)),
+                      mobiles = MobileNumbers(if(s.mobiles.mobile1.set eq None) curMobile1 else s.mobiles.mobile1.set.get, if(s.mobiles.mobile2.set eq None) curMobile2 else s.mobiles.mobile2.set.get),
+                      home    = newHome,
+                      work    = newWork),
                     currentTimestamp,
                     Some(uuid)
-                    )) == 1
+                    ))) == 1
 
               } getOrElse true
             }
@@ -716,9 +777,52 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def primaryEmailExists(primaryEmail: String) = {
       import Database.dynamicSession
 
+      val primaryEmailExists = oq.primaryEmailExists(primaryEmail.toLowerCase)
+
       db.withDynSession {
-        q.primaryEmailExists(primaryEmail.toLowerCase).firstOption
+        primaryEmailExists.firstOption
       } getOrElse false
+    }
+
+    def createPasswdResetReq(username: String) = db.withTransaction{ implicit session =>
+      val key = utils.Crypto.generateToken()
+
+      val user = oq.forActivationKey(username)
+
+      if(user.update(Some(utils.genPasswd(key))) == 1) utils.Mailer.sendPasswordResetEmail(username, key)
+      else throw new Exception("createPasswdResetReq: can not update user_activation_key")
+    }
+
+    def checkActivationReq(username: String, ky: String) = {
+      val user = oq.forActivationKey(username)
+
+      val result = db.withSession { implicit session =>
+        user.firstFlatten
+      }
+
+      result match {
+        case Some(hashed) => passwords verify(ky, hashed)
+        case _ => false
+      }
+    }
+
+    def changePasswd(username: String, ky: String, newPasswd: String) = db.withTransaction{ implicit session =>
+      val user = oq.forActivation(username)
+
+      val result = db.withSession { implicit session =>
+        user.firstOption
+      }
+
+      result match {
+        case Some((Some(hashed), _)) if passwords verify(ky, hashed) =>           
+
+          utils.If(
+            user.update(None, passwords crypt newPasswd) == 1,
+            { utils.Mailer.sendPasswordChangedNotice(username); true }, 
+            false)
+
+        case _ => false
+      }      
     }
   }
 }
@@ -746,31 +850,31 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl with 
 
     override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean) =
       super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) collect{
-        case my: UserLike =>
-          cachingServices.purge(Params(my.id.get.toString))
-          cachingServices.purge(ManyParams("users"))
+        case my =>
+          cachingServices.evict(Params(my.id.get.toString))
+          cachingServices.evict(ManyParams("users"))
           my
       }
 
     override def updateUser(id: String, spec: utils.UserSpec) =
       super.updateUser(id, spec) collect {
-        case my: UserLike =>
-          cachingServices.purge(Params(my.id.get.toString))
-          cachingServices.purge(ManyParams("users"))
+        case my =>
+          cachingServices.evict(Params(my.id.get.toString))
+          cachingServices.evict(ManyParams("users"))
           my
       }
 
     override def removeUser(id: String): Boolean =
       super.removeUser(id) && {
-        cachingServices.purge(Params(id))
-        cachingServices.purge(ManyParams("users"))
+        cachingServices.evict(Params(id))
+        cachingServices.evict(ManyParams("users"))
         true
       }
 
     override def purgeUsers(users: Set[String]) {
       super.purgeUsers(users)
-      users foreach(o => cachingServices.purge(Params(o)))
-      cachingServices.purge(ManyParams("users"))
+      users foreach(o => cachingServices.evict(Params(o)))
+      cachingServices.evict(ManyParams("users"))
     }
   }
 
@@ -786,23 +890,23 @@ trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl with 
 
     override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) =
       super.saveRole(name, parent, createdBy) collect{
-        case my: RoleLike =>
-          cachingServices.purge(Params(my.name))
-          cachingServices.purge(ManyParams("roles"))
+        case my =>
+          cachingServices.evict(Params(my.name))
+          cachingServices.evict(ManyParams("roles"))
           my
       }
 
     override def updateRole(name: String, newName: String, parent: Option[String]) =
       super.updateRole(name, newName, parent) && {
-        cachingServices.purge(Params(newName))
-        cachingServices.purge(ManyParams("roles"))
+        cachingServices.evict(Params(newName))
+        cachingServices.evict(ManyParams("roles"))
         true
       }
 
     override def purgeRoles(roles: Set[String]) {
       super.purgeRoles(roles)
-      roles foreach(o => cachingServices.purge(Params(o)))
-      cachingServices.purge(ManyParams("roles"))
+      roles foreach(o => cachingServices.evict(Params(o)))
+      cachingServices.evict(ManyParams("roles"))
     }
   }
 }
@@ -832,7 +936,7 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
       } getOrElse None
     }
 
-    def purge(params: impl.CacheActor.Params) {
+    def evict(params: impl.CacheActor.Params) {
       cacheActor ! impl.CacheActor.PurgeValue(params)
     }
   }

@@ -2,7 +2,7 @@ package schola
 package oadmin
 
 import org.clapper.avsl.Logger
-import org.apache.commons.validator.routines.EmailValidator
+// import org.apache.commons.validator.routines.EmailValidator
 
 object Plans extends Plans(Façade)
 
@@ -24,7 +24,18 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
 
   import f.simple._
 
-  private lazy val xHttp = dispatch.Http // TODO: configure dispatch-reboot executor service
+//  private val xHttpThreadPoolExecutor = {
+//    import java.util.concurrent._
+//
+//    val FUTURE_POOL_SIZE = 8 // TODO: make `FUTURE_POOL_SIZE` a config value
+//
+//    new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
+//      1, TimeUnit.MINUTES,
+//      new LinkedBlockingQueue(FUTURE_POOL_SIZE))
+//  }
+
+  private val xHttp =
+    dispatch.Http // configure(_.setExecutorService(xHttpThreadPoolExecutor)) // TODO: configure dispatch-reboot executor service
 
   system.registerOnTermination {
     log.info("Stopping http client . . . ")
@@ -32,7 +43,7 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
   }
 
   object Username
-    extends Params.Extract("username", Params.first ~> Params.nonempty ~> Params.trimmed ~> Params.pred(EmailValidator.getInstance.isValid))
+    extends Params.Extract("username", Params.first ~> Params.nonempty ~> Params.trimmed/* ~> Params.pred(EmailValidator.getInstance.isValid)*/)
 
   object Passwd extends Params.Extract("password", Params.first ~> Params.nonempty ~> Params.trimmed)
 
@@ -43,7 +54,7 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
       Cookies.unapply(req) flatMap (_(SESSION_KEY) flatMap (c=>utils.Crypto.extractSignedToken(c.value)))
   }
 
-  val / = {
+  val / = (hostname: String, port: Int) => {
 
     import dispatch._
     import scala.concurrent.ExecutionContext.Implicits.global // TODO: change this to a real ExecutionContext
@@ -75,13 +86,10 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
             params("recaptcha_response_field")(0))
     }
 
-    val hostname = "localhost"
-    val port = 3000
-
     val localhost = host(hostname, port)
 
     val token = localhost / "oauth" / "token"
-    val api = localhost / "api" / "v1"
+    val api = localhost / "api" / API_VERSION
 
     val client = domain.OAuthClient(
       "oadmin", "oadmin",
@@ -99,7 +107,7 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
 
 
     def Logout[B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], s: oauthService.SessionLike, userAgent: String) {
-      withMac(req, s, "GET", "/api/v1/logout", userAgent) {
+      withMac(req, s, "GET", "/api/$API_VERSION/logout", userAgent) {
         auth =>
 
           for (_ <- xHttp(
@@ -161,7 +169,7 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
                     fn(Left(SetCookies(
                       unfiltered.Cookie(
                         SESSION_KEY,
-                        ss.key,
+                        utils.Crypto.signToken(ss.key),
                         maxAge = if (rememberMe) ss.refreshExpiresIn map (_.toInt) else None,
                         httpOnly = true
                       )), ss))
@@ -241,11 +249,13 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
         "remoteip" -> remoteAddr,
         "privatekey" -> ReCaptcha.PrivateKey)
 
-      def isSuccess(msg: String) =
-        msg.split("""\n""")(0) == "true"
+      def isSuccess(msg: String) = {
+        val x = msg.split("""\n""")
+        x.length > 0 && x(0) == "true"
+      }
 
       def onError() =
-        req.respond(Redirect("/LostPasswd") flashing("error" -> "T", "Msg" -> "Invalid captcha"))
+        req.respond(Redirect("/LostPasswd") flashing("error" -> "T", "Msg" -> "Invalid captcha."))
 
       for(e <- xHttp(
         gCapcha << params OK as.String).either) {
@@ -260,6 +270,12 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
     async.Planify {
 
       case UserAgent(uA) & req =>
+
+        object LoginP
+          extends Params.Extract("login", Params.first ~> Params.nonempty ~> Params.trimmed/* ~> Params.pred(EmailValidator.getInstance.isValid)*/)
+
+        object Key
+          extends Params.Extract("key", Params.first ~> Params.nonempty ~> Params.trimmed)
 
         req match {
 
@@ -293,17 +309,17 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
                     req.respond(session map {
                       s =>
                         if (s.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing("forcePasswdChange" -> "T")
-                        else Flash.discard ~> utils.Scalate(req, "index.jade", "session" -> s)
+                        else utils.Scalate(req, "index.jade", "session" -> s)
                     } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
 
                   case Left((rf, session)) =>
 
                     req.respond(
                       rf ~> (if (session.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing("forcePasswdChange" -> "T")
-                      else Flash.discard ~> utils.Scalate(req, "index.jade", "session" -> session)))
+                      else utils.Scalate(req, "index.jade", "session" -> session)))
                 }
 
-              case ContextPath(_, "/Avatar") => // TODO: implement Cache & If-Not-Modified
+              case GET(ContextPath(_, "/Avatar")) => // TODO: implement Cache & If-Not-Modified
 
                 def getAvatar(user: oauthService.UserLike) =
                   oauthService.getAvatar(user.id map(_.toString) get) match {
@@ -319,18 +335,118 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
                 withSession(req, key, uA) {
                   case Right(session) =>
 
-
                     req.respond(session map {
                       s => getAvatar(s.user)
                     } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
-
 
                   case Left((rf, session)) =>
 
                     req.respond(getAvatar(session.user))
                 }
 
-              case GET(ContextPath(_, "/EditProfile")) =>
+              case DELETE(ContextPath(_, "/Avatar")) & Jsonp.Optional(cb) =>
+                
+                def ERROR(redirect: Boolean = false) = JsonContent ~> ResponseString(cb wrap s"""{"success": false, "redirect": $redirect}""")
+
+                def PurgeAvatar[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+
+                  def SUCCESS = JsonContent ~> ResponseString(cb wrap s"""{"success": true}""")
+
+                  withMac(req, session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatars", uA) {
+                    auth => 
+
+                    for(e <- xHttp(
+                      api.DELETE / "user" / session.user.id.get.toString / "avatars" <:< auth
+                      ).either) {
+
+                        req.respond {
+                          fn {
+                            e.fold(
+                              _ => ERROR(),
+                              ryt => utils.If(ryt.getStatusCode == 200, SUCCESS, ERROR())
+                            )
+                          }
+                        }
+                      }
+                  }
+                }
+
+                withSession(req, key, uA) {
+                  case Right(session) =>
+
+                    session map {
+                      s => PurgeAvatar(req, s) { rf => rf }
+                    } getOrElse {
+                      req.respond {
+                        SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> ERROR(redirect = true)
+                      }
+                    }
+
+                  case Left((rf, session)) =>
+
+                    PurgeAvatar(req, session) {
+                      xrf => rf ~> xrf
+                    }
+                }
+                  
+              case POST(ContextPath(_, "/Avatar")) & MultiPart(_) & Jsonp.Optional(cb) =>
+
+                def ERROR(redirect: Boolean = false) = JsonContent ~> ResponseString(cb wrap s"""{"success": false, "redirect": $redirect}""")
+
+                def AddAvatar[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+
+                  def SUCCESS = JsonContent ~> ResponseString(cb wrap s"""{"success": true}""")
+
+                  MultiPartParams.Disk(req).files("f") match {
+                    case Seq(fp, _*) =>                      
+
+                      fp.write(java.io.File.createTempFile("OAdmin-", s"-avatar_${session.user.id.get}")).fold(req.respond {
+                        fn(ERROR())
+                      }) {
+                        fs =>
+
+                        withMac(req, session, "POST", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatars", uA) {
+                          auth => 
+
+                          for(e <- xHttp(
+                            api.POST / "user" / session.user.id.get.toString / "avatars" <:< auth addBodyPart new com.ning.http.multipart.FilePart("f", fs, fp.contentType, "UTF-8")
+                            ).either) {
+
+                              req.respond {
+                                fn {
+                                  e.fold(
+                                    _ => ERROR(),
+                                    ryt => utils.If(ryt.getStatusCode == 200, SUCCESS, ERROR())
+                                  )
+                                }
+                              }
+                            }
+                        }
+                      }
+
+                    case _ => req.respond(fn(ERROR()))
+                  }
+                }
+
+                withSession(req, key, uA) {
+                  case Right(session) =>
+
+                    session map {
+                      s => AddAvatar(req, s) { rf => rf }
+                    } getOrElse {
+                      req.respond {
+                        SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> ERROR(redirect = true)
+                      }
+                    }
+
+                  case Left((rf, session)) =>
+
+                    AddAvatar(req, session) {
+                      xrf => rf ~> xrf
+                    }
+                }
+
+              case GET(ContextPath(_, "/EditAccount")) =>
 
                 withSession(req, key, uA) {
                   case Right(session) =>
@@ -344,13 +460,81 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
                   case Left((rf, session)) =>
 
                     req.respond(
-                      rf ~> utils.Scalate(req, "editprofile.jade", "profile" -> session.user))
-
+                      rf ~> utils.Scalate(req, "editprofile.jade", "editPrimaryEmail" -> session.hasRole(domain.R.SuperUserR.name), "profile" -> session.user))
                 }
 
-              case POST(ContextPath(_, "/EditProfile")) =>
+              case POST(ContextPath(_, "/EditAccount")) =>
 
-                ???
+                import domain.U.Params._
+
+                def EditAccount[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+                  import org.json4s._
+                  import org.json4s.JsonDSL._
+                  import org.json4s.native.JsonMethods._
+
+                  val param = {
+                    val mData = Params.unapply(req).get
+
+                    def cleaned(k: Seq[String]) = if(k.isEmpty) None else Some(k(0).trim)
+
+                    (aKey: String) => 
+                      cleaned(mData(aKey))
+                  }
+
+                  def read(ps: List[(String, String)]) =
+                    (JObject() /: ps) {
+                      case (js, (p, aKey)) => param(p) map(v => (aKey, v) ~ js) getOrElse js
+                    }
+
+                  val dft =
+                    (JObject() /: DParams) {
+                      case (js, p) => param(p) map(v => if(p.contains("password") && v.isEmpty) js else (p, v) ~ js) getOrElse js
+                    }
+
+                  val jsonInfo = 
+                    dft ~
+                    ("homeAddress" -> read(HomeAddressParams)) ~
+                    ("workAddress" -> read(WorkAddressParams)) ~
+                    ("contacts" -> (
+                      ("work" -> read(WorkContactParams)) ~ 
+                        ("home" -> read(HomeContactParams)) ~ 
+                          ("mobiles" -> (
+                            ("mobile1" -> read(Mobile1ContactParams)) ~ 
+                              ("mobile2" -> read(Mobile2ContactParams))))))
+
+                  withMac(req, session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}", uA) {
+                    auth =>
+
+                      for (e <- xHttp(
+                          api.PUT / "user" / session.user.id.get.toString << compact(render(jsonInfo)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
+                        ).either) {
+
+                        req.respond(fn(e.fold(
+                          _ => Redirect("/EditAccount") flashing("error" -> "T"),
+                          ryt => utils.If(ryt.getStatusCode == 200, Redirect("/") flashing("success" -> "T", "Msg" -> "Account updated."), Redirect("/EditAccount") flashing("error" -> "T"))
+                        )))
+                      }
+                  }
+                }
+
+                withSession(req, key, uA) {
+                  case Right(Some(session)) =>
+
+                    EditAccount(req, session) {
+                      rf => rf
+                    }
+
+                  case Left((rf, session)) =>
+
+                    EditAccount(req, session) {
+                      xrf => rf ~> xrf
+                    }
+
+                  case _ =>
+
+                    req.respond(
+                      SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
+                }
 
               case GET(ContextPath(_, "/ChangePasswd")) =>
 
@@ -358,46 +542,39 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
 
               case POST(ContextPath(_, "/ChangePasswd")) & Params(Passwds(passwd, newPasswd)) =>
 
+                def ChangePasswd[T, B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+                  withMac(req, session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}", uA) {
+                    auth =>
+
+                      import conversions.json.tojson
+                      import org.json4s.JsonDSL._
+
+                      for (e <- xHttp(
+                        api.PUT / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
+                      ).either) {
+
+                        req.respond(fn(e.fold(
+                          _ => Redirect("/ChangePasswd") flashing("error" -> "T"), // utils.Scalate(req, "changepasswd.jade", "error" -> true),
+                          ryt => utils.If(ryt.getStatusCode == 200, Redirect("/") flashing("success" -> "T", "Msg" -> "Password changed."), Redirect("/ChangePasswd") flashing("error" -> "T"))
+                        )))
+                      }
+                  }
+                }
+
                 withSession(req, key, uA) {
                   case Right(Some(session)) =>
 
-                    import conversions.json.tojson
-                    import org.json4s.JsonDSL._
-
-                    withMac(req, session, "PUT", s"/api/v1/user/${session.user.id.get.toString}", uA) {
-                      auth =>
-
-                        for (e <- xHttp(
-                          api.PUT / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
-                        ).either) {
-
-                          req.respond(e.fold(
-                            _ => Redirect("/ChangePasswd") flashing("error" -> "T"), // utils.Scalate(req, "changepasswd.jade", "error" -> true),
-                            _ => Flash.discard ~> Redirect("/")
-                          ))
-                        }
+                    ChangePasswd(req, session) {
+                      rf => rf
                     }
 
                   case Left((rf, session)) =>
 
-                    import conversions.json.tojson
-                    import org.json4s.JsonDSL._
-
-                    withMac(req, session, "PUT", s"/api/v1/user/${session.user.id.get.toString}", uA) {
-                      auth =>
-
-                        for (e <- xHttp(
-                          api / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
-                        ).either) {
-
-                          req.respond(e.fold(
-                            _ => rf ~> Redirect("/ChangePasswd") flashing("error" -> "T"), // rf ~> utils.Scalate(req, "changepasswd.jade", "error" -> true),
-                            _ => rf ~> Flash.discard ~> Redirect("/")
-                          ))
-                        }
+                    ChangePasswd(req, session) {
+                      xrf => rf ~> xrf
                     }
 
-                  case Right(None) =>
+                  case _ =>
 
                     req.respond(
                       SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
@@ -435,7 +612,7 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
 
               case Right(session) =>
 
-                withMac(req, session, "GET", "/api/v1/session", uA) {
+                withMac(req, session, "GET", s"/api/$API_VERSION/session", uA) {
                   auth =>
 
                     for {
@@ -445,28 +622,64 @@ class Plans(val f: ServiceComponentFactory with HandlerFactory) {
                     } {
                       req.respond(e.fold(
                         _ => Redirect("/Login") flashing("error" -> "T", "rememberMe" -> (if(rememberMe) "T" else "F")), // utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe),
-                        _ =>
-                          SetCookies(
-                            unfiltered.Cookie(
-                              SESSION_KEY,
-                              utils.Crypto.signToken(session.key),
-                              maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
-                              httpOnly = true
-                            ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */), httpOnly = true)
-                          ) ~> Flash.discard ~> Redirect("/")))
+                        ryt => 
+                          utils.If(
+                            ryt.getStatusCode == 200, 
+                            
+                            SetCookies(
+                              unfiltered.Cookie(
+                                SESSION_KEY,
+                                utils.Crypto.signToken(session.key),
+                                maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
+                                httpOnly = true
+                              ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */), httpOnly = true)
+                            ) ~> Flash.discard ~> Redirect("/"),
+
+                            Redirect("/Login") flashing("error" -> "T", "rememberMe" -> (if(rememberMe) "T" else "F"))
+                          )
+                        )
+                      )
                     }
                 }
+            }
+
+          case GET(ContextPath(_, "/RstPasswd")) & Params(LoginP(login) & Key(ky)) =>
+
+            req.respond {
+              if(oauthService.checkActivationReq(login, ky))
+                utils.Scalate(req, "rstpasswd.jade", "login" -> login, "key" -> ky)
+              else Redirect("/") flashing("error" -> "T", "Msg" -> "Invalid request.")
+            }
+
+          case POST(ContextPath(_, "/RstPasswd")) & Params(LoginP(login) & Key(ky) & NewPasswd(newPasswd)) =>
+
+            req.respond {
+
+              if(oauthService.checkActivationReq(login, ky))
+                if(oauthService.changePasswd(login, ky, newPasswd)) Redirect("/Login") flashing("success" -> "T", "Msg" -> "Password updated.")
+                else Redirect("/RstPasswd") flashing("error" -> "T")
+
+              else Redirect("/RstPasswd") flashing("error" -> "T")
             }
 
           case GET(ContextPath(_, "/LostPasswd")) =>
 
             req.respond(utils.Scalate(req, "lostpasswd.jade", "publicKey" -> ReCaptcha.PublicKey))
 
-          case POST(ContextPath(_, "/LostPasswd")) & RemoteAddr(remoteAddr) & Params(ReCaptcha(challenge, response)) & Params(Username(username)) =>
+          case POST(ContextPath(_, "/LostPasswd")) & RemoteAddr(remoteAddr) & Params(ReCaptcha(challenge, response) & Username(username)) =>
 
             reCaptchaVerify(req, challenge, response, remoteAddr) {
-              // Save password change request . . . !
-              req.respond(Redirect("/") flashing("success" -> "T", "Msg" -> ""))
+
+              // Save hashed as user_activation_key
+              req.respond {
+
+                try {
+                  oauthService.createPasswdResetReq(username)
+                  Redirect("/") flashing("success" -> "T", "Msg" -> "Your request has been sent. Please check your email.")
+                } catch {
+                  case ex: Throwable => Redirect("/LostPasswd") flashing("error" -> "T")
+                }
+              }
             }
 
           /* Any request in this context */

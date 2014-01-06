@@ -3,7 +3,6 @@ package oadmin
 
 import javax.servlet.http.HttpServletResponse
 import org.json4s.JsonAST.{JValue, JObject}
-import schola.oadmin.domain.{PhoneNumber, HomeContactInfo}
 
 object Façade extends ServiceComponentFactory with HandlerFactory{
   import javax.servlet.http.HttpServletRequest
@@ -96,7 +95,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
     def purgeAvatar(userId: String) =
       oauthService.updateUser(userId, new utils.DefaultUserSpec {
-        override val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(None))
+        override lazy val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(None))
       }) match {
         case Some(user) =>
 
@@ -111,7 +110,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
     def uploadAvatar(userId: String, avatarInfo: domain.AvatarInfo, bytes: Array[Byte]) =
       oauthService.updateUser(userId, new utils.DefaultUserSpec {
-        override val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(Some(avatarInfo, bytes)))
+        override lazy val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(Some(avatarInfo, bytes)))
       }) match {
         case Some(user) =>
 
@@ -157,6 +156,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
     def updateUser(userId: String) =
     // primaryEmail
     // givenName and familyName
+    // password
     // gender
     // home and work addresses
     // contacts
@@ -171,61 +171,80 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
           val findFieldObj =
             utils.findFieldJObj(json)_
 
-          override val primaryEmail = findField("primaryEmail")
+          override lazy val primaryEmail = findField("primaryEmail")
 
-          override val password = findField("password")
-          override val oldPassword = findField("old_password")
+          override lazy val password = findField("password")
+          override lazy val oldPassword = findField("old_password")
 
-          override val givenName = findField("givenName")
-          override val familyName = findField("familyName")
-          override val gender = findField("gender") flatMap (x => allCatch.opt {
+          override lazy val givenName = findField("givenName")
+          override lazy val familyName = findField("familyName")
+          override lazy val gender = findField("gender") flatMap (x => allCatch.opt {
             domain.Gender.withName(x)
           })
 
-          override val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
+          override lazy val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
             set = findFieldObj("homeAddress") map (x => allCatch.opt {
               x.extract[domain.AddressInfo]
             })
           )
 
-          override val workAddress = new UpdateSpecImpl[domain.AddressInfo](
+          override lazy val workAddress = new UpdateSpecImpl[domain.AddressInfo](
             set = findFieldObj("workAddress") map (x => allCatch.opt {
               x.extract[domain.AddressInfo]
             })
           )
 
-          override val contacts =
+          override lazy val contacts =
             utils.findFieldJObj(json)("contacts") map{
               contactsJson =>
 
                 ContactsSpec(
-                  home = UpdateSpecImpl[domain.HomeContactInfo](
-                    set = utils.findFieldJObj(contactsJson)("home") map (x => allCatch.opt {
-                      x.extract[domain.HomeContactInfo]
-                    })),
-
-                  work = UpdateSpecImpl[domain.WorkContactInfo](
-                    set = utils.findFieldJObj(contactsJson)("work") map (x => allCatch.opt {
-                      x.extract[domain.WorkContactInfo]
-                    })),
 
                   mobiles = {
                     val mobilesJson = utils.findFieldJObj(contactsJson)("mobiles") getOrElse JObject(List())
 
                     MobileNumbersSpec(
+                      mobile1 = UpdateSpecImpl[String](
+                        set = utils.findFieldJObj(mobilesJson)("mobile1") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
+                      ),
 
-                      mobile1 = UpdateSpecImpl[domain.PhoneNumber](
-                        set = utils.findFieldJObj(mobilesJson)("mobile1") map (x => allCatch.opt {
-                          x.extract[domain.PhoneNumber]
-                        })),
-
-                      mobile2 = UpdateSpecImpl[domain.PhoneNumber](
-                        set = utils.findFieldJObj(mobilesJson)("mobile2") map (x => allCatch.opt {
-                          x.extract[domain.PhoneNumber]
-                        })
+                      mobile2 = UpdateSpecImpl[String](
+                        set = utils.findFieldJObj(mobilesJson)("mobile2") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
                       )
                     )
-                  }
+                  },
+
+                  home = utils.findFieldJObj(contactsJson)("home") flatMap (x => allCatch.opt {
+                      ContactInfoSpec[domain.HomeContactInfo](
+                        email = UpdateSpecImpl[String](
+                          set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        ),
+
+                        fax = UpdateSpecImpl[String](
+                          set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        ),
+
+                        phoneNumber = UpdateSpecImpl[String](
+                          set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        )
+                      )
+                    }),
+
+                  work = utils.findFieldJObj(contactsJson)("work") flatMap (x => allCatch.opt {
+                      ContactInfoSpec[domain.WorkContactInfo](
+                        email = UpdateSpecImpl[String](
+                          set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        ),
+
+                        fax = UpdateSpecImpl[String](
+                          set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        ),
+
+                        phoneNumber = UpdateSpecImpl[String](
+                          set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        )
+                      )
+                    })
                 )
             }
         })
@@ -270,6 +289,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
       val resp = oauthService.getUsers
 
       req.respond {
+        
         JsonContent ~>
           ResponseString(cb wrap tojson(resp))
       }
@@ -651,7 +671,7 @@ with impl.AccessControlServicesComponentImpl {
       import scala.slick.jdbc.{StaticQuery=>T}
 
 //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
-      //    ddl.createStatements foreach (stmt => println(stmt+";"))
+//          ddl.createStatements foreach (stmt => println(stmt+";"))
 //        ddl.create
 
 //        T.updateNA("CREATE EXTENSION \"uuid-ossp\";")
@@ -664,7 +684,7 @@ with impl.AccessControlServicesComponentImpl {
             | create table "oauth_clients" ("client_id" VARCHAR(254) NOT NULL,"client_secret" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL);
             | alter table "oauth_clients" add constraint "CLIENT_PK" primary key("client_id","client_secret");
             | create unique index "CLIENT_CLIENT_ID_INDEX" on "oauth_clients" ("client_id");
-            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY);
+            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" text,"user_activation_key" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY);
             | create unique index "USER_USERNAME_INDEX" on "users" ("primary_email");
             | create index "USER_USERNAME_PASSWORD_INDEX" on "users" ("primary_email","password");
             | create table "roles" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"parent" VARCHAR(254),"created_at" BIGINT NOT NULL,"created_by" uuid,"public" BOOLEAN DEFAULT true NOT NULL);
@@ -741,7 +761,9 @@ with impl.AccessControlServicesComponentImpl {
         )) == Some(5)
 
         val _6 = (UsersRoles ++= List(
-          UserRole(userId, "Role One", grantedBy = None),
+          UserRole(userId, SuperUserR.name, grantedBy = None),
+          UserRole(userId, AdministratorR.name, grantedBy = None),
+//          UserRole(userId, "Role One", grantedBy = None),
           UserRole(userId, "Role Three", grantedBy = Some(userId)),
           UserRole(userId, "Role Two", grantedBy = None)
         )) == Some(3)

@@ -44,16 +44,12 @@ package domain {
     val Female = Value
   }
 
-  case class Email(email: String)
-  case class PhoneNumber(phoneNumber: String)
-  case class Fax(fax: String)
+  case class HomeContactInfo(email: Option[String], phoneNumber: Option[String], fax: Option[String])
+  case class WorkContactInfo(email: Option[String], phoneNumber: Option[String], fax: Option[String])
 
-  case class HomeContactInfo(email: Option[Email], phoneNumer: Option[PhoneNumber], fax: Option[Fax])
-  case class WorkContactInfo(email: Option[Email], phoneNumer: Option[PhoneNumber], fax: Option[Fax])
+  case class MobileNumbers(mobile1: Option[String], mobile2: Option[String])
 
-  case class MobileNumbers(mobile1: Option[PhoneNumber], mobile2: Option[PhoneNumber])
-
-  case class Contacts(home: Option[HomeContactInfo], work: Option[WorkContactInfo], mobiles: MobileNumbers)
+  case class Contacts(mobiles: MobileNumbers, home: Option[HomeContactInfo], work: Option[WorkContactInfo])
 
   case class AddressInfo(city: String, country: String, postalCode: String, streetAddress: String)
 
@@ -72,8 +68,9 @@ package domain {
      gender: Gender.Value = Gender.Male,
      homeAddress: Option[AddressInfo] = None,
      workAddress: Option[AddressInfo] = None,
-     contacts: Contacts = Contacts(None, None, MobileNumbers(None, None)),
+     contacts: Contacts = Contacts(MobileNumbers(None,None), None,None),
      avatar: Option[AvatarInfo] = None,
+     activationKey: Option[String] = None,
      _deleted: Boolean = false,
      suspended: Boolean = false,
      changePasswordAtNextLogin: Boolean = false,
@@ -135,6 +132,48 @@ package domain {
         id = Some(java.util.UUID.fromString(config.getString("root.id"))))
 
     val all = Set(SuperUser)
+
+    val Params = new {
+      val DParams = List(
+        "primaryEmail",
+        "givenName",
+        "familyName",
+        "gender",
+        "password",
+        "new_password",
+        "password_confirmation")
+
+      val HomeAddressParams = List(
+        "homeAddress[country]" -> "country",
+        "homeAddress[city]" -> "city",
+        "homeAddress[postalCode]" -> "postalCode",
+        "homeAddress[streetAddress]" -> "streetAddress")
+
+      val WorkAddressParams = List(
+        "workAddress[country]" -> "country",
+        "workAddress[city]" -> "city",
+        "workAddress[postalCode]" -> "postalCode",
+        "workAddress[streetAddress]" -> "streetAddress")
+
+      val WorkContactParams = List(
+        "contacts[work][phoneNumber]" -> "phoneNumber",
+        "contacts[work][fax]" -> "fax",
+        "contacts[work][email]" -> "email")
+
+
+      val HomeContactParams = List(
+        "contacts[home][phoneNumber]" -> "phoneNumber",
+        "contacts[home][fax]" -> "fax",
+        "contacts[home][email]" -> "email")
+
+      val Mobile1ContactParams = List(
+        "contacts[mobiles][mobile1]" -> "phoneNumber"
+      )
+
+      val Mobile2ContactParams = List(
+        "contacts[mobiles][mobile2]" -> "phoneNumber"
+      )
+    }
   }
 
   case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID])

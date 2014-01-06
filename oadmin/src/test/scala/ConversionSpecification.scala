@@ -104,8 +104,8 @@ object ConversionSpecification extends org.specs.Specification {
             passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
-            createdBy = SuperUser.id,
-            contacts = None
+            createdBy = SuperUser.id/*,
+            contacts = None*/
           )
       } 
 
@@ -121,7 +121,7 @@ object ConversionSpecification extends org.specs.Specification {
       o.get.primaryEmail must be equalTo "amsayk.11"
       passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
       o.get.gender mustBe domain.Gender.Male
-      o.get.contacts must be equalTo None
+      /*o.get.contacts must be equalTo None*/
     }
 
     // Emails

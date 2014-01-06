@@ -93,6 +93,8 @@ package object schema {
     def contacts = column[Contacts]("contacts", O.DBType("text"))
 
     def avatar = column[Option[AvatarInfo]]("avatar", O.DBType("text"))
+    
+    def activationKey = column[Option[String]]("user_activation_key", O.DBType("text"))
 
     def _deleted = column[Boolean]("_deleted", O.NotNull, O.Default(false))
 
@@ -100,7 +102,7 @@ package object schema {
 
     def changePasswordAtNextLogin = column[Boolean]("change_password_at_next_login", O.NotNull, O.Default(false))
 
-    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, _deleted, suspended, changePasswordAtNextLogin, id?) <>(User.tupled, User.unapply)
+    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <>(User.tupled, User.unapply)
 
     def idx1 = index("USER_USERNAME_INDEX", primaryEmail, unique = true)
 
@@ -120,13 +122,13 @@ package object schema {
 
   implicit class UsersExtensions(users: Query[Users, User]){
 
-    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender.Value = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: domain.Contacts = domain.Contacts(None, None, MobileNumbers(None, None)), changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
+    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender.Value = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: domain.Contacts = domain.Contacts(MobileNumbers(None,None), None,None), changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
       usersAutoGenId.insert(email, password, givenName, familyName, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
 
     val forDeletion = {
-      def _innerforDeletion(id: Column[java.util.UUID]) = Users where(_.id is id) map { _._deleted }
+      def getDeleted(id: Column[java.util.UUID]) = Users where(_.id is id) map { _._deleted }
 
-      Compiled(_innerforDeletion _)
+      Compiled(getDeleted _)
     }
   }
 

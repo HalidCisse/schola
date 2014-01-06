@@ -17,6 +17,10 @@ body {
 max-width: 330px;
 }
 
+.form-editprofile fieldset p{
+  width: 180px;
+}
+
 .form-editprofile fieldset{
   padding: 15px;
   margin: auto 0;
@@ -55,4 +59,44 @@ margin-left: 17px;
 
 .form-editprofile .form-control:focus {
   z-index: 2;
+}
+.btn{font-size:16px}
+.container .text-muted {
+  margin: 20px 0;
+}
+footer {
+position: fixed;
+bottom: 10px;
+right: 38px;
+color: #999999;
+}
+.avatar_fm {
+position: absolute;
+height: 108px;
+margin: 31.5px 52px;
+top: 5px;
+left: 19px;
+visibility: hidden;
+}
+
+.avatar_fm_wrapper:hover .avatar_fm {
+  visibility: visible;
+}
+
+.avatar_fm a {
+  display: block;
+  margin: 5px auto 0;
+  cursor: pointer;
+  color: #fff;
+}
+
+form.form-editprofile .row {
+margin-bottom: 15px;
+}
+
+#msg {
+position: absolute;
+left: 45%;
+top: 70px;
+display: none;
 }

@@ -1,0 +1,405 @@
+-@ val flash: Map[String, String]
+-@ val editPrimaryEmail: Boolean
+-@ val error: Boolean = flash.get("error").exists(_ == "T")
+-@ val profile: schola.oadmin.domain.User
+-@ val DefaultAvatar: String = s"data:image/png;base64,${if(profile.gender eq schola.oadmin.domain.Gender.Male) schola.oadmin.DefaultAvatars.M else schola.oadmin.DefaultAvatars.F}"
+!!! 5
+html(lang='en')
+  head
+    meta(charset='utf-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    meta(name='description' content='')
+    meta(name='author' content='Amadou Cisse')
+    link(rel='shortcut icon' href={uri("/assets/ico/favicon.png")})
+    title Schola - Edit Account
+    link(href={uri("/assets/css/bootstrap.css")} rel='stylesheet')
+    link(href={uri("/assets/css/editprofile.css")} rel='stylesheet')
+    :css
+
+      *:required:after {
+        content: "*";
+      }
+
+  body
+    .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
+      .container
+        .navbar-header
+          a.navbar-brand(href='/') Schola
+        .collapse.navbar-collapse
+          ul.nav.navbar-nav.navbar-right
+            li.dropdown
+              a.dropdown-toggle(href='#' data-toggle='dropdown')
+                span.glyphicon.glyphicon-wrench
+                span.caret
+              ul.dropdown-menu
+                li
+                  a(href='/ChangePasswd') Change Password
+            li
+              a(href='/Logout' title='Logout')
+                span.glyphicon.glyphicon-log-out  
+    .container
+      .page-header
+        h3
+          | Edit your profile                        
+    .container
+      form.form-editprofile(role='form' method='POST')
+        ul#profiles.nav.nav-tabs
+          li.active
+            a(href='#' data-toggle='tab' data-tab='#basic') Basic
+          li
+            a(href='#' data-toggle='tab' data-tab='#addresses') Addresses
+          li
+            a(href='#' data-toggle='tab' data-tab='#contacts') Contacts
+        fieldset
+          #profiles_content.tab-content
+            #basic.tab-pane.active
+              .row
+                .col-xs-6.col-md-3.avatar_fm_wrapper
+                  .avatar_fm
+                    a.edit Change Picture
+                    a.purge Delete Picture
+                  img.img-thumbnail.avatar(src="#{DefaultAvatar}" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              
+                .col-xs-12.col-md-6
+                  #name.form-group                    
+                    input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus) &nbsp; &nbsp;
+                    input.form-control(type='text' name='familyName' placeholder='Last name' required)
+              .form-group
+                - if(editPrimaryEmail) 
+                  input.form-control(type='email' name='primaryEmail' placeholder='Enter email' required)
+                - else
+                  p(data-toggle='tooltip' data-placement='right' title="Only an administrator can modify his or her primary email") #{profile.primaryEmail}
+              .form-group
+                input.form-control(type='password' name='password' placeholder='Enter current password')
+              .form-group
+                input.form-control(type='password' name='new_password' placeholder='New Password')
+              .form-group
+                input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password')                  
+              #gender.form-group
+                label Gender
+                - if(profile.gender eq schola.oadmin.domain.Gender.Male)
+                  label.radio-inline
+                    input(type='radio' name='gender' value='Male' checked)
+                    | Male
+                  label.radio-inline
+                    input(type='radio' name='gender' value='Female')
+                    | Female
+                - else
+                  label.radio-inline
+                    input(type='radio' name='gender' value='Male')
+                    | Male
+                  label.radio-inline
+                    input(type='radio' name='gender' value='Female' checked)
+                    | Female                         
+            #addresses.tab-pane
+              .container
+                .page-header
+                  h4
+                    | Work
+                .form-group
+                  select#work-country.form-control(name='workAddress[country]' placeholder='Select country' autofocus)
+                .form-group
+                  input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City')
+                .form-group
+                  input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code')
+                .form-group
+                  textarea.form-control(name='workAddress[streetAddress]' placeholder='Address')
+
+              .container
+                .page-header
+                  h4
+                    | Home
+                .form-group
+                  select#home-country.form-control(name='homeAddress[country]' placeholder='Select country')
+                .form-group
+                  input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City')
+                .form-group
+                  input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')
+                .form-group
+                  textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address')              
+            #contacts.tab-pane 
+              .container
+                .page-header
+                  h4
+                    | Mobile
+                .form-group
+                  input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1')
+                .form-group
+                  input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')
+
+              .container    
+                .page-header
+                  h4
+                    | Work
+                .form-group
+                  input.form-control(type='text' name='contacts[work][phoneNumber]' placeholder='Enter phone number')
+                .form-group
+                  input.form-control(type='text' name='contacts[work][fax]' placeholder='Fax')
+                .form-group
+                  input.form-control(type='email' name='contacts[work][email]' placeholder='Email')             
+
+              .container
+                .page-header
+                  h4
+                    | Home
+                .form-group
+                  input.form-control(type='text' name='contacts[home][phoneNumber]' placeholder='Enter phone number')
+                .form-group
+                  input.form-control(type='text' name='contacts[home][fax]' placeholder='Fax')
+                .form-group
+                  input.form-control(type='email' name='contacts[home][email]' placeholder='Email')              
+            br
+            button.btn.btn-primary(type='submit') Save
+            |&nbsp;
+            a.btn.btn-default(href='/') Cancel      
+      footer
+        p © Amadou CISSE 2014.          
+    form#f_fm              
+    script(src={uri("/assets/javascripts/countries.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/jquery.upload.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/bootstrap.js")})
+    script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
+    script(src={uri("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")})
+    :&javascript
+
+      jQuery(function($){
+        // construct countries list with selected country
+        // Set up cities auto-complete
+
+        $('form.form-editprofile').submit(function(){
+          var newPasswd = $('[name=new_password]', this);
+          var passwordConfirmation = $('[name=password_confirmation]', this);
+
+          function cleaned(k) {
+            return (k && k.trim()) || "";
+          }
+
+          var i = cleaned(newPasswd.val());
+
+          if(i.length > 0 && i != passwordConfirmation.val()) {
+            ERROR("Password confirmation doesn't match", 'Error!');
+            setTimeout(passwordConfirmation[0].focus.bind(passwordConfirmation[0]), 0)
+            return false;
+          }
+
+          if(i.length > 0 && i.length < #{schola.oadmin.PasswordMinLength}) {
+            ERROR("Password must be at least #{schola.oadmin.PasswordMinLength} characters long.", "Error!");
+            setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
+            return false;
+          }
+
+        });
+
+        $('[data-toggle=tooltip]').tooltip();        
+
+        setTimeout(function(){
+          $.removeCookie('#{schola.oadmin.libs.Flash.COOKIE_NAME}', { path: '/' });
+          });
+
+        if(#{error})
+          ERROR("An error occured, please try again.");
+
+        (function(){
+          $('[name="givenName"]').val("#{profile.givenName}");
+          $('[name="familyName"]').val("#{profile.familyName}");
+          
+          $('[name="primaryEmail"]').val("#{profile.primaryEmail}");
+
+          $('[name="workAddress[city]"]').val("#{profile.workAddress map(_.city) getOrElse ""}");
+          $('[name="workAddress[postalCode]"]').val("#{profile.workAddress map(_.postalCode) getOrElse ""}");
+          $('[name="workAddress[streetAddress]"]').val("#{profile.workAddress map(_.streetAddress) getOrElse ""}");
+
+          $('[name="homeAddress[city]"]').val("#{profile.homeAddress map(_.city) getOrElse ""}");
+          $('[name="homeAddress[postalCode]"]').val("#{profile.homeAddress map(_.postalCode) getOrElse ""}");
+          $('[name="homeAddress[streetAddress]"]').val("#{profile.homeAddress map(_.streetAddress) getOrElse ""}");            
+
+          $('[name="contacts[mobiles][mobile1]"]').val("#{profile.contacts.mobiles.mobile1 getOrElse ""}");
+          $('[name="contacts[mobiles][mobile2]"]').val("#{profile.contacts.mobiles.mobile2 getOrElse ""}");
+
+          $('[name="contacts[work][phoneNumber]"]').val("#{profile.contacts.work map(_.phoneNumber) getOrElse ""}");
+          $('[name="contacts[work][email]"]').val("#{profile.contacts.work map(_.email) getOrElse ""}");
+          $('[name="contacts[work][fax]"]').val("#{profile.contacts.work map(_.fax) getOrElse ""}");
+
+          $('[name="contacts[home][phoneNumber]"]').val("#{profile.contacts.home map(_.phoneNumber) getOrElse ""}");
+          $('[name="contacts[home][email]"]').val("#{profile.contacts.home map(_.email) getOrElse ""}");
+          $('[name="contacts[home][fax]"]').val("#{profile.contacts.home map(_.fax) getOrElse ""}");
+        }).call(this);
+
+        var $avatar = $('.avatar');
+
+        function loadAvatar() {        
+          setTimeout(function(){
+            window.avatarImg = new Image;
+            avatarImg.src = '/Avatar';
+
+            avatarImg.onerror = function() {
+              $avatar[0].src = "#{DefaultAvatar}"
+            };
+
+            avatarImg.onload = function(){
+              $avatar[0].src = avatarImg.src;
+            };
+          }, 0);
+        }
+
+        if("#{profile.avatar.isEmpty}" === "false")
+          loadAvatar();
+        //- else $avatar[0].src = DefaultAvatar;
+
+        $('a.edit').click(function(){
+          var $f = $("<input type=file id=f name=f class=hidden />");
+          $f.change(function(){
+            var f = this.files[0];
+
+            if(f) {
+
+              if (f.size > #{schola.oadmin.MaxUploadSize} * 1024 * 1024) { // Check the constraint
+                ERROR("The selected file must not be larger than #{schola.oadmin.MaxUploadSize} MB.", 'Error!');
+                return false;
+              }
+
+              var data = new FormData;
+              data.append("f", f);  
+
+              $.upload('/Avatar', data, $.noop, 'json')
+               .done(function(res){ 
+                  
+                  $f.remove();
+                  $f = null;
+
+                  if(res.success)
+                    INFO("Profile image uploaded.", "Success!");
+                  
+                  else if(res.redirect)
+                    document.location.href = res.redirect; 
+
+                })
+               .progress(function(e, upload) {
+                    if( e.lengthComputable) {
+                      var percent = Math.round( e.loaded * 100 / e.total) + '%';
+                      if(upload)
+                        console.log( percent + ' uploaded');
+                      else
+                        console.log( percent + ' downloaded');
+                }
+              });
+
+              var reader = new FileReader;
+              reader.onload = function(evt) {
+                // f.size
+                $avatar[0].src = evt.target.result;
+              };                            
+
+              reader.readAsDataURL(f);
+
+            }
+            else {
+              $f.remove();
+              $f = null;
+              $avatar[0].src = "#{DefaultAvatar}";
+            }
+
+            return false;
+          });
+
+          $f.prependTo($('#f_fm'));              
+
+          $f.click();
+        });
+        
+        $('a.purge').click(function(){
+          $avatar[0].src = "#{DefaultAvatar}";
+
+          $.ajax({
+            type:"DELETE",
+            url: "/Avatar",
+            dataType: 'json',
+            success: function(msg) {
+              console.log("Profile image deleted: ", msg);
+            }
+          });
+
+          return false;
+        });                  
+
+        $('#profiles a').click(function (e) {
+          var tab = $(this).attr('data-tab')
+          e.preventDefault();
+          $("#profiles_content .tab-pane").removeClass('active');
+          $(tab).addClass('active');
+        });
+
+        function options(c) {        
+          var html = '';
+          for(var i in countries) {
+            html += '<option value="' + countries[i]['code'] + '"' + (countries[i]['code'] === c ? ' selected' : '') + '>' + countries[i]['name'] + '</option>';
+          }
+          return html;
+        }
+
+        $('#home-country').each(function(){
+            $(this).html(options("#{profile.homeAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
+          });
+
+        $('#work-country').each(function(){
+            $(this).html(options("#{profile.workAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
+          });          
+
+         (function(){    
+            $('#home-city').val("#{profile.homeAddress map(_.city) getOrElse ""}" || sGeobytesCity);
+            $('#work-city').val("#{profile.workAddress map(_.city) getOrElse ""}" || sGeobytesCity);
+          }).call(this);
+
+        $('#work-city').typeahead({
+            source: function(q, process) {
+              var filter = $("#work-country").val();
+              filter = filter ? ("&filter=" + filter) : '';
+
+              var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
+              
+              $.getJSON(url, process)
+            }
+          });
+
+        $('#home-city').typeahead({
+            source: function(q, process) {
+              var filter = $("#home-country").val();
+              filter = filter ? ("&filter=" + filter) : '';
+
+              var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
+              
+              $.getJSON(url, process)
+            }
+          });  
+
+        function ShowMsg(msg, title, className) {
+          var htm = '';
+          if(title) htm = "<strong>" + title + "</strong> &nbsp;" + msg;
+          else htm = msg;
+
+            try { 
+              $('#msg').fadeOut();
+              window.__msgs && clearTimeout(window.__msgs);
+            } catch(e) {}
+
+          $(
+            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+              '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
+              htm,
+              '</div>'].join('')).prependTo(document.body);
+
+          $('#msg').fadeIn();
+          
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 10000);
+        }
+
+        function ERROR(msg, title) {
+          ShowMsg(msg, title, 'alert-danger')
+        }
+
+        function INFO(msg, title) {
+          ShowMsg(msg, title, 'alert-success')
+        }
+
+      })

@@ -1,0 +1,111 @@
+-@ val flash: Map[String, String]
+-@ val error: Boolean = flash.get("error").exists(_ == "T")
+-@ val login: String
+-@ val key: String
+!!! 5
+html(lang='en')
+  head
+    meta(charset='utf-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    meta(name='description' content='')
+    meta(name='author' content='Amadou Cisse')
+    link(rel='shortcut icon' href={uri("/assets/ico/favicon.png")})
+    title Schola - Password reset
+    link(href={uri("/assets/css/bootstrap.css")} rel='stylesheet')
+    link(href={uri("/assets/css/rstpasswd.css")} rel='stylesheet')
+  body
+    .navbar.navbar-inverse.navbar-fixed-top(role='navigation')
+      .container
+        .navbar-header
+          a.navbar-brand(href='/') Schola
+    .container
+      .page-header
+        h2
+          | Reset your password
+    .container
+      form.form-rstpasswd(role='form' method='POST')
+        fieldset
+          .bs-callout.bs-callout-info
+            p
+              | Please enter your new password.
+          .form-group
+            input.form-control(type='password' name='new_password' placeholder='New password' required autofocus)
+            input.form-control(type='hidden' name='login' value="#{login}")
+            input.form-control(type='hidden' name='key' value="#{key}")
+          .form-group
+            input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password' required)
+          button.btn.btn-primary(type='submit') Reset Password
+          a.btn.btn-default(href='/') Cancel
+    .container
+      footer
+        p © Amadou CISSE 2014.
+    script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/bootstrap.js")})
+    :&javascript
+
+      jquery(function($){
+
+        $(document.body).on('click', '.close', function(){ $(this).parent('.alert').fadeOut(); return false; });
+
+        $('form.form-changepasswd').submit(function(){
+          var newPasswd = $('[name=new_password]', this);
+          var passwordConfirmation = $('[name=password_confirmation]', this);
+
+          if(newPasswd.val() != passwordConfirmation.val()) {
+            ERROR("Password confirmation doesn't match", 'Error!');
+            setTimeout(passwordConfirmation[0].focus.bind(passwordConfirmation[0]), 0)
+            return false;
+          }
+
+          function cleaned(k) {
+            return (k && k.trim()) || "";
+          }
+
+          var i = cleaned(newPasswd.val());
+          
+          if(i.length < #{schola.oadmin.PasswordMinLength}) {
+            ERROR("Password must be at least #{schola.oadmin.PasswordMinLength} characters long.", "Error!");
+            setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
+            return false;
+          }
+
+        });
+
+        setTimeout(function(){
+          $.removeCookie('#{schola.oadmin.libs.Flash.COOKIE_NAME}', { path: '/' });
+          });
+
+        if(#{error})
+          ERROR("Try again or visit <a href='/'>Forgot Password</a> for another password recovery email.", "Invalid password or request!");
+
+        function ShowMsg(msg, title, className) {
+          var htm = '';
+          if(title) htm = "<strong>" + title + "</strong> &nbsp;" + msg;
+          else htm = msg;
+
+            try { 
+              $('#msg').fadeOut();
+              window.__msgs && clearTimeout(window.__msgs);
+            } catch(e) {}
+
+          $(
+            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+              '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
+              htm,
+              '</div>'].join('')).prependTo(document.body);
+
+          $('#msg').fadeIn();
+          
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 10000);
+        }
+
+        function ERROR(msg, title) {
+          ShowMsg(msg, title, 'alert-danger')
+        }
+
+        function INFO(msg, title) {
+          ShowMsg(msg, title, 'alert-success')
+        }          
+
+      })

@@ -188,7 +188,7 @@ package object oauth2 {
 
             case Some(
               domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
-                domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId)), userAgent, _, _, scopes)
+                domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId)), userAgent, _, _, scopes)
             ) if userAgent == uA =>
 
               expiresIn match {
@@ -212,7 +212,7 @@ package object oauth2 {
         case _ => Left("Bad Token")
       }
 
-    override def realm: Option[String] = Some("/")
+    override def realm: Option[String] = Some("MAC /")
   }
 
   object Token {
