@@ -6,9 +6,9 @@ package impl
 trait AccessControlServicesComponentImpl extends AccessControlServicesComponent{
   self: AccessControlServicesRepoComponent =>
 
-  val accessControlService = new AccessControlServicesImpl
+  // val accessControlService = new AccessControlServicesImpl
 
-  class AccessControlServicesImpl extends AccessControlServices{
+  trait AccessControlServicesImpl extends AccessControlServices{
 
     def getRoles = accessControlServiceRepo.getRoles
 

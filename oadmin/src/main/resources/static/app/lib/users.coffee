@@ -1,4 +1,4 @@
-$ = require('jquerify')
+$ = require('jqueryify')
 
 class users
 
@@ -12,14 +12,14 @@ class users
   @getUsers: ->
     $.ajax(
       type:"GET",
-      url: '/api/v1/roles',
+      url: '/api/v1/users',
       dataType: 'json'
     )    
 
   @upsertUser: (spec) ->
     $.ajax(
       type: if(spec.id) then 'PUT' else 'POST',
-      url: "/api/v1/users",
+      url: "/api/v1/users#{if spec.id then '/'+spec.id else ''}",
       dataType: 'json',
       contentType: 'application/json; charset=UTF-8',
       data: JSON.stringify(spec)
@@ -75,23 +75,14 @@ class users
       data: JSON.stringify({workAddress: {}})
     )    
 
-  @addContacts: (id, spec) ->
+  @updateContacts: (id, specs) ->
     $.ajax(
       type:"PUT",
-      url: "/api/v1/user/#{id}/contacts",
+      url: "/api/v1/user/#{id}",
       contentType: 'application/json; charset=UTF-8',
       dataType: 'json',
-      data: JSON.stringify({contacts: spec})
-    )    
-
-  @remContacts: (id, spec) ->
-    $.ajax(
-      type:"DELETE",
-      url: "/api/v1/user/#{id}/contacts",
-      contentType: 'application/json; charset=UTF-8',
-      dataType: 'json',
-      data: JSON.stringify({contacts: spec})
-    )        
+      data: JSON.stringify({contacts: specs})
+    )       
 
   @grantRoles: (id, roles) ->
     $.ajax(
@@ -152,4 +143,4 @@ class users
       dataType: 'json'
     )  
 
-exports = users
+module.exports = users

@@ -9,11 +9,9 @@ import schola.oadmin.impl.CacheActor.{FindValue, PurgeValue}
 trait OAuthServicesComponentImpl extends OAuthServicesComponent {
   self: OAuthServicesRepoComponent =>
 
-  val oauthService = new OAuthServicesImpl
+  trait OAuthServicesImpl extends OAuthServices {
 
-  class OAuthServicesImpl extends OAuthServices {
-
-    def getUsers = oauthServiceRepo.getUsers
+    def getUsers(page: Int) = oauthServiceRepo.getUsers(page)
 
     def getUser(id: String) = oauthServiceRepo.getUser(id)
 
@@ -74,24 +72,19 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
   private object oq {
     import schema._
 
-    val users = Compiled(for {
-      u <- Users if ! u._deleted
-    } yield (
-        u.id,
-        u.primaryEmail,
-        u.givenName,
-        u.familyName,
-        u.createdAt,
-        u.createdBy,
-        u.lastLoginTime,
-        u.lastModifiedAt,
-        u.lastModifiedBy,
-        u.gender,
-        u.homeAddress,
-        u.workAddress,
-        u.contacts,
-        u.avatar,
-        u.changePasswordAtNextLogin))
+    implicit object GetUUIDOption extends scala.slick.jdbc.GetResult[Option[java.util.UUID]] { def apply(rs: scala.slick.jdbc.PositionedResult) = rs.nextStringOption map(java.util.UUID.fromString) }
+    implicit object GetGender extends scala.slick.jdbc.GetResult[domain.Gender.Value] { def apply(rs: scala.slick.jdbc.PositionedResult) = domain.Gender.withName(rs.nextString()) }
+    implicit object GetAddressOption extends scala.slick.jdbc.GetResult[Option[domain.AddressInfo]] { def apply(rs: scala.slick.jdbc.PositionedResult) = conversions.jdbc.addressInfoTypeMapper.nextOption(rs) }
+    implicit object GetContacts extends scala.slick.jdbc.GetResult[domain.Contacts] { def apply(rs: scala.slick.jdbc.PositionedResult) = conversions.jdbc.contactsTypeMapper.nextValue(rs) }
+
+    def users(page: Int) = {
+      import scala.slick.jdbc.{StaticQuery=>T}
+      import T.interpolation
+
+      type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender.Value, Option[domain.AddressInfo], Option[domain.AddressInfo], domain.Contacts, Option[String], Boolean)
+
+      sql""" select x2.x3, x2.x4, x2.x5, x2.x6, x2.x7, x2.x8, x2.x9, x2.x10, x2.x11, x2.x12, x2.x13, x2.x14, x2.x15, x2.x16, x2.x17 from (select x18."id" as x3, x18."primary_email" as x4, x18."given_name" as x5, x18."family_name" as x6, x18."created_at" as x7, x18."created_by" as x8, x18."last_login_time" as x9, x18."last_modified_at" as x10, x18."last_modified_by" as x11, x18."gender" as x12, x18."home_address" as x13, x18."work_address" as x14, x18."contacts" as x15, x18."avatar" as x16, x18."change_password_at_next_login" as x17 from "users" x18 where not x18."_deleted" limit $MaxResults offset ${page * MaxResults}) x2 """.as[Result]
+    }
 
     val trashedUsers = Compiled(for {
       u <- Users if u._deleted
@@ -363,10 +356,10 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     import schema._
     import domain._
 
-    def getUsers = {
+    def getUsers(page: Int) = {
       import Database.dynamicSession
 
-      val users = oq.users
+      val users = oq.users(page)
 
       val result = db.withDynSession {
         users.list
@@ -374,7 +367,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       result map {
         case (id, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin) =>
-          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(id))
+          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = id)
       }
     }
 
@@ -654,108 +647,103 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         implicit session => passwdAndContacts.firstOption
       } match {
 
-        case Some((sPassword, sContacts)) => if (db.withTransaction {
-          implicit session =>
+        case Some((sPassword, sContacts)) =>
+          db.withTransaction {
+            implicit session =>
 
-            val currentTimestamp = Some(System.currentTimeMillis)
+              val currentTimestamp = Some(System.currentTimeMillis)
 
-            val _1 = spec.primaryEmail map {
-              primaryEmail =>
-                oq.userUpdates.primaryEmail(uuid).update(primaryEmail, currentTimestamp, Some(uuid)) == 1
-            } getOrElse true
-
-            val _2 = _1 && (spec.password map {
-              password =>
-                spec.oldPassword.nonEmpty &&
-                  (passwords verify(spec.oldPassword.get, sPassword)) &&
-                  (oq.userUpdates.password(uuid).update(passwords crypt password, false, currentTimestamp, Some(uuid)) == 1)
-            } getOrElse true)
-
-            val _3 = _2 && (spec.givenName map {
-              givenName =>
-                oq.userUpdates.givenName(uuid).update(givenName, currentTimestamp, Some(uuid)) == 1
-            } getOrElse true)
-
-            val _4 = _3 && (spec.familyName map {
-              familyName =>
-                oq.userUpdates.familyName(uuid).update(familyName, currentTimestamp, Some(uuid)) == 1
-            } getOrElse true)
-
-            val _5 = _4 && (spec.gender map {
-              gender =>
-                oq.userUpdates.gender(uuid).update(gender, currentTimestamp, Some(uuid)) == 1
-            } getOrElse true)
-
-            val _6 = _5 && (spec.homeAddress foreach {
-              case homeAddress =>
-                oq.userUpdates.homeAddress(uuid).update(homeAddress, currentTimestamp, Some(uuid)) == 1
-            })
-
-            val _7 = _6 && (spec.workAddress foreach {
-              case workAddress =>
-                oq.userUpdates.workAddress(uuid).update(workAddress, currentTimestamp, Some(uuid)) == 1
-            })
-
-            val _8 = _7 && (spec.avatar foreach {
-              case Some((avatar, data)) =>
-                avatars ! utils.Avatars.Save(id, avatar, data)
-                oq.userUpdates.avatar(uuid).update(Some(avatar), currentTimestamp, Some(uuid)) == 1
-
-              case _ =>
-                avatars ! utils.Avatars.Purge(id)
-                oq.userUpdates.avatar(uuid).update(None, currentTimestamp, Some(uuid)) == 1
-            })
-
-            _8 && {
-
-              spec.contacts map{
-                case s =>   
-                
-                  import utils.If               
-
-                  val Contacts(MobileNumbers(curMobile1, curMobile2), curHome, curWork) = sContacts
-
-                  val newHome = if(s.home eq None) curHome else Some{
-                    val tmp  = s.home.get
-                    val empt = curHome.nonEmpty                    
-
-                    HomeContactInfo(
-                      email       = If(tmp.email.set eq None,  If(empt, curHome.get.email, None), tmp.email.set.get),
-                      fax         = If(tmp.fax.set eq None,  If(empt, curHome.get.fax, None), tmp.fax.set.get),
-                      phoneNumber = If(tmp.phoneNumber.set eq None,  If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get)
-                    )
-                  }
-
-                  val newWork = if(s.work eq None) curWork else Some{
-                    val tmp  = s.work.get
-                    val empt = curWork.nonEmpty
-
-                    WorkContactInfo(
-                      email       = If(tmp.email.set eq None,  If(empt, curHome.get.email, None), tmp.email.set.get),
-                      fax         = If(tmp.fax.set eq None,  If(empt, curHome.get.fax, None), tmp.fax.set.get),
-                      phoneNumber = If(tmp.phoneNumber.set eq None,  If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get)
-                    )
-                  }       
-
-                  val qContacts = oq.userUpdates.contacts(uuid)           
-
-                  (qContacts update((
-                    Contacts(
-                      mobiles = MobileNumbers(if(s.mobiles.mobile1.set eq None) curMobile1 else s.mobiles.mobile1.set.get, if(s.mobiles.mobile2.set eq None) curMobile2 else s.mobiles.mobile2.set.get),
-                      home    = newHome,
-                      work    = newWork),
-                    currentTimestamp,
-                    Some(uuid)
-                    ))) == 1
-
+              val _1 = spec.primaryEmail map {
+                primaryEmail =>
+                  oq.userUpdates.primaryEmail(uuid).update(primaryEmail, currentTimestamp, Some(uuid)) == 1
               } getOrElse true
-            }
 
-        }) getUser(id)
+              val _2 = _1 && (spec.password map {
+                password =>
+                  spec.oldPassword.nonEmpty &&
+                    (passwords verify(spec.oldPassword.get, sPassword)) &&
+                    (oq.userUpdates.password(uuid).update(passwords crypt password, false, currentTimestamp, Some(uuid)) == 1)
+              } getOrElse true)
 
-        else None
+              val _3 = _2 && (spec.givenName map {
+                givenName =>
+                  oq.userUpdates.givenName(uuid).update(givenName, currentTimestamp, Some(uuid)) == 1
+              } getOrElse true)
 
-        case _ => None
+              val _4 = _3 && (spec.familyName map {
+                familyName =>
+                  oq.userUpdates.familyName(uuid).update(familyName, currentTimestamp, Some(uuid)) == 1
+              } getOrElse true)
+
+              val _5 = _4 && (spec.gender map {
+                gender =>
+                  oq.userUpdates.gender(uuid).update(gender, currentTimestamp, Some(uuid)) == 1
+              } getOrElse true)
+
+              val _6 = _5 && (spec.homeAddress foreach {
+                case homeAddress =>
+                  oq.userUpdates.homeAddress(uuid).update(homeAddress, currentTimestamp, Some(uuid)) == 1
+              })
+
+              val _7 = _6 && (spec.workAddress foreach {
+                case workAddress =>
+                  oq.userUpdates.workAddress(uuid).update(workAddress, currentTimestamp, Some(uuid)) == 1
+              })
+
+              val _8 = _7 && (spec.avatar foreach {
+                case avatarId =>
+  //                avatars ! utils.Avatars.Save(id, avatar, data)
+                  oq.userUpdates.avatar(uuid).update(avatarId, currentTimestamp, Some(uuid)) == 1
+              })
+
+              _8 && {
+
+                spec.contacts map{
+                  case s =>
+
+                    import utils.If
+
+                    val Contacts(MobileNumbers(curMobile1, curMobile2), curHome, curWork) = sContacts
+
+                    val newHome = if(s.home eq None) curHome else Some{
+                      val tmp  = s.home.get
+                      val empt = curHome.nonEmpty
+
+                      HomeContactInfo(
+                        email       = If(tmp.email.set eq None,  If(empt, curHome.get.email, None), tmp.email.set.get),
+                        fax         = If(tmp.fax.set eq None,  If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                        phoneNumber = If(tmp.phoneNumber.set eq None,  If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get)
+                      )
+                    }
+
+                    val newWork = if(s.work eq None) curWork else Some{
+                      val tmp  = s.work.get
+                      val empt = curWork.nonEmpty
+
+                      WorkContactInfo(
+                        email       = If(tmp.email.set eq None,  If(empt, curHome.get.email, None), tmp.email.set.get),
+                        fax         = If(tmp.fax.set eq None,  If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                        phoneNumber = If(tmp.phoneNumber.set eq None,  If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get)
+                      )
+                    }
+
+                    val qContacts = oq.userUpdates.contacts(uuid)
+
+                    (qContacts update((
+                      Contacts(
+                        mobiles = MobileNumbers(if(s.mobiles.mobile1.set eq None) curMobile1 else s.mobiles.mobile1.set.get, if(s.mobiles.mobile2.set eq None) curMobile2 else s.mobiles.mobile2.set.get),
+                        home    = newHome,
+                        work    = newWork),
+                      currentTimestamp,
+                      Some(uuid)
+                      ))) == 1
+
+                } getOrElse true
+              }
+
+        }
+
+        case _ => false
       }
     }
 
@@ -767,11 +755,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
 
-      val q = (avatars ? utils.Avatars.Get(id)).mapTo[Option[(domain.AvatarInfo, String)]]
-
-      allCatch.opt {
-        Await.result(q, timeout.duration)
-      } getOrElse None
+      (avatars ? utils.Avatars.Get(id)).mapTo[(Option[String], String)]
     }
 
     def primaryEmailExists(primaryEmail: String) = {
@@ -823,121 +807,6 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
         case _ => false
       }      
-    }
-  }
-}
-
-trait CachingOAuthServicesComponentImpl extends OAuthServicesComponentImpl with AccessControlServicesComponentImpl{
-  self: CachingServicesComponent with OAuthServicesRepoComponent with AccessControlServicesRepoComponent with impl.CacheSystemProvider =>
-
-  import caching._
-
-  import scala.concurrent.duration._
-  import akka.pattern._
-  import akka.util.Timeout
-  import scala.util.control.Exception.allCatch
-  import scala.concurrent.Await
-
-  override val oauthService = new CachingOAuthServicesImpl
-
-  class CachingOAuthServicesImpl extends OAuthServicesImpl {
-
-    override def getUsers =
-      cachingServices.get[List[UserLike]](ManyParams("users")) { super.getUsers } getOrElse Nil
-
-    override def getUser(id: String) =
-      cachingServices.get[Option[UserLike]](Params(id)) { super.getUser(id) } flatten
-
-    override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean) =
-      super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) collect{
-        case my =>
-          cachingServices.evict(Params(my.id.get.toString))
-          cachingServices.evict(ManyParams("users"))
-          my
-      }
-
-    override def updateUser(id: String, spec: utils.UserSpec) =
-      super.updateUser(id, spec) collect {
-        case my =>
-          cachingServices.evict(Params(my.id.get.toString))
-          cachingServices.evict(ManyParams("users"))
-          my
-      }
-
-    override def removeUser(id: String): Boolean =
-      super.removeUser(id) && {
-        cachingServices.evict(Params(id))
-        cachingServices.evict(ManyParams("users"))
-        true
-      }
-
-    override def purgeUsers(users: Set[String]) {
-      super.purgeUsers(users)
-      users foreach(o => cachingServices.evict(Params(o)))
-      cachingServices.evict(ManyParams("users"))
-    }
-  }
-
-  override val accessControlService = new CachingAccessControlServicesImpl
-
-  class CachingAccessControlServicesImpl extends AccessControlServicesImpl {
-
-    override def getRoles =
-      cachingServices.get[List[RoleLike]](ManyParams("roles")) { super.getRoles } getOrElse Nil
-
-    override def getRole(roleName: String) =
-      cachingServices.get[Option[RoleLike]](Params(roleName)) { super.getRole(roleName) } flatten
-
-    override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) =
-      super.saveRole(name, parent, createdBy) collect{
-        case my =>
-          cachingServices.evict(Params(my.name))
-          cachingServices.evict(ManyParams("roles"))
-          my
-      }
-
-    override def updateRole(name: String, newName: String, parent: Option[String]) =
-      super.updateRole(name, newName, parent) && {
-        cachingServices.evict(Params(newName))
-        cachingServices.evict(ManyParams("roles"))
-        true
-      }
-
-    override def purgeRoles(roles: Set[String]) {
-      super.purgeRoles(roles)
-      roles foreach(o => cachingServices.evict(Params(o)))
-      cachingServices.evict(ManyParams("roles"))
-    }
-  }
-}
-
-trait CachingServicesComponentImpl extends CachingServicesComponent {
-  self: impl.CacheSystemProvider =>
-
-  import scala.concurrent.duration._
-  import akka.pattern._
-  import akka.util.Timeout
-  import scala.util.control.Exception.allCatch
-  import scala.concurrent.Await
-
-  protected val cachingServices = new CachingServicesImpl
-
-  protected lazy val cacheActor = cacheSystem.createCacheActor("OAdmin", new impl.OAdminCacheActor(_))
-
-  class CachingServicesImpl extends CachingServices {
-
-    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
-      implicit val tm = Timeout(60 seconds)
-
-      val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
-
-      allCatch.opt {
-        Await.result(q, tm.duration)
-      } getOrElse None
-    }
-
-    def evict(params: impl.CacheActor.Params) {
-      cacheActor ! impl.CacheActor.PurgeValue(params)
     }
   }
 }

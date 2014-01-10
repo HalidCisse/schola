@@ -1,4 +1,4 @@
-$ = require('jquerify')
+$ = require('jqueryify')
 
 class roles
 
@@ -59,4 +59,4 @@ class roles
       data: {name: roleName}
     )
 
-exports = roles
+module.exports = roles

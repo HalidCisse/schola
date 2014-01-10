@@ -1,7 +1,8 @@
 package schola
 package oadmin
+package schema
 
-package object schema {
+object `package` {
   import Q._
   import domain._
   import conversions.jdbc._
@@ -92,7 +93,7 @@ package object schema {
 
     def contacts = column[Contacts]("contacts", O.DBType("text"))
 
-    def avatar = column[Option[AvatarInfo]]("avatar", O.DBType("text"))
+    def avatar = column[Option[String]]("avatar")
     
     def activationKey = column[Option[String]]("user_activation_key", O.DBType("text"))
 

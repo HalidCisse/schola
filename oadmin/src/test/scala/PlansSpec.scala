@@ -139,7 +139,7 @@ with unfiltered.spec.jetty.Served {
       }
         .context("/api/v1") {
         _.filter(OAuth2Protection(new OAdminAuthSource))
-          .filter(Plans.routes)
+          .filter(Plans.api)
       }
   }
 

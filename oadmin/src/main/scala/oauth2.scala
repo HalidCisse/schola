@@ -1,12 +1,13 @@
 package schola
 package oadmin
+package oauth2
 
 import unfiltered.oauth2._
 import unfiltered.request.HttpRequest
 
 import org.clapper.avsl.Logger
 
-package object oauth2 {
+object `package` {
   import S._
 
   val log = Logger("oadmin.oauth2")

@@ -48,7 +48,6 @@ html(lang="en")
     script(src={uri("/assets/application.js")} type='text/javascript' charset='utf-8')    
     script(src={uri("/assets/javascripts/crypto/hmac-sha1.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/crypto/enc-base64-min.js")} type='text/javascript' charset='utf-8')
-    script(src={uri("/assets/javascripts/crypto/mac.js")} type='text/javascript' charset='utf-8')
     :javascript
       var jQuery = require("jqueryify");
     script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
@@ -57,9 +56,11 @@ html(lang="en")
     :&javascript
 
       var exports = this;
+
       jQuery(function($){
-        // var App = require("index");
-        // exports.app = new App({el: $("body")});
+        var App = require("index");
+        
+        exports.app = new App({el: $(document.body)});
 
         // button state demo
         //- $('#fat-btn')

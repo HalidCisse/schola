@@ -1,0 +1,99 @@
+body {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.page-header {
+  border-bottom:none;
+  margin-bottom: 0;
+}
+
+.form-lostpasswd {  
+  padding: 15px;
+}
+
+.form-lostpasswd .form-lostpasswd-heading {
+  margin-bottom: 10px;
+}
+
+.form-lostpasswd .form-control {
+  max-width: 330px;
+  position: relative;
+  font-size: 16px;
+  height: auto;
+  padding: 10px;  
+  -webkit-box-sizing: border-box;
+     -moz-box-sizing: border-box;
+          box-sizing: border-box;
+}
+
+#recaptcha, .form-lostpasswd .form-control {
+margin-bottom: 10px;
+}
+
+.form-lostpasswd .form-control:focus {
+  z-index: 2;
+}
+
+/*
+ * Callouts
+ *
+ * Not quite alerts, but custom and helpful notes for folks reading the docs.
+ * Requires a base and modifier class.
+ */
+
+/* Common styles for all types */
+.bs-callout {
+  margin: 20px 0;
+  padding: 20px;
+  border-left: 3px solid #eee;
+  margin-top: 0;
+}
+.bs-callout h4 {
+  margin-top: 0;
+  margin-bottom: 5px;
+}
+.bs-callout p:last-child {
+  margin-bottom: 0;
+}
+
+/* Variations */
+.bs-callout-danger {
+  background-color: #fdf7f7;
+  border-color: #eed3d7;
+}
+.bs-callout-danger h4 {
+  color: #b94a48;
+}
+.bs-callout-warning {
+  background-color: #faf8f0;
+  border-color: #faebcc;
+}
+.bs-callout-warning h4 {
+  color: #8a6d3b;
+}
+.bs-callout-info {
+  background-color: #f4f8fa;
+  border-color: #bce8f1;
+}
+.bs-callout-info h4 {
+  color: #34789a;
+}
+.btn{font-size:16px}
+.container .text-muted {
+  margin: 20px 0;
+}
+#footer {
+  height: auto;
+  bottom: 0;
+  left: 0;
+  position: fixed;
+  width: 100%;
+}
+
+#msg {
+position: absolute;
+left: 30%;
+top: 70px;
+display: none;
+}

@@ -11,7 +11,7 @@ object AccessControlSpecification extends org.specs.Specification{
 
   "access control services" should {
 
-    "get all users in db" in { oauthService.getUsers.length must be equalTo 1 }
+    "get all users in db" in { oauthService.getUsers(0).length must be equalTo 1 }
 
     "get all roles in db" in { accessControlService.getRoles.length must be equalTo 7 }
     "get all user roles in db" in { accessControlService.getUserRoles(userId.toString).length must be equalTo 3 }

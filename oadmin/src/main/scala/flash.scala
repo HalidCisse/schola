@@ -206,9 +206,9 @@ object Flash extends CookieBaker[Flash] {
 
   override def path = "/"
 
-  override def isSigned = true
+  override val isSigned = true
 
-  override def httpOnly = false
+  override val httpOnly = false
 
   val emptyCookie = new Flash
 

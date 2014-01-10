@@ -30,25 +30,45 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
   object cacheConfig extends CacheConfig(config getConfig "cache")
 
-  object simple extends Façade {
+  private val _db = {
+    import dbConfig._
+    import com.mchange.v2.c3p0.ComboPooledDataSource
+
+    val ds = new ComboPooledDataSource
+    ds.setDriverClass(Driver)
+    ds.setJdbcUrl(URL)
+    ds.setUser(User)
+    ds.setPassword(Password)
+
+    ds.setMaxPoolSize(MaxPoolSize)
+    ds.setMinPoolSize(MinPoolSize)
+
+    Q.Database.forDataSource(ds)
+  }    
+
+  private[oadmin] object nocache extends Façade {
+
+    val oauthService = new OAuthServicesImpl {}
+
+    val accessControlService = new AccessControlServicesImpl {}
+
+    protected val db = _db
+  }
+
+  object simple extends Façade 
+    with CachingServicesComponent
+    with impl.CachingAccessControlServicesComponentImpl
+    with impl.CachingOAuthServicesComponentImpl
+    with impl.CachingServicesComponentImpl
+    with impl.CacheSystemProvider{
 
     val cacheSystem = new impl.CacheSystem(cacheConfig.MaxTTL)
 
-    protected val db = {
-      import dbConfig._
-      import com.mchange.v2.c3p0.ComboPooledDataSource
+    val oauthService = new OAuthServicesImpl with CachingOAuthServicesImpl {}
 
-      val ds = new ComboPooledDataSource
-      ds.setDriverClass(Driver)
-      ds.setJdbcUrl(URL)
-      ds.setUser(User)
-      ds.setPassword(Password)
+    val accessControlService = new AccessControlServicesImpl with CachingAccessControlServicesImpl {}    
 
-      ds.setMaxPoolSize(MaxPoolSize)
-      ds.setMinPoolSize(MinPoolSize)
-
-      Q.Database.forDataSource(ds)
-    }
+    protected val db = _db
   }
 
   def apply(req: HttpRequest[_ <: HttpServletRequest]) = new MyRouteHandler(req)
@@ -73,9 +93,11 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
     // -------------------------------------------------------------------------------------------------
 
-    def downloadAvatar(userId: String) =
-      oauthService.getAvatar(userId) match {
-        case Some((avatarInfo, data)) =>
+    def downloadAvatar(avatarId: String) = {
+      import system.dispatcher
+
+      oauthService.getAvatar(avatarId) onComplete {
+        case scala.util.Success((contentType, data)) =>
 
           import org.json4s.JsonDSL._
 
@@ -84,7 +106,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
             JsonContent ~>
               ResponseString(
                 cb wrap tojson(
-                  ("avatarInfo" -> org.json4s.Extraction.decompose(avatarInfo)) ~
+                  ("contentType" -> contentType) ~
                     ("data" -> data)))
           }
 
@@ -92,36 +114,43 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
           req.respond(NotFound)
       }
+    }
 
-    def purgeAvatar(userId: String) =
-      oauthService.updateUser(userId, new utils.DefaultUserSpec {
-        override lazy val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(None))
-      }) match {
-        case Some(user) =>
+    def purgeAvatar(userId: String, avatarId: String) = {
+      avatars ! utils.Avatars.Purge(avatarId)
+
+      req.respond {
+        JsonContent ~>
+          ResponseString(cb wrap s"""{"success": ${oauthService.updateUser(userId, new utils.DefaultUserSpec {
+                      override lazy val avatar = UpdateSpecImpl[String](set = Some(None))
+                  })}}""")
+      }
+    }
+
+    def uploadAvatar(userId: String, contentType: Option[String], bytes: Array[Byte]) = {
+      import scala.concurrent.duration._
+      import akka.pattern._
+
+      import system.dispatcher
+
+      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+
+      val q = (avatars ? utils.Avatars.Save(contentType, bytes)).mapTo[String]
+
+      q onComplete {
+        case scala.util.Success(it) =>
 
           req.respond {
 
             JsonContent ~>
-              ResponseString(cb wrap tojson(user))
+              ResponseString(cb wrap s"""{"success": ${oauthService.updateUser(userId, new utils.DefaultUserSpec {
+                override lazy val avatar = UpdateSpecImpl[String](set = Some(Some(it)))
+              })}}""")
           }
 
         case _ => req.respond(BadRequest)
       }
-
-    def uploadAvatar(userId: String, avatarInfo: domain.AvatarInfo, bytes: Array[Byte]) =
-      oauthService.updateUser(userId, new utils.DefaultUserSpec {
-        override lazy val avatar = UpdateSpecImpl[(domain.AvatarInfo, Array[Byte])](set = Some(Some(avatarInfo, bytes)))
-      }) match {
-        case Some(user) =>
-
-          req.respond {
-
-            JsonContent ~>
-              ResponseString(cb wrap tojson(user))
-          }
-
-        case _ => req.respond(BadRequest)
-      }
+    }
 
     // -------------------------------------------------------------------------------------------------
 
@@ -163,91 +192,92 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
       (for {
         json <- JsonBody(req)
-        x <- oauthService.updateUser(userId, new utils.DefaultUserSpec {
+          if oauthService.updateUser(userId, new utils.DefaultUserSpec {
 
-          val findField =
-            utils.findFieldStr(json)_
+            val findField =
+              utils.findFieldStr(json)_
 
-          val findFieldObj =
-            utils.findFieldJObj(json)_
+            val findFieldObj =
+              utils.findFieldJObj(json)_
 
-          override lazy val primaryEmail = findField("primaryEmail")
+            override lazy val primaryEmail = findField("primaryEmail")
 
-          override lazy val password = findField("password")
-          override lazy val oldPassword = findField("old_password")
+            override lazy val password = findField("password")
+            override lazy val oldPassword = findField("old_password")
 
-          override lazy val givenName = findField("givenName")
-          override lazy val familyName = findField("familyName")
-          override lazy val gender = findField("gender") flatMap (x => allCatch.opt {
-            domain.Gender.withName(x)
+            override lazy val givenName = findField("givenName")
+            override lazy val familyName = findField("familyName")
+            override lazy val gender = findField("gender") flatMap (x => allCatch.opt {
+              domain.Gender.withName(x)
+            })
+
+            override lazy val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
+              set = findFieldObj("homeAddress") map (x => allCatch.opt {
+                x.extract[domain.AddressInfo]
+              })
+            )
+
+            override lazy val workAddress = new UpdateSpecImpl[domain.AddressInfo](
+              set = findFieldObj("workAddress") map (x => allCatch.opt {
+                x.extract[domain.AddressInfo]
+              })
+            )
+
+            override lazy val contacts =
+              utils.findFieldJObj(json)("contacts") map{
+                contactsJson =>
+
+                  ContactsSpec(
+
+                    mobiles = {
+                      val mobilesJson = utils.findFieldJObj(contactsJson)("mobiles") getOrElse JObject(List())
+
+                      MobileNumbersSpec(
+                        mobile1 = UpdateSpecImpl[String](
+                          set = utils.findFieldJObj(mobilesJson)("mobile1") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        ),
+
+                        mobile2 = UpdateSpecImpl[String](
+                          set = utils.findFieldJObj(mobilesJson)("mobile2") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
+                        )
+                      )
+                    },
+
+                    home = utils.findFieldJObj(contactsJson)("home") flatMap (x => allCatch.opt {
+                        ContactInfoSpec[domain.HomeContactInfo](
+                          email = UpdateSpecImpl[String](
+                            set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                          ),
+
+                          fax = UpdateSpecImpl[String](
+                            set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                          ),
+
+                          phoneNumber = UpdateSpecImpl[String](
+                            set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                          )
+                        )
+                      }),
+
+                    work = utils.findFieldJObj(contactsJson)("work") flatMap (x => allCatch.opt {
+                        ContactInfoSpec[domain.WorkContactInfo](
+                          email = UpdateSpecImpl[String](
+                            set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                          ),
+
+                          fax = UpdateSpecImpl[String](
+                            set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                          ),
+
+                          phoneNumber = UpdateSpecImpl[String](
+                            set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
+                          )
+                        )
+                      })
+                  )
+              }
           })
-
-          override lazy val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
-            set = findFieldObj("homeAddress") map (x => allCatch.opt {
-              x.extract[domain.AddressInfo]
-            })
-          )
-
-          override lazy val workAddress = new UpdateSpecImpl[domain.AddressInfo](
-            set = findFieldObj("workAddress") map (x => allCatch.opt {
-              x.extract[domain.AddressInfo]
-            })
-          )
-
-          override lazy val contacts =
-            utils.findFieldJObj(json)("contacts") map{
-              contactsJson =>
-
-                ContactsSpec(
-
-                  mobiles = {
-                    val mobilesJson = utils.findFieldJObj(contactsJson)("mobiles") getOrElse JObject(List())
-
-                    MobileNumbersSpec(
-                      mobile1 = UpdateSpecImpl[String](
-                        set = utils.findFieldJObj(mobilesJson)("mobile1") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
-                      ),
-
-                      mobile2 = UpdateSpecImpl[String](
-                        set = utils.findFieldJObj(mobilesJson)("mobile2") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
-                      )
-                    )
-                  },
-
-                  home = utils.findFieldJObj(contactsJson)("home") flatMap (x => allCatch.opt {
-                      ContactInfoSpec[domain.HomeContactInfo](
-                        email = UpdateSpecImpl[String](
-                          set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        ),
-
-                        fax = UpdateSpecImpl[String](
-                          set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        ),
-
-                        phoneNumber = UpdateSpecImpl[String](
-                          set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        )
-                      )
-                    }),
-
-                  work = utils.findFieldJObj(contactsJson)("work") flatMap (x => allCatch.opt {
-                      ContactInfoSpec[domain.WorkContactInfo](
-                        email = UpdateSpecImpl[String](
-                          set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        ),
-
-                        fax = UpdateSpecImpl[String](
-                          set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        ),
-
-                        phoneNumber = UpdateSpecImpl[String](
-                          set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        )
-                      )
-                    })
-                )
-            }
-        })
+      x <- oauthService.getUser(userId)
       } yield x) match {
 
         case Some(user) =>
@@ -285,8 +315,8 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
         case _ => req.respond(NotFound)
       }
 
-    def getUsers = {
-      val resp = oauthService.getUsers
+    def getUsers(page: Int) = {
+      val resp = oauthService.getUsers(page)
 
       req.respond {
         
@@ -538,11 +568,11 @@ trait RouteHandler extends Any {
 
   // -------------------------------------------------------------------------------------------------
 
-  def downloadAvatar(userId: String)
+  def downloadAvatar(avatarId: String)
 
-  def purgeAvatar(userId: String)
+  def purgeAvatar(userId: String, avatarId: String)
 
-  def uploadAvatar(userId: String, avatarInfo: domain.AvatarInfo, bytes: Array[Byte])
+  def uploadAvatar(userId: String, contentType: Option[String], bytes: Array[Byte])
 
   // -------------------------------------------------------------------------------------------------
 
@@ -554,7 +584,7 @@ trait RouteHandler extends Any {
 
   def getUser(userId: String)
 
-  def getUsers
+  def getUsers(page: Int)
 
   def getTrash
 
@@ -604,11 +634,7 @@ trait ServiceComponentFactory {
 trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.http.HttpServletRequest] => RouteHandler)
 
 trait Façade extends impl.OAuthServicesRepoComponentImpl
-with impl.CachingServicesComponentImpl
-with impl.CachingOAuthServicesComponentImpl
-with impl.CacheSystemProvider
-//with impl.OAuthServicesComponentImpl
-with CachingServicesComponent
+with impl.OAuthServicesComponentImpl
 with impl.AccessControlServicesRepoComponentImpl
 with impl.AccessControlServicesComponentImpl {
 
@@ -684,7 +710,7 @@ with impl.AccessControlServicesComponentImpl {
             | create table "oauth_clients" ("client_id" VARCHAR(254) NOT NULL,"client_secret" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL);
             | alter table "oauth_clients" add constraint "CLIENT_PK" primary key("client_id","client_secret");
             | create unique index "CLIENT_CLIENT_ID_INDEX" on "oauth_clients" ("client_id");
-            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" text,"user_activation_key" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY);
+            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" VARCHAR(254),"user_activation_key" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY);
             | create unique index "USER_USERNAME_INDEX" on "users" ("primary_email");
             | create index "USER_USERNAME_PASSWORD_INDEX" on "users" ("primary_email","password");
             | create table "roles" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"parent" VARCHAR(254),"created_at" BIGINT NOT NULL,"created_by" uuid,"public" BOOLEAN DEFAULT true NOT NULL);

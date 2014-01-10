@@ -28,12 +28,6 @@ trait OAuthServicesComponent {
       val redirectUri: String
     }
 
-//    type ContactsLike = {
-//      def home: T forSome { type T <: domain.ContactInfo }
-//      def work: T forSome { type T <: domain.ContactInfo }
-//      def mobile: T forSome { type T <: domain.ContactInfo }
-//    }
-
     type UserLike = {
       val id: Option[java.util.UUID]
       val primaryEmail: String
@@ -49,7 +43,7 @@ trait OAuthServicesComponent {
       val workAddress: Option[domain.AddressInfo]
 //      val contacts: Option[ContactsLike]
       val contacts: domain.Contacts
-      val avatar: Option[domain.AvatarInfo]
+      val avatar: Option[String]
       val _deleted: Boolean
       val suspended: Boolean
       val changePasswordAtNextLogin: Boolean
@@ -71,7 +65,7 @@ trait OAuthServicesComponent {
       val scopes: Set[String]
     }
 
-    def getUsers: List[UserLike]
+    def getUsers(page: Int): List[UserLike]
 
     def getUser(id: String): Option[UserLike]
 
@@ -103,9 +97,9 @@ trait OAuthServicesComponent {
 
     def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
 
-    def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
+    def updateUser(id: String, spec: utils.UserSpec): Boolean
 
-    def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
+    def getAvatar(id: String): scala.concurrent.Future[(Option[String], String)]
 
     def primaryEmailExists(email: String): Boolean
 
@@ -124,7 +118,7 @@ trait OAuthServicesRepoComponent {
   trait OAuthServicesRepo { 
     import oauthService._   
 
-    def getUsers: List[UserLike]
+    def getUsers(page: Int): List[UserLike]
 
     def getUser(id: String): Option[UserLike]
 
@@ -156,9 +150,9 @@ trait OAuthServicesRepoComponent {
 
     def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
 
-    def updateUser(id: String, spec: utils.UserSpec): Option[UserLike]
+    def updateUser(id: String, spec: utils.UserSpec): Boolean
 
-    def getAvatar(id: String): Option[(domain.AvatarInfo, String)]
+    def getAvatar(id: String): scala.concurrent.Future[(Option[String], String)]
 
     def primaryEmailExists(email: String): Boolean
 

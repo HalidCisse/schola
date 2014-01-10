@@ -19,19 +19,19 @@ package domain {
     scopes: Set[String] = Set())
 
   case class OAuthToken(
-     accessToken: String,
-     clientId: String,
-     redirectUri: String,
-     userId: java.util.UUID,
-     refreshToken: Option[String],
-     macKey: String,
-     uA: String,
-     expiresIn: Option[Long],
-     refreshExpiresIn: Option[Long],
-     createdAt: Long = System.currentTimeMillis,
-     lastAccessTime: Long = System.currentTimeMillis,
-     tokenType: String = "mac",
-     scopes: Set[String] = Set())
+    accessToken: String,
+    clientId: String,
+    redirectUri: String,
+    userId: java.util.UUID,
+    refreshToken: Option[String],
+    macKey: String,
+    uA: String,
+    expiresIn: Option[Long],
+    refreshExpiresIn: Option[Long],
+    createdAt: Long = System.currentTimeMillis,
+    lastAccessTime: Long = System.currentTimeMillis,
+    tokenType: String = "mac",
+    scopes: Set[String] = Set())
 
   case class OAuthClient(id: String, secret: String, redirectUri: String)
 
@@ -53,28 +53,26 @@ package domain {
 
   case class AddressInfo(city: String, country: String, postalCode: String, streetAddress: String)
 
-  case class AvatarInfo(mimeType: String, created: Long = System.currentTimeMillis)
-
   case class User(
-     primaryEmail: String,
-     password: Option[String],
-     givenName: String,
-     familyName: String,
-     createdAt: Long = System.currentTimeMillis,
-     createdBy: Option[java.util.UUID],
-     lastLoginTime: Option[Long] = None,
-     lastModifiedAt: Option[Long] = None,
-     lastModifiedBy: Option[java.util.UUID] = None,
-     gender: Gender.Value = Gender.Male,
-     homeAddress: Option[AddressInfo] = None,
-     workAddress: Option[AddressInfo] = None,
-     contacts: Contacts = Contacts(MobileNumbers(None,None), None,None),
-     avatar: Option[AvatarInfo] = None,
-     activationKey: Option[String] = None,
-     _deleted: Boolean = false,
-     suspended: Boolean = false,
-     changePasswordAtNextLogin: Boolean = false,
-     id: Option[java.util.UUID] = None)
+    primaryEmail: String,
+    password: Option[String],
+    givenName: String,
+    familyName: String,
+    createdAt: Long = System.currentTimeMillis,
+    createdBy: Option[java.util.UUID],
+    lastLoginTime: Option[Long] = None,
+    lastModifiedAt: Option[Long] = None,
+    lastModifiedBy: Option[java.util.UUID] = None,
+    gender: Gender.Value = Gender.Male,
+    homeAddress: Option[AddressInfo] = None,
+    workAddress: Option[AddressInfo] = None,
+    contacts: Contacts = Contacts(MobileNumbers(None,None), None,None),
+    avatar: Option[String] = None,
+    activationKey: Option[String] = None,
+    _deleted: Boolean = false,
+    suspended: Boolean = false,
+    changePasswordAtNextLogin: Boolean = false,
+    id: Option[java.util.UUID] = None)
 
   case class Role(name: String, parent: Option[String], createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID], public: Boolean = true)
 

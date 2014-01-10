@@ -1,134 +1,59 @@
 Spine  = require('spine')
-$      = require('jquerify')
-Mac    = require('lib/mac')
+$      = require('jqueryify')
 
 class Session extends Spine.Module
-  @extend Spine.Events
+  @include Spine.Events
   @include Spine.Log
 
-  isLoggedIn: ->
-    @key or false
+  logPrefix: '(Session)'
 
-  beforeSend: (xhr, req) =>
-    xhr.setRequestHeader("Authorization", @getMacHeader(xhr, req))
-
-  contructor: (@app) ->
+  constructor: (@app) ->
     super
 
-  changePasswd: ->
-    if not @user.passwordValid
-      @app.delay (=> @app.navigate('/')), 0
-      return true
+    do @getLoginStatus
 
-    false
+  getLoginStatus: =>
 
+    doCheckSession = =>
 
-  getLoginStatus: ->
-
-    checkSession = =>
       x = $.ajax(
         type:"GET",
-        url: "/api/v1/session",
+        url: "/session",
         dataType: 'json'
       )
 
-      x.success (session) ->
+      x.success (s) =>
+        @log("getLoginStatus success:", arguments)
 
-        $.extend(true, @, session)
+        return @trigger('session.error') if s.error
 
-        if(@changePasswd())
-          return true
-
-        #
-        @trigger 'session.loggedin'
+        @trigger 'session.loggedin', s
 
         false
 
-      x.error ->
+      x.error =>
 
-        # Clear session data
-        delete @key
-        delete @secret
-        delete @clientId
-        delete @issuedTime
-        delete @user
-        delete @lastAccessTime
-        @expiresIn and delete @expiresIn
-        @refreshExpiresIn and delete @refreshExpiresIn
-        @refresh and delete @refresh
-        delete @userAgent
-        delete @roles
-        delete @permissions
-        delete @scopes
+        @log("getLoginStatus error:", arguments)
 
-        clearInterval(@_interval)
-        @trigger 'session.loggedout'
+        @trigger 'session.error'
 
         false
 
-    @_interval = setInterval(checkSession, 15 * 1000)
+    do doCheckSession
 
-  getMacHeader: (xhr, req) ->
-    nonce = Mac._genNonce(parseInt(@issuedTime))
-    req = Mac.reqString(nonce, req.type, req.url, document.location.hostname, document.location.port||80, req.data if req.type in ['POST', 'PUT'])
-    mac = Mac.sign(@secret, req)
-    Mac.createHeader(@key, nonce, mac)    
+    @_refreshInterval = setInterval(doCheckSession, 15000)
 
-  # login: (email, passwd) ->
-  #   p = $.post(
-  #     '/oauth/token', 
-  #     {username: email, password: passwd, grantType: 'password', client_id: 'oadmin', client_secret: 'oadmin'}, 
-  #     'json'
-  #   )
-    
-  #   p.success (session) => 
-  #     $.extend(true, @, session)
-      
-  #     $.ajaxSetup(beforeSend: @beforeSend)
+  doLogout: =>
+    @log("doLogout")
 
-  #     if(@changePasswd())
-  #         return true
-
-  #     @trigger 'session.loggedin'      
-
-  #     @getLoginStatus()
-
-  #     false
-
-  #   p.error ->
-  #     @trigger 'session.loggedout'
-  #     false
-
-  #   p
-
-  logout: =>
     $.ajax(
       type: "GET",
       url: "/api/v1/logout",
       dataType: 'json'
     ).done => 
 
-        # Clear session data
-        delete @key
-        delete @secret
-        delete @clientId
-        delete @issuedTime
-        delete @user
-        delete @lastAccessTime
-        @expiresIn and delete @expiresIn
-        @refreshExpiresIn and delete @refreshExpiresIn
-        @refresh and delete @refresh
-        delete @userAgent
-        delete @roles
-        delete @permissions
-        delete @scopes        
+        @log("done doLogout:", arguments)
 
-        @_interval and clearInterval(@_interval)
+        @trigger 'session.loggedout'
 
-  hasRole: (role) ->
-    @roles[role] or false
-
-  hasPermission: (permission) ->
-    @permissions[permission] or false
-
-exports = Session
+module.exports = Session

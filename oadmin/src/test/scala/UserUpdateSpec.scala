@@ -15,7 +15,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
     "update nothing" in {
 
-      updateFn(userId.toString, new utils.DefaultUserSpec) must not be empty
+      updateFn(userId.toString, new utils.DefaultUserSpec) must beFalse
 
       val o = oauthService.getUser(userId.toString)
 

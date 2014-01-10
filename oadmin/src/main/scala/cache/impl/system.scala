@@ -133,13 +133,30 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
     context.become({ case _ => () })
 
     val elapsed = utils.timeF {
-      // import S._
+      import Façade.nocache._
+
+      def pageCount() = {
+        import scala.slick.jdbc.{StaticQuery=>T}
+        import T.interpolation
+
+        val pages = sql""" SELECT (count(*) OVER () / $MaxResults) + 1 as pages FROM users; """.as[Int]
+
+        S.withSession { implicit session =>
+          pages.firstOption getOrElse 1
+        }
+      }
+
+      for(page <- 0 until pageCount()) {
+        val users = oauthService.getUsers(page)
+        Cache.set(s"users_$page", users)
+        
+        users foreach(user => Cache.set(user.id.get.toString, Some(user)))
+      }
       
-      // val users = oauthService.getUsers // Bug: Call the one that will not visit the cache
 
-      // Cache.set("users", users)
-
-      // users foreach(user => Cache.set(user.id.get.toString, Some(user)))
+      val roles = accessControlService.getRoles
+      Cache.set("roles", roles)
+      roles foreach(role => Cache.set(role.name, Some(role)))
     }
 
     context.become(_busy)
@@ -151,4 +168,16 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
 case class Params(cacheKey: String)
   extends CacheActor.Params
 
-case class ManyParams(cacheKey: String, offset: Int = 0, size: Int = 50) extends CacheActor.Params
+case object RoleParams extends CacheActor.Params {
+  val cacheKey = "roles"
+}
+
+private[impl] class UserParams(page: () => Int) extends CacheActor.Params {
+  def this(page: Int = 0) = this(()=>page)
+  lazy val cacheKey = s"users_${page()}"
+}
+
+object UserParams {
+  def apply(page: Int = 0): UserParams = apply(()=>page)
+  def apply(page: () => Int) = new UserParams(page)
+}

@@ -15,6 +15,8 @@ package object oadmin {
     root getConfig "oadmin"
   }
 
+  val MaxResults = 50
+
   val API_VERSION = config.getString("api-version")
 
   val MaxUploadSize = config.getInt("max-upload-size")
@@ -37,10 +39,9 @@ package object oadmin {
   val MACAlgorithm = config.getString("oauth2.mac-algorithm")
 
   class MongoDBSettings(config: Config) {
-    val Host           = config.getString("hostname")
-    val Port           = config.getInt("port")
-    val DatabaseName   = config.getString("dbname")
-    val CollectionName = config.getString("dbcollection")
+    val Host           = config.getString("host")
+    val Database      = config.getString("db")
+    val Collection     = config.getString("collection")
   }
 
   val DefaultAvatars = new {

@@ -4,9 +4,9 @@ class User extends Spine.Model
   
   @configure 'User', 
     'id', 
-    'email', 
-    'firstname', 
-    'lastname', 
+    'primaryEmail', 
+    'givenName', 
+    'familyName', 
     'gender', 
     'homeAddress', 
     'workAddress', 

@@ -66,10 +66,4 @@ package object jdbc {
       ts => write(ts),
       read[Contacts]
     )
-
-  implicit val avatarTypeMapper =
-    MappedColumnType.base[AvatarInfo, String](
-      ts => write(ts),
-      read[AvatarInfo]
-    )
 }

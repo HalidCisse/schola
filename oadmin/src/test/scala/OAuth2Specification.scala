@@ -39,7 +39,7 @@ object OAuth2Specification extends org.specs.Specification
     }
     .context("/api/v1") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-      .filter(/*utils.ValidatePasswd(*/Plans.routes/*)*/)
+      .filter(/*utils.ValidatePasswd(*/Plans.api/*)*/)
     }
   }
 

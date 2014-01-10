@@ -22,7 +22,7 @@ object main extends App {
       _.filter(Plans / (server.host, server.port))
     }
     .context("/assets") {
-      _.resources(getClass.getResource("/static/public"))
+    _.resources(getClass.getResource("/static/assets"))
     }
     .context("/oauth") {
       _.filter(unfiltered.filter.Planify {
@@ -32,7 +32,7 @@ object main extends App {
     }
     .context(s"/api/$API_VERSION") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-       .filter(Plans.routes)
+       .filter(Plans.api)
     }
 
 //  S.test()

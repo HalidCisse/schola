@@ -1,1 +1,143 @@
-(function(){if(!this.specs){var e={},n={},o=function(t,s){var c,u,l=i(s,t),f=i(l,"./index");if(c=n[l]||n[f])return c.exports;if(!(u=e[l]||e[l=f]))throw"module '"+t+"' not found";c={id:l,exports:{}};try{return n[l]=c,u(c.exports,function(e){return o(e,r(l))},c),c.exports}catch(d){throw delete n[l],d}},i=function(e,n){var o,i,r=[];o=/^\.\.?(\/|$)/.test(n)?[e,n].join("/").split("/"):n.split("/");for(var t=0,s=o.length;s>t;t++)i=o[t],".."==i?r.pop():"."!=i&&""!=i&&r.push(i);return r.join("/")},r=function(e){return e.split("/").slice(0,-1).join("/")};this.specs=function(e){return o(e,"")},this.specs.define=function(n){for(var o in n)e[o]=n[o]},this.specs.modules=e,this.specs.cache=n}return this.specs.define}).call(this)({"controllers/Users":function(){(function(){var e;e=window.require,describe("The Users Controller",function(){var n;return n=e("controllers/users"),it("can noop",function(){})})}).call(this)},"models/Permission":function(){(function(){var e;e=window.require,describe("The Permission Model",function(){var n;return n=e("models/permission"),it("can noop",function(){})})}).call(this)},"models/Role":function(){(function(){var e;e=window.require,describe("The Role Model",function(){var n;return n=e("models/role"),it("can noop",function(){})})}).call(this)},"models/RolePermission":function(){(function(){var e;e=window.require,describe("The RolePermission Model",function(){var n;return n=e("models/rolepermission"),it("can noop",function(){})})}).call(this)},"models/Token":function(){(function(){var e;e=window.require,describe("The Token Model",function(){var n;return n=e("models/token"),it("can noop",function(){})})}).call(this)},"models/User":function(){(function(){var e;e=window.require,describe("The User Model",function(){var n;return n=e("models/user"),it("can noop",function(){})})}).call(this)},"models/UserRole":function(){(function(){var e;e=window.require,describe("The UserRole Model",function(){var n;return n=e("models/userrole"),it("can noop",function(){})})}).call(this)}}),require("lib/setup");for(var key in specs.modules)specs(key);
+
+
+(function(/*! Stitch !*/) {
+  if (!this.specs) {
+    var modules = {}, cache = {}, require = function(name, root) {
+      var path = expand(root, name), indexPath = expand(path, './index'), module, fn;
+      module   = cache[path] || cache[indexPath]
+      if (module) {
+        return module.exports;
+      } else if (fn = modules[path] || modules[path = indexPath]) {
+        module = {id: path, exports: {}};
+        try {
+          cache[path] = module;
+          fn(module.exports, function(name) {
+            return require(name, dirname(path));
+          }, module);
+          return module.exports;
+        } catch (err) {
+          delete cache[path];
+          throw err;
+        }
+      } else {
+        throw 'module \'' + name + '\' not found';
+      }
+    }, expand = function(root, name) {
+      var results = [], parts, part;
+      if (/^\.\.?(\/|$)/.test(name)) {
+        parts = [root, name].join('/').split('/');
+      } else {
+        parts = name.split('/');
+      }
+      for (var i = 0, length = parts.length; i < length; i++) {
+        part = parts[i];
+        if (part == '..') {
+          results.pop();
+        } else if (part != '.' && part != '') {
+          results.push(part);
+        }
+      }
+      return results.join('/');
+    }, dirname = function(path) {
+      return path.split('/').slice(0, -1).join('/');
+    };
+    this.specs = function(name) {
+      return require(name, '');
+    }
+    this.specs.define = function(bundle) {
+      for (var key in bundle)
+        modules[key] = bundle[key];
+    };
+    this.specs.modules = modules;
+    this.specs.cache   = cache;
+  }
+  return this.specs.define;
+}).call(this)({
+  "controllers/Users": function(exports, require, module) {(function() {
+  var require;
+
+  require = window.require;
+
+  describe('The Users Controller', function() {
+    var Users;
+    Users = require('controllers/users');
+    return it('can noop', function() {});
+  });
+
+}).call(this);
+}, "models/Permission": function(exports, require, module) {(function() {
+  var require;
+
+  require = window.require;
+
+  describe('The Permission Model', function() {
+    var Permission;
+    Permission = require('models/permission');
+    return it('can noop', function() {});
+  });
+
+}).call(this);
+}, "models/Role": function(exports, require, module) {(function() {
+  var require;
+
+  require = window.require;
+
+  describe('The Role Model', function() {
+    var Role;
+    Role = require('models/role');
+    return it('can noop', function() {});
+  });
+
+}).call(this);
+}, "models/RolePermission": function(exports, require, module) {(function() {
+  var require;
+
+  require = window.require;
+
+  describe('The RolePermission Model', function() {
+    var RolePermission;
+    RolePermission = require('models/rolepermission');
+    return it('can noop', function() {});
+  });
+
+}).call(this);
+}, "models/Token": function(exports, require, module) {(function() {
+  var require;
+
+  require = window.require;
+
+  describe('The Token Model', function() {
+    var Token;
+    Token = require('models/token');
+    return it('can noop', function() {});
+  });
+
+}).call(this);
+}, "models/User": function(exports, require, module) {(function() {
+  var require;
+
+  require = window.require;
+
+  describe('The User Model', function() {
+    var User;
+    User = require('models/user');
+    return it('can noop', function() {});
+  });
+
+}).call(this);
+}, "models/UserRole": function(exports, require, module) {(function() {
+  var require;
+
+  require = window.require;
+
+  describe('The UserRole Model', function() {
+    var UserRole;
+    UserRole = require('models/userrole');
+    return it('can noop', function() {});
+  });
+
+}).call(this);
+}
+});
+
+require('lib/setup'); for (var key in specs.modules) specs(key);

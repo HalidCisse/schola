@@ -1,5 +1,3 @@
-// The Typesafe repository
-//resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 
 organization := "schola.oadmin"
 
@@ -16,6 +14,18 @@ javaOptions ++= Seq("-Dsun.net.inetaddr.ttl=30")
 ideaExcludeFolders += ".idea"
 
 ideaExcludeFolders += ".idea_modules"
+
+proguardSettings
+
+ProguardKeys.options in Proguard ++= Seq("-dontnote", "-dontwarn", "-ignorewarnings")
+
+ProguardKeys.options in Proguard += ProguardOptions.keepMain("Test")
+
+ProguardKeys.merge in Proguard := true
+
+ProguardKeys.mergeStrategies in Proguard += ProguardMerge.discard("META-INF/.*".r)
+
+ProguardKeys.mergeStrategies in Proguard += ProguardMerge.append("reference.conf")
 
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "2.0.0-RC1",
@@ -43,8 +53,18 @@ libraryDependencies ++= Seq(
   "org.bouncycastle" % "bcprov-jdk14" % "1.49"
 )
 
+// The Typesafe repository
+resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
+
+resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
+
 libraryDependencies ++= Seq(
-  "org.mongodb" % "mongo-java-driver" % "1.3"
+  "org.reactivemongo" %% "reactivemongo" % "0.11.0-SNAPSHOT" exclude("com.typesafe.play", "play-iteratees"),
+  "com.typesafe.play" %% "play-iteratees" % "2.2.1"
+)
+
+libraryDependencies ++= Seq(
+  // "org.mongodb" % "mongo-java-driver" % "1.3"
 )
 
 libraryDependencies ++= Seq(
