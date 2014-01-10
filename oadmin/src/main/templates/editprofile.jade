@@ -359,7 +359,8 @@ html(lang='en')
               var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
               
               $.getJSON(url, process)
-            }
+            },
+            showHintOnFocus: true
           });
 
         $('#home-city').typeahead({
@@ -370,7 +371,8 @@ html(lang='en')
               var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
               
               $.getJSON(url, process)
-            }
+            },
+            showHintOnFocus: true
           });  
 
         function ShowMsg(msg, title, className) {

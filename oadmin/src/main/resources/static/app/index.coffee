@@ -23,7 +23,7 @@ class App extends Spine.Controller
 
       @delay -> @navigate('/') if s.user.changePasswordAtNextLogin
 
-      $.extend(true, @session, s)
+      @session = s
 
       $.ajaxSetup(
         beforeSend: (xhr, req) =>

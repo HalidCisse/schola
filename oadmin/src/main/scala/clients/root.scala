@@ -447,7 +447,7 @@ trait / { self : Plans =>
 
                     req.respond(session map {
                       s =>
-                        utils.Scalate(req, "editprofile.jade", "editPrimaryEmail" -> s.hasRole(domain.R.SuperUserR.name), "profile" -> s.user)
+                        utils.Scalate(req, "editprofile.jade", "editPrimaryEmail" -> s.hasRole(domain.R.AdministratorR.name), "profile" -> s.user)
                     } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
 
 

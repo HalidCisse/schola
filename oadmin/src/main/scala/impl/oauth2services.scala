@@ -72,14 +72,18 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
   private object oq {
     import schema._
 
-    implicit object GetUUIDOption extends scala.slick.jdbc.GetResult[Option[java.util.UUID]] { def apply(rs: scala.slick.jdbc.PositionedResult) = rs.nextStringOption map(java.util.UUID.fromString) }
-    implicit object GetGender extends scala.slick.jdbc.GetResult[domain.Gender.Value] { def apply(rs: scala.slick.jdbc.PositionedResult) = domain.Gender.withName(rs.nextString()) }
-    implicit object GetAddressOption extends scala.slick.jdbc.GetResult[Option[domain.AddressInfo]] { def apply(rs: scala.slick.jdbc.PositionedResult) = conversions.jdbc.addressInfoTypeMapper.nextOption(rs) }
-    implicit object GetContacts extends scala.slick.jdbc.GetResult[domain.Contacts] { def apply(rs: scala.slick.jdbc.PositionedResult) = conversions.jdbc.contactsTypeMapper.nextValue(rs) }
+    object Convs {    
+      implicit object GetUUIDOption extends scala.slick.jdbc.GetResult[Option[java.util.UUID]] { def apply(rs: scala.slick.jdbc.PositionedResult) = rs.nextStringOption map(java.util.UUID.fromString) }
+      implicit object GetGender extends scala.slick.jdbc.GetResult[domain.Gender.Value] { def apply(rs: scala.slick.jdbc.PositionedResult) = domain.Gender.withName(rs.nextString()) }
+      implicit object GetAddressOption extends scala.slick.jdbc.GetResult[Option[domain.AddressInfo]] { def apply(rs: scala.slick.jdbc.PositionedResult) = conversions.jdbc.addressInfoTypeMapper.nextOption(rs) }
+      implicit object GetContacts extends scala.slick.jdbc.GetResult[domain.Contacts] { def apply(rs: scala.slick.jdbc.PositionedResult) = conversions.jdbc.contactsTypeMapper.nextValue(rs) }
+    }
 
     def users(page: Int) = {
       import scala.slick.jdbc.{StaticQuery=>T}
       import T.interpolation
+
+      import Convs._
 
       type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender.Value, Option[domain.AddressInfo], Option[domain.AddressInfo], domain.Contacts, Option[String], Boolean)
 
@@ -548,7 +552,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               sLastAccessTime,
               user = sUser copy(password = None),
               userAgent = sUA,
-              hasRole = Map(accessControlService.getRoles map(r => (r.name, accessControlService.userHasRole(userId, r.name))) : _*) withDefaultValue(false),
+              hasRole = Map(accessControlService.getRoles.par map(r => (r.name, accessControlService.userHasRole(userId, r.name))) seq : _*) withDefaultValue(false),
               hasPermission = {
                 val userPermissions = accessControlService.getUserPermissions(userId) // TODO: is this dependency safe
                 Map(accessControlService.getPermissions map(p => (p.name, userPermissions contains p.name)) : _*) withDefaultValue(false)

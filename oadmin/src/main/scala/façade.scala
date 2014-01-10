@@ -12,10 +12,6 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
   import com.typesafe.config.Config
 
   import scala.util.control.Exception.allCatch
-
-  class CacheConfig(config: Config) {
-    val MaxTTL = config getInt "max-ttl"
-  }
   
   class DbConfig(config: Config) {
     val Driver = config getString "driver-class"
@@ -27,8 +23,6 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
   }
 
   object dbConfig extends DbConfig(config getConfig "db")
-
-  object cacheConfig extends CacheConfig(config getConfig "cache")
 
   private val _db = {
     import dbConfig._
@@ -62,7 +56,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
     with impl.CachingServicesComponentImpl
     with impl.CacheSystemProvider{
 
-    val cacheSystem = new impl.CacheSystem(cacheConfig.MaxTTL)
+    val cacheSystem = new impl.CacheSystem(config.getInt("cache.ttl"))
 
     val oauthService = new OAuthServicesImpl with CachingOAuthServicesImpl {}
 
@@ -106,8 +100,9 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
             JsonContent ~>
               ResponseString(
                 cb wrap tojson(
-                  ("contentType" -> contentType) ~
-                    ("data" -> data)))
+                  ("contentType" -> contentType.getOrElse("application/octet-stream")) ~
+                    ("data" -> data) ~
+                      ("base64" -> true)))
           }
 
         case _ =>

@@ -108,8 +108,8 @@ object CacheActor {
     def cacheKey: String
   }
 
-  // Thread pool used by findValueForSender() & utils.Avatars
-  val FUTURE_POOL_SIZE = 8 // TODO: make `FUTURE_POOL_SIZE` a config value
+  // Thread pool used by findValueForSender()
+  val FUTURE_POOL_SIZE = config.getInt("cache.pool-size") 
 
   private[impl] lazy val cacheSystemThreadPoolExecutor =
     new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
@@ -172,8 +172,7 @@ case object RoleParams extends CacheActor.Params {
   val cacheKey = "roles"
 }
 
-private[impl] class UserParams(page: () => Int) extends CacheActor.Params {
-  def this(page: Int = 0) = this(()=>page)
+private[impl] class UserParams private(page: () => Int) extends CacheActor.Params {
   lazy val cacheKey = s"users_${page()}"
 }
 
