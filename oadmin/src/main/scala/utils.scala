@@ -94,7 +94,7 @@ class DefaultUserSpec extends UserSpec {
   lazy val avatar: UpdateSpec[String] = UpdateSpecImpl[String]()
 }
 
-class AvatarWorkers(val helper: ReactiveMongoHelper, collName: String) extends MongoController with akka.actor.Actor with akka.actor.ActorLogging {
+class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with akka.actor.ActorLogging {
   import akka.actor._, SupervisorStrategy._
   import akka.pattern._
   import scala.concurrent.duration._
@@ -108,28 +108,29 @@ class AvatarWorkers(val helper: ReactiveMongoHelper, collName: String) extends M
       case _: Exception => Restart /* Restart actor and children */
     }
 
-  val gridFS = GridFS(db, collName)
+  lazy val gridFS = {
+    val gfs = GridFS(helper.db)
 
-  // let's build an index on our gridfs chunks collection if none
-  gridFS.ensureIndex().onComplete {
-    case index =>
-      log.info(s"Checked index, result is $index")
+    // let's build an index on our gridfs chunks collection if none
+    gfs.ensureIndex().onComplete {
+      case index =>
+        log.info(s"Checked index, result is $index")
+    }
+
+    gfs
   }
+
 
   def uploadAvatar(contentType: Option[String], data: Array[Byte]) = {
-    import play.api.libs.iteratee.{Enumerator, Iteratee}
+    import play.api.libs.iteratee.Enumerator
 
-    log.debug("uploading avatar")
+    log.debug("uploading new avatar . . .")
 
-    val it = gridFS.iteratee(DefaultFileToSave("user_avatar", contentType))
-
-    for {
-      z <- Enumerator(data) run it
-      f <- z
-    } yield f.id.asInstanceOf[BSONObjectID].stringify
+    gridFS.save(Enumerator(data), DefaultFileToSave("user_avatar", contentType))
+          .map(_.id.asInstanceOf[BSONObjectID].stringify)
   }
 
-  def purgeAvatar(id: String) = gridFS.remove(BSONObjectID(id))
+  def purgeAvatar(id: String) = gridFS.remove(BSONObjectID(id)) map(_.ok)
 
   def getAvatar(id: String) = {
     import play.api.libs.iteratee.Iteratee
@@ -139,7 +140,9 @@ class AvatarWorkers(val helper: ReactiveMongoHelper, collName: String) extends M
     fs.headOption.filter(_.isDefined).map(_.get).flatMap { f: ReadFile[_ <: BSONValue] =>
       val en = gridFS.enumerate(f)
 
-      for(bytes <- en run Iteratee.consume[Array[Byte]]()) yield (f.contentType, com.owtelse.codec.Base64.encode(bytes))
+      for{
+        bytes <- en run Iteratee.consume[Array[Byte]]()
+      } yield (f.contentType, com.owtelse.codec.Base64.encode(bytes))
     }
   }
 
@@ -150,14 +153,11 @@ class AvatarWorkers(val helper: ReactiveMongoHelper, collName: String) extends M
 
     case Avatars.Get(id) =>
 
-      log.debug(s"get $id")
-
       getAvatar(id) pipeTo sender
 
     case Avatars.Purge(id) =>
 
-      log.debug(s"purge $id")
-      purgeAvatar(id)
+      purgeAvatar(id) pipeTo sender
   }
 }
 
@@ -187,6 +187,9 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
           h.dbName,
           h.servers.map { s => "[%s]".format(s) }.mkString("\n\t\t")))
     }
+
+    // Make sure this guy is created as early as possible.
+    workerPool
   }
 
   override def postStop() {
@@ -211,7 +214,7 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
   }
 
   lazy val workerPool = context.actorOf(
-    props = FromConfig.props(Props(classOf[AvatarWorkers], helper, Collection)).withDeploy(Deploy.local),
+    props = FromConfig.props(Props(classOf[AvatarWorkers], helper)).withDeploy(Deploy.local),
     name = "Avatars_upload-workers")
 
   def receive = {
@@ -232,28 +235,17 @@ object Avatars {
 
 }
 
-private[utils] trait MongoController {
-
-  def helper: ReactiveMongoHelper
-
-  final def driver = helper.driver
-
-  final def connection = helper.connection
-
-  final def db = helper.db
-}
-
 private[utils] case class ReactiveMongoHelper(dbName: String, servers: Seq[String], auth: Seq[reactivemongo.core.nodeset.Authenticate], nbChannelsPerNode: Option[Int]) {
   import reactivemongo.api._
 
-  lazy val driver = MongoDriver(system)
+  val driver = MongoDriver(system)
 
-  lazy val connection = nbChannelsPerNode match {
+  val connection = nbChannelsPerNode match {
     case Some(numberOfChannels) => driver.connection(servers, auth, nbChannelsPerNode = numberOfChannels)
     case _                      => driver.connection(servers, auth)
   }
 
-  lazy val db = DB(dbName, connection)
+  val db = DB(dbName, connection)
 }
 
 // ------------------------------------------------------------------------------------------------------------
@@ -321,6 +313,7 @@ object Mailer {
       mailer.setSubject(subject)
       mailer.setRecipient(recipient)
       mailer.setFrom(fromAddress)
+
       mailer.setReplyTo(fromAddress)
 
       // the mailer plugin handles null / empty string gracefully
@@ -493,7 +486,7 @@ object `package` {
 
   @inline def If[T](cond: Boolean, t: => T, f: => T) = if(cond) t else f
 
-  @inline def option[T](cond: => Boolean, value: => T): Option[T] = (if (cond) Some(value) else None)
+  @inline def option[T](cond: => Boolean, value: => T): Option[T] = if (cond) Some(value) else None
 
   // ---------------------------------------------------------------------------------------------------
 

@@ -159,9 +159,11 @@ html(lang='en')
     script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/jquery.upload.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/bootstrap.js")})
-    script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
     script(src={uri("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")})
+    script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
     :&javascript
+
+      var defaultAvatar = "#{DefaultAvatar}";
 
       jQuery(function($){
         // construct countries list with selected country
@@ -234,7 +236,7 @@ html(lang='en')
             avatarImg.src = '/Avatar';
 
             avatarImg.onerror = function() {
-              $avatar[0].src = "#{DefaultAvatar}"
+              $avatar[0].src = defaultAvatar;
             };
 
             avatarImg.onload = function(){
@@ -268,12 +270,13 @@ html(lang='en')
                   $f.remove();
                   $f = null;
 
-                  if(res.success)
-                    INFO("Profile image uploaded.", "Success!");
+                  if(!res.success) {
+                    ERROR("Upload failed.", 'Error!');
+                    setTimeout(function(){loadAvatar()},0);
+                    return false;
+                  }
                   
-                  else if(res.redirect)
-                    document.location.href = res.redirect; 
-
+                  INFO("Profile image uploaded.", "Success!");
                 })
                .progress(function(e, upload) {
                     if( e.lengthComputable) {
@@ -297,7 +300,7 @@ html(lang='en')
             else {
               $f.remove();
               $f = null;
-              $avatar[0].src = "#{DefaultAvatar}";
+              $avatar[0].src = defaultAvatar;
             }
 
             return false;
@@ -309,13 +312,14 @@ html(lang='en')
         });
         
         $('a.purge').click(function(){
-          $avatar[0].src = "#{DefaultAvatar}";
+          $avatar[0].src = defaultAvatar;
 
           $.ajax({
             type:"DELETE",
             url: "/Avatar",
             dataType: 'json',
             success: function(msg) {
+              INFO("Profile image deleted.", "Success!");
               console.log("Profile image deleted: ", msg);
             }
           });
@@ -338,18 +342,23 @@ html(lang='en')
           return html;
         }
 
-        $('#home-country').each(function(){
-            $(this).html(options("#{profile.homeAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
-          });
+        //- $.getScript("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")
+        //-  .complete(function(){
 
-        $('#work-country').each(function(){
-            $(this).html(options("#{profile.workAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
-          });          
+          $('#home-country').each(function(){
+              $(this).html(options("#{profile.homeAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
+            });
 
-         (function(){    
-            $('#home-city').val("#{profile.homeAddress map(_.city) getOrElse ""}" || sGeobytesCity);
-            $('#work-city').val("#{profile.workAddress map(_.city) getOrElse ""}" || sGeobytesCity);
-          }).call(this);
+          $('#work-country').each(function(){
+              $(this).html(options("#{profile.workAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
+            });          
+
+           (function(){    
+              $('#home-city').val("#{profile.homeAddress map(_.city) getOrElse ""}" || sGeobytesCity);
+              $('#work-city').val("#{profile.workAddress map(_.city) getOrElse ""}" || sGeobytesCity);
+            }).call(this);
+          //- })
+
 
         $('#work-city').typeahead({
             source: function(q, process) {

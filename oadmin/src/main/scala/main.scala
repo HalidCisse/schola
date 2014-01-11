@@ -38,7 +38,7 @@ object main extends App {
 //  S.test()
 
 //  try S.drop() catch {
-//    case _: Throwable =>
+//    case ex: Throwable => ex.printStackTrace()
 //  }
 
 //  S.init(SuperUser.id.get)

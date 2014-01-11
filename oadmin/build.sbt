@@ -15,17 +15,17 @@ ideaExcludeFolders += ".idea"
 
 ideaExcludeFolders += ".idea_modules"
 
-proguardSettings
+// proguardSettings
 
-ProguardKeys.options in Proguard ++= Seq("-dontnote", "-dontwarn", "-ignorewarnings")
+// ProguardKeys.options in Proguard ++= Seq("-dontnote", "-dontwarn", "-ignorewarnings")
 
-ProguardKeys.options in Proguard += ProguardOptions.keepMain("Test")
+// ProguardKeys.options in Proguard += ProguardOptions.keepMain("Test")
 
-ProguardKeys.merge in Proguard := true
+// ProguardKeys.merge in Proguard := true
 
-ProguardKeys.mergeStrategies in Proguard += ProguardMerge.discard("META-INF/.*".r)
+// ProguardKeys.mergeStrategies in Proguard += ProguardMerge.discard("META-INF/.*".r)
 
-ProguardKeys.mergeStrategies in Proguard += ProguardMerge.append("reference.conf")
+// ProguardKeys.mergeStrategies in Proguard += ProguardMerge.append("reference.conf")
 
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "2.0.0-RC1",
@@ -59,7 +59,7 @@ resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/
 resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies ++= Seq(
-  "org.reactivemongo" %% "reactivemongo" % "0.11.0-SNAPSHOT" exclude("com.typesafe.play", "play-iteratees"),
+  "org.reactivemongo" %% "reactivemongo" % "0.11.0-SNAPSHOT" exclude("com.typesafe.play", "play-iteratees") exclude("com.typesafe.akka", "akka-actor"),
   "com.typesafe.play" %% "play-iteratees" % "2.2.1"
 )
 
@@ -68,8 +68,8 @@ libraryDependencies ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.3-M1",
-  "com.typesafe.akka" %% "akka-slf4j" % "2.3-M1"
+  "com.typesafe.akka" %% "akka-actor" % "2.3-M2",
+  "com.typesafe.akka" %% "akka-slf4j" % "2.3-M2"
 )
 
 libraryDependencies ++= Seq(
@@ -109,4 +109,10 @@ libraryDependencies +=  "com.sun.mail" % "javax.mail" % "1.5.1"
 
 // libraryDependencies += "net.databinder" %% "unfiltered-directives" % "0.7.1"
 
-libraryDependencies := libraryDependencies.value map(_ excludeAll(ExclusionRule(organization = "javax.mail")))
+libraryDependencies := libraryDependencies.value map(_ excludeAll(ExclusionRule(organization = "javax.mail"), ExclusionRule(organization = "org.scala-lang", name = "scala-compiler"), ExclusionRule(organization = "org.scala-lang", name = "scala-reflect"), ExclusionRule(organization = "org.scala-lang", name = "scalap"), ExclusionRule(organization = "jline", name = "jline")))
+
+libraryDependencies ++= Seq(
+  "org.scala-lang" % "scalap" % "2.10.3",
+  "org.scala-lang" % "scala-compiler" % "2.10.3",
+  "org.scala-lang" %% "scala-reflect" % "2.10.3"
+)

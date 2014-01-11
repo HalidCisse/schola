@@ -3,7 +3,7 @@ package schola
 package object oadmin {
   import com.typesafe.config._  
 
-  lazy val system = akka.actor.ActorSystem("ScholaActorSystem")
+  lazy val system = akka.actor.ActorSystem("OAdminActorSystem")
 
   lazy val avatars = system.actorOf(
     akka.actor.Props(classOf[utils.Avatars], new MongoDBSettings(config getConfig "mongodb")), name = "avatars")
@@ -41,7 +41,6 @@ package object oadmin {
   class MongoDBSettings(config: Config) {
     val Host           = config.getString("host")
     val Database      = config.getString("db")
-    val Collection     = config.getString("collection")
   }
 
   val DefaultAvatars = new {

@@ -2,7 +2,7 @@ package schola
 package oadmin
 package clients
 
-trait / { self : Plans =>
+trait Root { self : Plans =>
 
   import f.simple._
 
@@ -61,9 +61,9 @@ trait / { self : Plans =>
     }
 
     object ReCaptcha {
-      val PublicKey = config.getString("recaptcha.public_key")
+      val PublicKey = config.getString("recaptcha.public-key")
       
-      val PrivateKey = config.getString("recaptcha.private_key")
+      val PrivateKey = config.getString("recaptcha.private-key")
       
       def unapply(params: Map[String, Seq[String]]) =
         allCatch.opt(
@@ -340,11 +340,9 @@ trait / { self : Plans =>
 
               case DELETE(ContextPath(_, "/Avatar")) & Jsonp.Optional(cb) =>
                 
-                def ERROR(redirect: Boolean = false) = JsonContent ~> ResponseString(cb wrap s"""{"success": false, "redirect": $redirect}""")
+                def RESP(success: Boolean = true) = JsonContent ~> ResponseString(cb wrap s"""{"success": $success}""")
 
                 def PurgeAvatar[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
-
-                  def SUCCESS = JsonContent ~> ResponseString(cb wrap """{"success": true}""")
 
                   withMac(req, session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatar/${session.user.avatar.getOrElse("")}", uA) {
                     auth => 
@@ -356,8 +354,8 @@ trait / { self : Plans =>
                         req.respond {
                           fn {
                             e.fold(
-                              _ => ERROR(),
-                              ryt => utils.If(ryt.getStatusCode == 200, SUCCESS, ERROR())
+                              _ => RESP(success = false),
+                              ryt => utils.If(ryt.getStatusCode == 200, RESP(), RESP(success = false))
                             )
                           }
                         }
@@ -372,7 +370,7 @@ trait / { self : Plans =>
                       s => PurgeAvatar(req, s) { rf => rf }
                     } getOrElse {
                       req.respond {
-                        SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> ERROR(redirect = true)
+                        SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> RESP(success = false)
                       }
                     }
 
@@ -385,17 +383,15 @@ trait / { self : Plans =>
                   
               case POST(ContextPath(_, "/Avatar")) & MultiPart(_) & Jsonp.Optional(cb) =>
 
-                def ERROR(redirect: Boolean = false) = JsonContent ~> ResponseString(cb wrap s"""{"success": false, "redirect": $redirect}""")
+                def RESP(success: Boolean = true) = JsonContent ~> ResponseString(cb wrap s"""{"success": $success}""")
 
                 def AddAvatar[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
-
-                  def SUCCESS = JsonContent ~> ResponseString(cb wrap """{"success": true}""")
 
                   MultiPartParams.Disk(req).files("f") match {
                     case Seq(fp, _*) =>                      
 
                       fp.write(java.io.File.createTempFile("OAdmin-", s"-avatar_${session.user.id.get}")).fold(req.respond {
-                        fn(ERROR())
+                        fn(RESP(success = false))
                       }) {
                         fs =>
 
@@ -409,8 +405,8 @@ trait / { self : Plans =>
                               req.respond {
                                 fn {
                                   e.fold(
-                                    _ => ERROR(),
-                                    ryt => utils.If(ryt.getStatusCode == 200, SUCCESS, ERROR())
+                                    _ => RESP(success = false),
+                                    ryt => utils.If(ryt.getStatusCode == 200, RESP(), RESP(success = false))
                                   )
                                 }
                               }
@@ -418,7 +414,7 @@ trait / { self : Plans =>
                         }
                       }
 
-                    case _ => req.respond(fn(ERROR()))
+                    case _ => req.respond(fn(RESP(success = false)))
                   }
                 }
 
@@ -429,7 +425,7 @@ trait / { self : Plans =>
                       s => AddAvatar(req, s) { rf => rf }
                     } getOrElse {
                       req.respond {
-                        SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> ERROR(redirect = true)
+                        SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> RESP(success = false)
                       }
                     }
 

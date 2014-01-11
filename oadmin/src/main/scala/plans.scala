@@ -8,7 +8,7 @@ trait Plans {
   val f: ServiceComponentFactory with HandlerFactory
 }
 
-object Plans extends Plans with Server with clients./ {
+object Plans extends Plans with Server with clients.Root {
   val f = Façade
 }
 

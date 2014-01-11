@@ -4,6 +4,8 @@ package oadmin
 import javax.servlet.http.HttpServletResponse
 import org.json4s.JsonAST.{JValue, JObject}
 
+import com.mchange.v2.c3p0.ComboPooledDataSource
+
 object Façade extends ServiceComponentFactory with HandlerFactory{
   import javax.servlet.http.HttpServletRequest
   import unfiltered.request._
@@ -12,33 +14,19 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
   import com.typesafe.config.Config
 
   import scala.util.control.Exception.allCatch
-  
-  class DbConfig(config: Config) {
-    val Driver = config getString "driver-class"
-    val URL = config getString "url"
-    val User = config getString "user"
-    val Password = config getString "password"
-    val MaxPoolSize = config getInt "max-pool-size"
-    val MinPoolSize = config getInt "min-pool-size"
+
+  import Q._
+
+  private val log = org.clapper.avsl.Logger("oadmin.Façade")
+
+  private val ds = new ComboPooledDataSource
+
+  system.registerOnTermination {
+    log.info("Closing datasource . . . ")
+    ds.close()
   }
 
-  object dbConfig extends DbConfig(config getConfig "db")
-
-  private val _db = {
-    import dbConfig._
-    import com.mchange.v2.c3p0.ComboPooledDataSource
-
-    val ds = new ComboPooledDataSource
-    ds.setDriverClass(Driver)
-    ds.setJdbcUrl(URL)
-    ds.setUser(User)
-    ds.setPassword(Password)
-
-    ds.setMaxPoolSize(MaxPoolSize)
-    ds.setMinPoolSize(MinPoolSize)
-
-    Q.Database.forDataSource(ds)
-  }    
+  private val _db = Database.forDataSource(ds)
 
   private[oadmin] object nocache extends Façade {
 
@@ -112,13 +100,34 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
     }
 
     def purgeAvatar(userId: String, avatarId: String) = {
-      avatars ! utils.Avatars.Purge(avatarId)
+      import scala.concurrent.duration._
+      import akka.pattern._
 
-      req.respond {
-        JsonContent ~>
-          ResponseString(cb wrap s"""{"success": ${oauthService.updateUser(userId, new utils.DefaultUserSpec {
-                      override lazy val avatar = UpdateSpecImpl[String](set = Some(None))
-                  })}}""")
+      import system.dispatcher
+
+      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+
+      val ok = (avatars ? utils.Avatars.Purge(avatarId)).mapTo[Boolean]
+
+      ok onComplete{
+        case scala.util.Success(k) =>
+
+          req.respond {
+
+            JsonContent ~>
+              ResponseString(cb wrap s"""{"success": ${k && oauthService.updateUser(userId, new utils.DefaultUserSpec {
+                override lazy val avatar = UpdateSpecImpl[String](set = Some(None))
+              })}}""")
+          }
+
+        case _ =>
+
+          req.respond {
+
+            JsonContent ~>
+              ResponseString(cb wrap s"""{"success": false}""")
+          }
+
       }
     }
 
