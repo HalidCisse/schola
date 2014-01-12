@@ -389,7 +389,7 @@ object Crypto {
 
   import java.security.SecureRandom
 
-  import javax.crypto._
+  import javax.crypto._, spec.PBEKeySpec
   import javax.crypto.spec.SecretKeySpec
 
   import org.bouncycastle.util.encoders.Hex
@@ -406,6 +406,22 @@ object Crypto {
 
   def sign(message: String): String =
     sign(message, secret.getBytes("utf-8"))
+
+  val genMacKey = {
+
+    val rounds = 65536
+
+    val size = 256
+
+    val alg = "PBKDF2WithHMACSHA1"
+
+    (password: String) => {
+      val spec = new PBEKeySpec(password.toCharArray, utils.randomBytes(16), rounds, size)
+      val keys = SecretKeyFactory.getInstance(alg)
+      val key  = keys.generateSecret(spec)
+      Hex.toHexString(key.getEncoded)
+    }
+  }
 
   val generateToken = {
     val bytes = new Array[Byte](12)
@@ -448,11 +464,16 @@ object `package` {
 
   def genPasswd(key: String) = passwords.crypt(key)
 
-  def randomString(size: Int) = {
-    val random = java.security.SecureRandom.getInstance("SHA1PRNG")
+  private val random = java.security.SecureRandom.getInstance("SHA1PRNG")
+
+  def randomBytes(size: Int) = {
     val b = new Array[Byte](size)
     random.nextBytes(b)
-    org.bouncycastle.util.encoders.Hex.toHexString(b)
+    b
+  }
+
+  def randomString(size: Int) = {
+    org.bouncycastle.util.encoders.Hex.toHexString(randomBytes(size))
   }
 
   val xxHash = {

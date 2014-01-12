@@ -80,15 +80,15 @@ object `package` {
       def generatePasswordToken(owner: ResourceOwner, client: Client,
                                 scopes: Seq[String]) = {
 
-        def generateToken = utils.Crypto.generateToken() // utils.SHA3Utils digest s"${client.id}:${owner.id}:${System.nanoTime}"
-        def generateRefresh(accessToken: String) = utils.Crypto.generateToken() // utils.SHA3Utils digest s"$accessToken:${owner.id}:${System.nanoTime}"
-        def generateMacKey = utils.genPasswd(s"${owner.id}:${System.nanoTime}")
+        def generateToken = utils.Crypto.generateToken() // utils.SHA3 digest s"$clientId:$userId:${System.nanoTime}"
+        def generateRefreshToken = utils.Crypto.generateToken() // utils.SHA3 digest s"$accessToken:$userId:${System.nanoTime}"
+        def generateMacKey = utils.Crypto.genMacKey(s"${owner.id}:${System.nanoTime}") // utils.genPasswd(s"$userId:${System.nanoTime}")
 
         try {
 
           val accessToken = generateToken
           oauthService.saveToken(
-            accessToken, Some(generateRefresh(accessToken)), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(scopes: _*)) match {
+            accessToken, Some(generateRefreshToken), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(scopes: _*)) match {
               case Some(domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes)) =>
                 new Token {
                   val tokenType = Some(sTokenType)
@@ -240,10 +240,6 @@ object `package` {
     object OAuth2MacAuth extends MacAuth {
       val algorithm = MACAlgorithm
       def tokenSecret(key: String) = oauthService.getTokenSecret(key)
-    }
-
-    override final def fallback = {
-      case null => null
     }
 
     val schemes = Seq(OAuth2MacAuth)

@@ -77,10 +77,10 @@ libraryDependencies ++= Seq(
 // The Typesafe repository
 resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 
-// resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
+resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies ++= Seq(
-  "org.reactivemongo" %% "reactivemongo" % "0.10.0"//,  exclude("com.typesafe.play", "play-iteratees") exclude("com.typesafe.akka", "akka-actor"),
+  "org.reactivemongo" %% "reactivemongo" % "0.11.0-SNAPSHOT"//,  exclude("com.typesafe.play", "play-iteratees") exclude("com.typesafe.akka", "akka-actor"),
   //"com.typesafe.play" %% "play-iteratees" % "2.2.1"
 )
 

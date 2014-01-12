@@ -286,9 +286,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
     val primaryEmailExists = {
       def getPrimaryEmail(primaryEmail: Column[String]) =
-        for {
-          u <- Users if u.primaryEmail.toLowerCase is primaryEmail
-        } yield true
+        Query(Users where (_.primaryEmail.toLowerCase is primaryEmail) exists)
 
       Compiled(getPrimaryEmail _)
     }
@@ -473,16 +471,16 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       token.firstOption flatMap {
         case (aAccessToken, clientId, redirectUri, userId, uA, Some(aRefreshToken), issuedTime, expiresIn, refreshExpiresIn, aScopes) if refreshExpiresIn map (issuedTime + 1000 * _ > System.currentTimeMillis) getOrElse true => //aRefreshToken exists
 
-          def generateToken = utils.Crypto.generateToken() // utils.SHA3Utils digest s"$clientId:$userId:${System.nanoTime}"
-          def generateRefreshToken(accessToken: String) = utils.Crypto.generateToken() // utils.SHA3Utils digest s"$accessToken:$userId:${System.nanoTime}"
-          def generateMacKey = utils.genPasswd(s"$userId:${System.nanoTime}")
+          def generateToken = utils.Crypto.generateToken() // utils.SHA3 digest s"$clientId:$userId:${System.nanoTime}"
+          def generateRefreshToken = utils.Crypto.generateToken() // utils.SHA3 digest s"$accessToken:$userId:${System.nanoTime}"
+          def generateMacKey = utils.Crypto.genMacKey(s"$userId:${System.nanoTime}") // utils.genPasswd(s"$userId:${System.nanoTime}")
 
           val accessToken = generateToken
 
           val currentTimestamp = System.currentTimeMillis
 
           if ((OAuthTokens.forInsert +=
-            (accessToken, clientId, redirectUri, userId, Some(generateRefreshToken(accessToken)), generateMacKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", aScopes)) != 1)
+            (accessToken, clientId, redirectUri, userId, Some(generateRefreshToken), generateMacKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", aScopes)) != 1)
             throw new Exception("could not refresh Token")
 
           val newToken = oq.accessToken(accessToken)

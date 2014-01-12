@@ -126,8 +126,6 @@ trait CookieBaker[T <: AnyRef] {
     cookie.filter(_.name == COOKIE_NAME).map(c => deserialize(decode(c.value))).getOrElse(emptyCookie)
   }
 
-  //  def discard = DiscardingCookie(COOKIE_NAME, path, domain, secure)
-
   /**
    * Builds the cookie object from the given data map.
    *
