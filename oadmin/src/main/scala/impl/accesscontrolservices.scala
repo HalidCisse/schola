@@ -3,12 +3,12 @@ package oadmin
 
 package impl
 
-trait AccessControlServicesComponentImpl extends AccessControlServicesComponent{
+trait AccessControlServicesComponentImpl extends AccessControlServicesComponent {
   self: AccessControlServicesRepoComponent =>
 
   // val accessControlService = new AccessControlServicesImpl
 
-  trait AccessControlServicesImpl extends AccessControlServices{
+  trait AccessControlServicesImpl extends AccessControlServices {
 
     def getRoles = accessControlServiceRepo.getRoles
 
@@ -47,7 +47,7 @@ trait AccessControlServicesComponentImpl extends AccessControlServicesComponent{
 }
 
 trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoComponent {
-  self : AccessControlServicesComponent =>
+  self: AccessControlServicesComponent =>
 
   import schema._
   import domain._
@@ -58,102 +58,101 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
   protected val accessControlServiceRepo = new AccessControlServiceRepoImpl
 
   private object aq {
-    val roles = 
+
+    val roles =
       Compiled(for {
         r <- Roles
       } yield (
-          r.name,
-          r.parent,
-          r.createdAt,
-          r.createdBy,
-          r.public))
-              
-    val named = {
-      def getRole(name: Column[String]) = 
-        for{
-        r <- Roles if r.name is name
-      } yield(
         r.name,
         r.parent,
         r.createdAt,
         r.createdBy,
-        r.public)
+        r.public))
+
+    val named = {
+      def getRole(name: Column[String]) =
+        for {
+          r <- Roles if r.name is name
+        } yield (
+          r.name,
+          r.parent,
+          r.createdAt,
+          r.createdBy,
+          r.public)
 
       Compiled(getRole _)
     }
 
     val userRoles = {
-      def getUserRoles(id: Column[java.util.UUID]) = 
-        for{
-        u <- UsersRoles if u.userId is id
-      } yield (
+      def getUserRoles(id: Column[java.util.UUID]) =
+        for {
+          u <- UsersRoles if u.userId is id
+        } yield (
           u.userId,
           u.role,
           u.grantedAt,
-          u.grantedBy
-          )
+          u.grantedBy)
 
       Compiled(getUserRoles _)
     }
 
     val userRoleExists = {
-      def getUserRole(id: Column[java.util.UUID], role: Column[String]) = 
+      def getUserRole(id: Column[java.util.UUID], role: Column[String]) =
         for {
           ur <- UsersRoles if (ur.userId is id) && (ur.role is role)
         } yield true
 
       Compiled(getUserRole _)
     }
-    
+
     val permissions = Compiled(for {
-        p <- Permissions
-      } yield (
-          p.name,
-          p.clientId))
+      p <- Permissions
+    } yield (
+      p.name,
+      p.clientId))
 
     val rolePermissions = {
-      def getRolePermissions(name: Column[String]) = 
-        for{
-        r <- RolesPermissions if r.role is name
-      } yield (
+      def getRolePermissions(name: Column[String]) =
+        for {
+          r <- RolesPermissions if r.role is name
+        } yield (
           r.role,
           r.permission,
           r.grantedAt,
-          r.grantedBy
-          )
+          r.grantedBy)
 
       Compiled(getRolePermissions _)
     }
 
     val userPermissions = {
-      def getUserPermissions(id: Column[java.util.UUID]) = 
+      def getUserPermissions(id: Column[java.util.UUID]) =
         for {
-        rp <- RolesPermissions
-        ur <- UsersRoles if ur.role is rp.role
-        u  <- ur.user if u.id is id
-      } yield rp.permission
+          rp <- RolesPermissions
+          ur <- UsersRoles if ur.role is rp.role
+          u <- ur.user if u.id is id
+        } yield rp.permission
 
       Compiled(getUserPermissions _)
     }
 
     val clientPermissions = {
-      def getClientPermissions(clientId: Column[String]) = 
+      def getClientPermissions(clientId: Column[String]) =
         for {
-        p <- Permissions if p.clientId is clientId
-      } yield (
+          p <- Permissions if p.clientId is clientId
+        } yield (
           p.name,
           p.clientId)
 
       Compiled(getClientPermissions _)
     }
-    
+
     val parent = {
-      def getParent(role: Column[String]) = 
-        for { r <- Roles  if r.name is role } yield r.parent
+      def getParent(role: Column[String]) =
+        for { r <- Roles if r.name is role } yield r.parent
 
       Compiled(getParent _)
     }
-    
+
     val roleExists = {
       def getRole(name: Column[String]) =
         for {
@@ -164,14 +163,14 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     }
 
     val forUpdate = {
-      def updateRole(name: Column[String]) = 
-        Roles where(_.name is name) map(o => (o.name, o.parent))
+      def updateRole(name: Column[String]) =
+        Roles where (_.name is name) map (o => (o.name, o.parent))
 
       Compiled(updateRole _)
     }
   }
 
-  class AccessControlServiceRepoImpl extends AccessControlServiceRepo{
+  class AccessControlServiceRepoImpl extends AccessControlServiceRepo {
 
     def getRoles = {
       import Database.dynamicSession
@@ -251,8 +250,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       Set(
         db.withDynSession {
           userPermissions.list
-        } : _*
-      )
+        }: _*)
     }
 
     def getClientPermissions(clientId: String) = {
@@ -307,19 +305,18 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
 
       val id = java.util.UUID.fromString(userId)
 
-      @inline 
+      @inline
       def getParent(role: String) =
         aq.parent(role).firstFlatten
 
-
-      @scala.annotation.tailrec 
+      @scala.annotation.tailrec
       def userHasRoleAcc(role: String): Boolean = {
 
         val userRoleExists = aq.userRoleExists(id, role)
 
         (userRoleExists.firstOption getOrElse false) || (getParent(role) match {
           case Some(parent) => userHasRoleAcc(parent)
-          case _ => false
+          case _            => false
         })
       }
 
@@ -347,7 +344,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     }
 
     def updateRole(name: String, newName: String, parent: Option[String]) =
-      db.withTransaction{ implicit sesssion =>
+      db.withTransaction { implicit sesssion =>
         aq.forUpdate(name).update(newName, parent) == 1
       }
   }

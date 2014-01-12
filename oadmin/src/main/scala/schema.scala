@@ -34,7 +34,7 @@ object `package` {
 
     def scopes = column[Set[String]]("scopes", O.NotNull, O.Default(Set()))
 
-    def * = (accessToken, clientId, redirectUri, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, scopes) <>(OAuthToken.tupled, OAuthToken.unapply)
+    def * = (accessToken, clientId, redirectUri, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, scopes) <> (OAuthToken.tupled, OAuthToken.unapply)
 
     def user = foreignKey("TOKEN_USER_FK", userId, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Cascade)
 
@@ -43,7 +43,7 @@ object `package` {
 
   val OAuthTokens = TableQuery[OAuthTokens]
 
-  implicit class OAuthTokensExtensions(OAuthTokens: Query[OAuthTokens, OAuthToken]){
+  implicit class OAuthTokensExtensions(OAuthTokens: Query[OAuthTokens, OAuthToken]) {
     val forInsert =
       OAuthTokens.map { t => (t.accessToken, t.clientId, t.redirectUri, t.userId, t.refreshToken, t.macKey, t.uA, t.expiresIn, t.refreshExpiresIn, t.createdAt, t.lastAccessTime, t.tokenType, t.scopes) }
   }
@@ -55,7 +55,7 @@ object `package` {
 
     def redirectUri = column[String]("redirect_uri", O.NotNull)
 
-    def * = (id, secret, redirectUri) <>(OAuthClient.tupled, OAuthClient.unapply)
+    def * = (id, secret, redirectUri) <> (OAuthClient.tupled, OAuthClient.unapply)
 
     def pk = primaryKey("CLIENT_PK", (id, secret))
 
@@ -94,7 +94,7 @@ object `package` {
     def contacts = column[Contacts]("contacts", O.DBType("text"))
 
     def avatar = column[Option[String]]("avatar")
-    
+
     def activationKey = column[Option[String]]("user_activation_key", O.DBType("text"))
 
     def _deleted = column[Boolean]("_deleted", O.NotNull, O.Default(false))
@@ -103,14 +103,14 @@ object `package` {
 
     def changePasswordAtNextLogin = column[Boolean]("change_password_at_next_login", O.NotNull, O.Default(false))
 
-    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <>(User.tupled, User.unapply)
+    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <> (User.tupled, User.unapply)
 
     def idx1 = index("USER_USERNAME_INDEX", primaryEmail, unique = true)
 
     def idx2 = index("USER_USERNAME_PASSWORD_INDEX", (primaryEmail, password))
 
     def _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
-    
+
     def _lastModifiedBy = foreignKey("USER_MODIFIER_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
   }
 
@@ -118,16 +118,15 @@ object `package` {
 
   private val usersAutoGenId =
     Users.map(
-      u => (u.primaryEmail, u.password, u.givenName, u.familyName, u.createdAt, u.createdBy, u.lastModifiedAt, u.lastModifiedBy, u.gender, u.homeAddress, u.workAddress, u.contacts, u.changePasswordAtNextLogin)
-    ) returning Users.map(_.id) into { case (u, id) => User(u._1, Some(u._2), u._3, u._4, u._5, u._6, None, u._7, u._8, u._9, u._10, u._11, u._12, changePasswordAtNextLogin = u._13, id = Some(id)) }
+      u => (u.primaryEmail, u.password, u.givenName, u.familyName, u.createdAt, u.createdBy, u.lastModifiedAt, u.lastModifiedBy, u.gender, u.homeAddress, u.workAddress, u.contacts, u.changePasswordAtNextLogin)) returning Users.map(_.id) into { case (u, id) => User(u._1, Some(u._2), u._3, u._4, u._5, u._6, None, u._7, u._8, u._9, u._10, u._11, u._12, changePasswordAtNextLogin = u._13, id = Some(id)) }
 
-  implicit class UsersExtensions(users: Query[Users, User]){
+  implicit class UsersExtensions(users: Query[Users, User]) {
 
-    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender.Value = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: domain.Contacts = domain.Contacts(MobileNumbers(None,None), None,None), changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
+    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender.Value = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: domain.Contacts = domain.Contacts(MobileNumbers(None, None), None, None), changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
       usersAutoGenId.insert(email, password, givenName, familyName, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
 
     val forDeletion = {
-      def getDeleted(id: Column[java.util.UUID]) = Users where(_.id is id) map { _._deleted }
+      def getDeleted(id: Column[java.util.UUID]) = Users where (_.id is id) map { _._deleted }
 
       Compiled(getDeleted _)
     }
@@ -144,7 +143,7 @@ object `package` {
 
     def public = column[Boolean]("public", O.NotNull, O.Default(true))
 
-    def * = (name, parent, createdAt, createdBy, public) <>(Role.tupled, Role.unapply)
+    def * = (name, parent, createdAt, createdBy, public) <> (Role.tupled, Role.unapply)
 
     def idx = index("ROLE_NAME_INDEX", name, unique = true)
 
@@ -162,7 +161,7 @@ object `package` {
 
     def client = foreignKey("PERMISSION_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.model.ForeignKeyAction.Cascade)
 
-    def * = (name, clientId) <>(Permission.tupled, Permission.unapply)
+    def * = (name, clientId) <> (Permission.tupled, Permission.unapply)
 
     def idx = index("PERMISSION_NAME_INDEX", name, unique = true)
   }
@@ -178,7 +177,7 @@ object `package` {
 
     def grantedBy = column[Option[java.util.UUID]]("granted_by", O.DBType("uuid"))
 
-    def * = (role, permission, grantedAt, grantedBy) <>(RolePermission.tupled, RolePermission.unapply)
+    def * = (role, permission, grantedAt, grantedBy) <> (RolePermission.tupled, RolePermission.unapply)
 
     def _role = foreignKey("ROLE_PERMISSION_ROLE_FK", role, Roles)(_.name, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Restrict)
 
@@ -200,7 +199,7 @@ object `package` {
 
     def grantedBy = column[Option[java.util.UUID]]("granted_by", O.DBType("uuid"))
 
-    def * = (userId, role, grantedAt, grantedBy) <>(UserRole.tupled, UserRole.unapply)
+    def * = (userId, role, grantedAt, grantedBy) <> (UserRole.tupled, UserRole.unapply)
 
     def user = foreignKey("USER_ROLE_USER_FK", userId, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Restrict)
 

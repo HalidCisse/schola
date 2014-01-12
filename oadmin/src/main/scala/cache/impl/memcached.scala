@@ -3,9 +3,9 @@ package oadmin
 
 package caching {
 
-  import net.spy.memcached.auth.{PlainCallbackHandler, AuthDescriptor}
-  import net.spy.memcached.{ConnectionFactoryBuilder, MemcachedClient}
-  import net.spy.memcached.transcoders.{Transcoder, SerializingTranscoder}
+  import net.spy.memcached.auth.{ PlainCallbackHandler, AuthDescriptor }
+  import net.spy.memcached.{ ConnectionFactoryBuilder, MemcachedClient }
+  import net.spy.memcached.transcoders.{ Transcoder, SerializingTranscoder }
 
   import org.clapper.avsl.Logger
 
@@ -25,7 +25,7 @@ package caching {
 
     system.registerOnTermination {
       log.info("running Memcached termination callback...")
-      if(Enabled) {
+      if (Enabled) {
         log.info("shutting down memcached client...")
         client.shutdown()
         Thread.interrupted()
@@ -82,13 +82,13 @@ package caching {
     val tc = new CustomSerializing().asInstanceOf[Transcoder[Any]]
 
     object NullApi extends CacheAPI {
-      def set(key: String, value: Any, expiration: Int){}
+      def set(key: String, value: Any, expiration: Int) {}
       def get(key: String) = None
-      def remove(key: String){}
-      def clearAll(){}
+      def remove(key: String) {}
+      def clearAll() {}
     }
 
-    val api = if(Enabled) new CacheAPI {
+    val api = if (Enabled) new CacheAPI {
 
       def get(key: String) = {
         log.debug("Getting the cached for key " + Namespace + "." + key)
@@ -100,17 +100,16 @@ package caching {
 
           Option(
             any match {
-              case x: java.lang.Byte => x.byteValue()
-              case x: java.lang.Short => x.shortValue()
-              case x: java.lang.Integer => x.intValue()
-              case x: java.lang.Long => x.longValue()
-              case x: java.lang.Float => x.floatValue()
-              case x: java.lang.Double => x.doubleValue()
+              case x: java.lang.Byte      => x.byteValue()
+              case x: java.lang.Short     => x.shortValue()
+              case x: java.lang.Integer   => x.intValue()
+              case x: java.lang.Long      => x.longValue()
+              case x: java.lang.Float     => x.floatValue()
+              case x: java.lang.Double    => x.doubleValue()
               case x: java.lang.Character => x.charValue()
-              case x: java.lang.Boolean => x.booleanValue()
-              case x => x
-            }
-          )
+              case x: java.lang.Boolean   => x.booleanValue()
+              case x                      => x
+            })
         } catch {
           case e: Throwable =>
             log.error("An error has occured while getting the value from memcached", e)
@@ -127,14 +126,15 @@ package caching {
         client.delete(Namespace + "." + hash(key))
       }
 
-      def clearAll(){
+      def clearAll() {
         client.flush()
       }
 
-    } else NullApi
+    }
+    else NullApi
 
     protected def hash(key: String): String =
-      if(Hash) utils.xxHash(key.getBytes) else key
+      if (Hash) utils.xxHash(key.getBytes) else key
   }
 
 }

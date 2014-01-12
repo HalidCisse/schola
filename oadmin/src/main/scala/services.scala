@@ -41,7 +41,7 @@ trait OAuthServicesComponent {
       val gender: domain.Gender.Value
       val homeAddress: Option[domain.AddressInfo]
       val workAddress: Option[domain.AddressInfo]
-//      val contacts: Option[ContactsLike]
+      //      val contacts: Option[ContactsLike]
       val contacts: domain.Contacts
       val avatar: Option[String]
       val _deleted: Boolean
@@ -74,7 +74,7 @@ trait OAuthServicesComponent {
     def getPurgedUsers: List[UserLike]
 
     def purgeUsers(users: Set[String])
-    
+
     def undeleteUsers(users: Set[String])
 
     def getTokenSecret(accessToken: String): Option[String]
@@ -113,10 +113,10 @@ trait OAuthServicesComponent {
 
 trait OAuthServicesRepoComponent {
   self: OAuthServicesComponent =>
-  protected val oauthServiceRepo: OAuthServicesRepo    
+  protected val oauthServiceRepo: OAuthServicesRepo
 
-  trait OAuthServicesRepo { 
-    import oauthService._   
+  trait OAuthServicesRepo {
+    import oauthService._
 
     def getUsers(page: Int): List[UserLike]
 
@@ -283,7 +283,7 @@ trait CachingServicesComponent {
 
   trait CachingServices {
 
-    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T]
+    def get[T: scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T]
 
     def evict(params: impl.CacheActor.Params)
   }

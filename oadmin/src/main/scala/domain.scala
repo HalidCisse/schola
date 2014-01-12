@@ -66,7 +66,7 @@ package domain {
     gender: Gender.Value = Gender.Male,
     homeAddress: Option[AddressInfo] = None,
     workAddress: Option[AddressInfo] = None,
-    contacts: Contacts = Contacts(MobileNumbers(None,None), None,None),
+    contacts: Contacts = Contacts(MobileNumbers(None, None), None, None),
     avatar: Option[String] = None,
     activationKey: Option[String] = None,
     _deleted: Boolean = false,
@@ -108,8 +108,7 @@ package domain {
       RevokeRole,
 
       GrantPermission,
-      RevokePermission
-     )
+      RevokePermission)
   }
 
   object R {
@@ -158,19 +157,16 @@ package domain {
         "contacts[work][fax]" -> "fax",
         "contacts[work][email]" -> "email")
 
-
       val HomeContactParams = List(
         "contacts[home][phoneNumber]" -> "phoneNumber",
         "contacts[home][fax]" -> "fax",
         "contacts[home][email]" -> "email")
 
       val Mobile1ContactParams = List(
-        "contacts[mobiles][mobile1]" -> "phoneNumber"
-      )
+        "contacts[mobiles][mobile1]" -> "phoneNumber")
 
       val Mobile2ContactParams = List(
-        "contacts[mobiles][mobile2]" -> "phoneNumber"
-      )
+        "contacts[mobiles][mobile2]" -> "phoneNumber")
     }
   }
 

@@ -5,8 +5,8 @@ package impl
 import akka.actor._
 import org.clapper.avsl.Logger
 
-import java.util.concurrent.{ArrayBlockingQueue, TimeUnit, ThreadPoolExecutor}
-import scala.concurrent.{Future, ExecutionContext}
+import java.util.concurrent.{ ArrayBlockingQueue, TimeUnit, ThreadPoolExecutor }
+import scala.concurrent.{ Future, ExecutionContext }
 
 trait CacheSystemProvider {
   val cacheSystem: CacheSystem
@@ -41,7 +41,7 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
     system.scheduler.schedule(scheduleDelay,
       updateIntervalMin minutes,
       actor, UpdateCacheForNow)
-    
+
     actor
   }
 
@@ -49,16 +49,15 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
                             default: () => T): Option[T] = {
     val obj = default()
 
-    if(obj != None) {
+    if (obj != None) {
       Cache.set(key, obj, maxTTL)
       Some(obj)
-    }
-    else None
+    } else None
   }
 }
 
 abstract class CacheActor(cacheSystem: CacheSystem)
-  extends Actor with ActorLogging {
+    extends Actor with ActorLogging {
 
   import CacheActor._
   import CacheSystem._
@@ -109,7 +108,7 @@ object CacheActor {
   }
 
   // Thread pool used by findValueForSender()
-  val FUTURE_POOL_SIZE = config.getInt("cache.pool-size") 
+  val FUTURE_POOL_SIZE = config.getInt("cache.pool-size")
 
   private[impl] lazy val cacheSystemThreadPoolExecutor =
     new ThreadPoolExecutor(FUTURE_POOL_SIZE, FUTURE_POOL_SIZE,
@@ -121,10 +120,10 @@ object CacheActor {
 }
 
 class OAdminCacheActor(cacheSystem: CacheSystem)
-  extends CacheActor(cacheSystem) {
+    extends CacheActor(cacheSystem) {
 
   override def receive = _busy
-    
+
   private val _busy = findValueReceive orElse purgeValueReceive orElse updateCacheForNowReceive
 
   def updateCacheForNow() { // TODO: Fix UpdateCacheForNow
@@ -136,7 +135,7 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
       import Façade.nocache._
 
       def pageCount() = {
-        import scala.slick.jdbc.{StaticQuery=>T}
+        import scala.slick.jdbc.{ StaticQuery => T }
         import T.interpolation
 
         val pages = sql""" SELECT (count(*) OVER () / $MaxResults) + 1 as pages FROM users; """.as[Int]
@@ -146,17 +145,16 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
         }
       }
 
-      for(page <- 0 until pageCount()) {
+      for (page <- 0 until pageCount()) {
         val users = oauthService.getUsers(page)
         Cache.set(s"users_$page", users)
-        
-        users foreach(user => Cache.set(user.id.get.toString, Some(user)))
+
+        users foreach (user => Cache.set(user.id.get.toString, Some(user)))
       }
-      
 
       val roles = accessControlService.getRoles
       Cache.set("roles", roles)
-      roles foreach(role => Cache.set(role.name, Some(role)))
+      roles foreach (role => Cache.set(role.name, Some(role)))
     }
 
     context.become(_busy)
@@ -172,11 +170,11 @@ case object RoleParams extends CacheActor.Params {
   val cacheKey = "roles"
 }
 
-private[impl] class UserParams private(page: () => Int) extends CacheActor.Params {
+private[impl] class UserParams private (page: () => Int) extends CacheActor.Params {
   lazy val cacheKey = s"users_${page()}"
 }
 
 object UserParams {
-  def apply(page: Int = 0): UserParams = apply(()=>page)
+  def apply(page: Int = 0): UserParams = apply(() => page)
   def apply(page: () => Int) = new UserParams(page)
 }

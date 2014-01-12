@@ -20,14 +20,14 @@ object `package` {
 
     trait Clients extends ClientStore {
       def client(clientId: String, secret: Option[String]) =
-      oauthService.getClient(clientId, secret getOrElse "") map {
-        case domain.OAuthClient(cId, cSecret, cRedirectUri) =>
-          new Client {
-            val id = cId
-            val secret = cSecret
-            val redirectUri = cRedirectUri
-          }
-      }
+        oauthService.getClient(clientId, secret getOrElse "") map {
+          case domain.OAuthClient(cId, cSecret, cRedirectUri) =>
+            new Client {
+              val id = cId
+              val secret = cSecret
+              val redirectUri = cRedirectUri
+            }
+        }
     }
 
     trait Tokens extends TokenStore {
@@ -88,26 +88,24 @@ object `package` {
 
           val accessToken = generateToken
           oauthService.saveToken(
-            accessToken, Some(generateRefresh(accessToken)), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(scopes : _*)
-          ) match {
-            case Some(domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes)) =>
-              new Token {
-                val tokenType = Some(sTokenType)
-                val redirectUri = sRedirectUri
-                val expiresIn = sExpires map (_.toInt)
-                val owner = sOwnerId.toString
-                val scopes = sScopes.toSeq
-                val refresh = sRefreshToken
-                val value = sAccessToken
-                val clientId = sClientId
-                override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
-              }
+            accessToken, Some(generateRefresh(accessToken)), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(scopes: _*)) match {
+              case Some(domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes)) =>
+                new Token {
+                  val tokenType = Some(sTokenType)
+                  val redirectUri = sRedirectUri
+                  val expiresIn = sExpires map (_.toInt)
+                  val owner = sOwnerId.toString
+                  val scopes = sScopes.toSeq
+                  val refresh = sRefreshToken
+                  val value = sAccessToken
+                  val clientId = sClientId
+                  override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
+                }
 
-            case _ => throw BadTokenException("Token not created")
-          }
+              case _ => throw BadTokenException("Token not created")
+            }
 
-        }
-        catch {
+        } catch {
           case e: Throwable => throw e
         }
 
@@ -118,12 +116,12 @@ object `package` {
 
       import unfiltered.request._
       import unfiltered.response._
-      import unfiltered.request.{HttpRequest => Req}
+      import unfiltered.request.{ HttpRequest => Req }
 
       def errorUri(err: String) = None
 
       def login[T](bundle: RequestBundle[T]): ResponseFunction[Any] = ???
-//        utils.Scalate(bundle.request, "login.jade")
+      //        utils.Scalate(bundle.request, "login.jade")
 
       def requestAuthorization[T](bundle: RequestBundle[T]): ResponseFunction[Any] = Ok
 
@@ -178,8 +176,7 @@ object `package` {
 
           val params = Map(
             "bearerToken" -> key,
-            "userAgent" -> uA
-          )
+            "userAgent" -> uA)
 
           /*
           *   TODO: make sure nonce has not been used . . . ?
@@ -190,7 +187,7 @@ object `package` {
             case Some(
               domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
                 domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId)), userAgent, _, _, scopes)
-            ) if userAgent == uA =>
+              ) if userAgent == uA =>
 
               expiresIn match {
                 case Some(expiry) =>
@@ -223,7 +220,7 @@ object `package` {
 
       def unapply(hval: String) = hval match {
         case HeaderPattern(token) => Some(token)
-        case _ => None
+        case _                    => None
       }
     }
 

@@ -2,7 +2,6 @@
 -@ val editPrimaryEmail: Boolean
 -@ val error: Boolean = flash.get("error").exists(_ == "T")
 -@ val profile: schola.oadmin.domain.User
--@ val DefaultAvatar: String = s"data:image/png;base64,${if(profile.gender eq schola.oadmin.domain.Gender.Male) schola.oadmin.DefaultAvatars.M else schola.oadmin.DefaultAvatars.F}"
 !!! 5
 html(lang='en')
   head
@@ -58,7 +57,7 @@ html(lang='en')
                   .avatar_fm
                     a.edit Change Picture
                     a.purge Delete Picture
-                  img.img-thumbnail.avatar(src="#{DefaultAvatar}" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              
+                  img.img-thumbnail.avatar(src="http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              
                 .col-xs-12.col-md-6
                   #name.form-group                    
                     input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus) &nbsp; &nbsp;
@@ -163,7 +162,7 @@ html(lang='en')
     script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
     :&javascript
 
-      var defaultAvatar = "#{DefaultAvatar}";
+      var defaultAvatarUrl = "http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195";
 
       jQuery(function($){
         // construct countries list with selected country
@@ -236,7 +235,7 @@ html(lang='en')
             avatarImg.src = '/Avatar';
 
             avatarImg.onerror = function() {
-              $avatar[0].src = defaultAvatar;
+              //- $avatar[0].src = defaultAvatarUrl;
             };
 
             avatarImg.onload = function(){
@@ -247,7 +246,6 @@ html(lang='en')
 
         if("#{profile.avatar.isEmpty}" === "false")
           loadAvatar();
-        //- else $avatar[0].src = DefaultAvatar;
 
         $('a.edit').click(function(){
           var $f = $("<input type=file id=f name=f class=hidden />");
@@ -261,6 +259,8 @@ html(lang='en')
                 return false;
               }
 
+              var reader = new FileReader; 
+
               var data = new FormData;
               data.append("f", f);  
 
@@ -273,10 +273,18 @@ html(lang='en')
                   if(!res.success) {
                     ERROR("Upload failed.", 'Error!');
                     setTimeout(function(){loadAvatar()},0);
-                    return false;
+                    return;
                   }
+
+                  reader.onload = function(evt) {
+                    // f.size
+                    $avatar[0].src = evt.target.result;
+                  };
                   
                   INFO("Profile image uploaded.", "Success!");
+                })
+               .fail(function(){
+                  ERROR("Upload failed.", 'Error!');
                 })
                .progress(function(e, upload) {
                     if( e.lengthComputable) {
@@ -287,20 +295,14 @@ html(lang='en')
                         console.log( percent + ' downloaded');
                 }
               });
-
-              var reader = new FileReader;
-              reader.onload = function(evt) {
-                // f.size
-                $avatar[0].src = evt.target.result;
-              };                            
-
+                                                       
               reader.readAsDataURL(f);
 
             }
             else {
               $f.remove();
               $f = null;
-              $avatar[0].src = defaultAvatar;
+              $avatar[0].src = defaultAvatarUrl;
             }
 
             return false;
@@ -312,16 +314,21 @@ html(lang='en')
         });
         
         $('a.purge').click(function(){
-          $avatar[0].src = defaultAvatar;
+          $avatar[0].src = defaultAvatarUrl;
 
           $.ajax({
             type:"DELETE",
             url: "/Avatar",
-            dataType: 'json',
-            success: function(msg) {
-              INFO("Profile image deleted.", "Success!");
-              console.log("Profile image deleted: ", msg);
-            }
+            dataType: 'json'
+          })
+          .done(function(msg) {
+              if(msg.success)
+                INFO("Profile image deleted.", "Success!");
+              else 
+                ERROR("Delete failed.", 'Error!');
+          })
+          .fail(function(){
+            ERROR("Delete failed.", 'Error!');
           });
 
           return false;
@@ -342,16 +349,16 @@ html(lang='en')
           return html;
         }
 
-        //- $.getScript("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")
-        //-  .complete(function(){
-
           $('#home-country').each(function(){
               $(this).html(options("#{profile.homeAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
             });
 
           $('#work-country').each(function(){
               $(this).html(options("#{profile.workAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
-            });          
+            });      
+
+        //- $.getScript("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")
+        //-  .complete(function(){
 
            (function(){    
               $('#home-city').val("#{profile.homeAddress map(_.city) getOrElse ""}" || sGeobytesCity);

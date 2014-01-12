@@ -12,7 +12,7 @@ object Plans extends Plans with Server with clients.Root {
   val f = Façade
 }
 
-trait Server { self : Plans =>
+trait Server { self: Plans =>
 
   private val log = Logger("oadmin.server")
 
@@ -22,10 +22,10 @@ trait Server { self : Plans =>
   import unfiltered.filter.request.ContextPath
   import unfiltered.response._
 
-  import unfiltered.filter.request.{MultiPart, MultiPartParams}
+  import unfiltered.filter.request.{ MultiPart, MultiPartParams }
 
   object Login
-    extends Params.Extract("username", Params.first ~> Params.nonempty ~> Params.trimmed/* ~> Params.pred(EmailValidator.getInstance.isValid)*/)
+    extends Params.Extract("username", Params.first ~> Params.nonempty ~> Params.trimmed /* ~> Params.pred(EmailValidator.getInstance.isValid)*/ )
 
   object Page {
     import scala.util.control.Exception.allCatch
@@ -35,7 +35,7 @@ trait Server { self : Plans =>
   }
 
   val api = async.Planify {
-    
+
     case req =>
 
       object Name
@@ -57,7 +57,7 @@ trait Server { self : Plans =>
 
           routeHandler.downloadAvatar(avatarId)
 
-        case DELETE(ContextPath(_, Seg("user" :: userId :: "avatar" :: avatarId :: Nil))) =>
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "avatars" :: avatarId :: Nil))) =>
 
           routeHandler.purgeAvatar(userId, avatarId)
 
@@ -67,7 +67,7 @@ trait Server { self : Plans =>
           fs match {
             case Seq(fp, _*) =>
 
-              routeHandler.uploadAvatar(userId, Some(fp.contentType), fp.bytes)
+              routeHandler.uploadAvatar(userId, fp.name, Some(fp.contentType), fp.bytes)
 
             case _ => BadRequest
           }
@@ -122,7 +122,7 @@ trait Server { self : Plans =>
 
         case POST(ContextPath(_, Seg("user" :: userId :: "_undelete" :: Nil))) =>
 
-          routeHandler.undeleteUsers(Set(userId))          
+          routeHandler.undeleteUsers(Set(userId))
       }
 
       val rolesIntent: Intent = {

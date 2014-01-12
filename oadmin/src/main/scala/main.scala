@@ -22,7 +22,7 @@ object main extends App {
       _.filter(Plans / (server.host, server.port))
     }
     .context("/assets") {
-    _.resources(getClass.getResource("/static/assets"))
+      _.resources(getClass.getResource("/WEB-INF/assets"))
     }
     .context("/oauth") {
       _.filter(unfiltered.filter.Planify {
@@ -32,16 +32,16 @@ object main extends App {
     }
     .context(s"/api/$API_VERSION") {
       _.filter(OAuth2Protection(new OAdminAuthSource))
-       .filter(Plans.api)
+        .filter(Plans.api)
     }
 
-//  S.test()
+  //  S.test()
 
-//  try S.drop() catch {
-//    case ex: Throwable => ex.printStackTrace()
-//  }
+  //  try S.drop() catch {
+  //    case ex: Throwable => ex.printStackTrace()
+  //  }
 
-//  S.init(SuperUser.id.get)
+  //  S.init(SuperUser.id.get)
   server.start()
 
   log.info("The server is runing . . .")
@@ -56,5 +56,5 @@ object main extends App {
   server.stop()
   server.destroy()
 
-//  S.drop()
+  //  S.drop()
 }

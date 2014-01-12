@@ -2,7 +2,7 @@ package schola
 package oadmin
 package utils
 
-import org.apache.commons.mail.{HtmlEmail, DefaultAuthenticator, MultiPartEmail}
+import org.apache.commons.mail.{ HtmlEmail, DefaultAuthenticator, MultiPartEmail }
 import org.clapper.avsl.Logger
 
 trait MailerAPI {

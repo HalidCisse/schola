@@ -14,19 +14,18 @@ package object jdbc {
   import org.json4s.native.Serialization
   import org.json4s.native.Serialization._
 
-  class EnumNameSerializer[E <: Enumeration : ClassTag](enum: E)
-    extends Serializer[E#Value] {
+  class EnumNameSerializer[E <: Enumeration: ClassTag](enum: E)
+      extends Serializer[E#Value] {
 
     import JsonDSL._
 
     val EnumerationClass = classOf[E#Value]
 
-    def deserialize(implicit format: Formats):
-    PartialFunction[(TypeInfo, JValue), E#Value] = {
-      case (t@TypeInfo(EnumerationClass, _), json) if isValid(json) =>
+    def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, JValue), E#Value] = {
+      case (t @ TypeInfo(EnumerationClass, _), json) if isValid(json) =>
         json match {
           case JString(value) => (enum withName value).asInstanceOf[E#Value]
-          case value => throw new MappingException(s"Can't convert $value to $EnumerationClass")
+          case value          => throw new MappingException(s"Can't convert $value to $EnumerationClass")
         }
     }
 
@@ -42,8 +41,7 @@ package object jdbc {
 
   implicit lazy val formats =
     Serialization.formats(
-      ShortTypeHints(List(/* classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo] */))
-      ) + new EnumNameSerializer(domain.Gender)
+      ShortTypeHints(List( /* classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo] */ ))) + new EnumNameSerializer(domain.Gender)
 
   abstract class DBEnum extends Enumeration {
     @transient implicit val enumMapper = MappedColumnType.base[Value, String](_.toString, this.withName)
@@ -52,18 +50,15 @@ package object jdbc {
   implicit val setTypeMapper =
     MappedColumnType.base[Set[String], String](
       ts => write(ts),
-      read[Set[String]]
-    )
+      read[Set[String]])
 
   implicit val addressInfoTypeMapper =
     MappedColumnType.base[AddressInfo, String](
       ts => write(ts),
-      read[AddressInfo]
-    )
+      read[AddressInfo])
 
   implicit val contactsTypeMapper =
     MappedColumnType.base[Contacts, String](
       ts => write(ts),
-      read[Contacts]
-    )
+      read[Contacts])
 }

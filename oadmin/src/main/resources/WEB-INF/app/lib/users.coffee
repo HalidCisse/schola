@@ -101,17 +101,17 @@ class users
       dataType: 'json'
     )    
 
-  @remAvatar: (id) ->
+  @remAvatar: (id, avatarId) ->
     $.ajax(
       type:"DELETE",
-      url: "/api/v1/user/#{id}/avatars",
+      url: "/api/v1/user/#{id}/avatars/#{avatarId}",
       dataType: 'json'
     )     
 
   getAvatar: (userId) ->
     $.ajax(
       type:"GET",
-      url: "/api/v1/user/#{userId}/avatars",
+      url: "/api/v1/avatar/#{userId}",
       dataType: 'json'
     )
 

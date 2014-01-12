@@ -51,11 +51,11 @@ object Cache {
     val Hosts = {
       import net.spy.memcached.AddrUtil
 
-      val singleHost = allCatch.opt {config.getString("host")} map AddrUtil.getAddresses
+      val singleHost = allCatch.opt { config.getString("host") } map AddrUtil.getAddresses
       val multipleHosts = allCatch.opt { config.getString("host.1") } map {
         _ =>
           def acc(nb: Int): String =
-            allCatch.opt{ config.getString("host." + nb) } map {
+            allCatch.opt { config.getString("host." + nb) } map {
               h => h + " " + acc(nb + 1)
             } getOrElse ""
 
@@ -66,9 +66,9 @@ object Cache {
         .getOrElse(throw new RuntimeException("Bad configuration for memcached: missing host(s)"))
     }
 
-    val User = allCatch.opt{config.getString("user")}
+    val User = allCatch.opt { config.getString("user") }
 
-    val Passwd = allCatch.opt{config.getString("password")}
+    val Passwd = allCatch.opt { config.getString("password") }
 
     val Namespace = config.getString("namespace")
 
@@ -110,7 +110,6 @@ object Cache {
    */
   def get(key: String): Option[Any] =
     cacheAPI.get(key)
-
 
   def remove(key: String) {
     cacheAPI.remove(key)

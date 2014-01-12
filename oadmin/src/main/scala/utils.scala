@@ -12,7 +12,7 @@ object ResourceOwner {
   def unapply[T <: HttpServletRequest](request: HttpRequest[T]): Option[unfiltered.oauth2.ResourceOwner] =
     request.underlying.getAttribute(unfiltered.oauth2.OAuth2.XAuthorizedIdentity) match {
       case sId: String => Some(new unfiltered.oauth2.ResourceOwner { val id = sId; val password = None })
-      case _ => None
+      case _           => None
     }
 }
 
@@ -42,8 +42,7 @@ trait UserSpec {
   case class ContactInfoSpec[T](
     email: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
     fax: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
-    phoneNumber: UpdateSpecImpl[String] = UpdateSpecImpl[String]()
-  )
+    phoneNumber: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
 
   case class ContactsSpec(
     mobiles: MobileNumbersSpec = MobileNumbersSpec(),
@@ -99,7 +98,7 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
   import akka.pattern._
   import scala.concurrent.duration._
 
-  import system.dispatcher
+  implicit val ec = system.dispatcher
 
   import reactivemongo._, bson._, api._, gridfs._, Implicits.DefaultReadFileReader
 
@@ -120,19 +119,19 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
     gfs
   }
 
-
-  def uploadAvatar(contentType: Option[String], data: Array[Byte]) = {
+  def uploadAvatar(filename: String, contentType: Option[String], data: Array[Byte], listener: ActorRef) = {
     import play.api.libs.iteratee.Enumerator
 
     log.debug("uploading new avatar . . .")
 
-    gridFS.save(Enumerator(data), DefaultFileToSave("user_avatar", contentType))
-          .map(_.id.asInstanceOf[BSONObjectID].stringify)
+    gridFS.save(Enumerator(data), DefaultFileToSave(filename, contentType))
+      .map(_.id.asInstanceOf[BSONObjectID].stringify) pipeTo listener
+
   }
 
-  def purgeAvatar(id: String) = gridFS.remove(BSONObjectID(id)) map(_.ok)
+  def purgeAvatar(id: String, listener: ActorRef) = gridFS.remove(BSONObjectID(id)) map (_.ok) pipeTo listener
 
-  def getAvatar(id: String) = {
+  def getAvatar(id: String, listener: ActorRef) = {
     import play.api.libs.iteratee.Iteratee
 
     val fs = gridFS.find(BSONDocument("_id" -> BSONObjectID(id)))
@@ -140,24 +139,25 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
     fs.headOption.filter(_.isDefined).map(_.get).flatMap { f: ReadFile[_ <: BSONValue] =>
       val en = gridFS.enumerate(f)
 
-      for{
+      for {
         bytes <- en run Iteratee.consume[Array[Byte]]()
       } yield (f.contentType, com.owtelse.codec.Base64.encode(bytes))
     }
-  }
+
+  } pipeTo listener
 
   def receive = {
-    case Avatars.Save(contentType, fdata) =>
+    case Avatars.Save(filename, contentType, fdata) =>
 
-      uploadAvatar(contentType, fdata) pipeTo sender
+      uploadAvatar(filename, contentType, fdata, sender)
 
     case Avatars.Get(id) =>
 
-      getAvatar(id) pipeTo sender
+      getAvatar(id, sender)
 
     case Avatars.Purge(id) =>
 
-      purgeAvatar(id) pipeTo sender
+      purgeAvatar(id, sender)
   }
 }
 
@@ -168,18 +168,16 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
 
   import config._
 
-  private var _helper: Option[ReactiveMongoHelper] = None
-  def helper = _helper.getOrElse(throw new RuntimeException("ReactiveMongo error: no ReactiveMongoHelper available?"))
+  private val helper: ReactiveMongoHelper = {
 
-  override def preStart() {
     log.info("ReactiveMongo starting...")
 
-    _helper = try {
-        Some(ReactiveMongoHelper(Database, Seq(Host), Nil, None))
-      } catch {
-        case ex: Throwable =>
-          throw new RuntimeException("ReactiveMongo Initialization Error: An exception occurred while initializing the ReactiveMongo.", ex)
-      }
+    val _helper = try {
+      Some(ReactiveMongoHelper(Database, Seq(Host), Nil, None))
+    } catch {
+      case ex: Throwable =>
+        throw new RuntimeException("ReactiveMongo Initialization Error: An exception occurred while initializing the ReactiveMongo.", ex)
+    }
 
     _helper map { h =>
       log.info("ReactiveMongo successfully started with db '%s'! Servers:\n\t\t%s"
@@ -188,9 +186,9 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
           h.servers.map { s => "[%s]".format(s) }.mkString("\n\t\t")))
     }
 
-    // Make sure this guy is created as early as possible.
-    workerPool
-  }
+    _helper
+
+  } getOrElse (throw new RuntimeException("ReactiveMongo error: no ReactiveMongoHelper available?"))
 
   override def postStop() {
     import scala.concurrent._, duration._
@@ -198,28 +196,23 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
 
     log.info("ReactiveMongo stops, closing connections...")
 
-    _helper map { h =>
+    val fq = helper.connection.askClose()(10 seconds)
 
-      val fq = h.connection.askClose()(10 seconds)
-
-      fq.onComplete {
-        case ex =>
-          log.info("ReactiveMongo Connections stopped. [" + ex + "]")
-      }
-
-      Await.ready(fq, 10 seconds)
+    fq.onComplete {
+      case ex =>
+        log.info("ReactiveMongo Connections stopped. [" + ex + "]")
     }
 
-    _helper = None
+    Await.ready(fq, 10 seconds)
   }
 
-  lazy val workerPool = context.actorOf(
-    props = FromConfig.props(Props(classOf[AvatarWorkers], helper)).withDeploy(Deploy.local),
+  val workerPool = context.actorOf(
+    props = Props(new AvatarWorkers(helper)).withRouter(RandomRouter(4)).withDeploy(Deploy.local), // TODO: change when you upgrade to 2.3
     name = "Avatars_upload-workers")
 
   def receive = {
     case msg: Avatars.Msg =>
-      workerPool tell(msg, sender)
+      workerPool tell (msg, sender)
   }
 }
 
@@ -227,7 +220,7 @@ object Avatars {
 
   sealed trait Msg
 
-  case class Save(contentType: Option[String], fdata: Array[Byte]) extends Msg
+  case class Save(filename: String, contentType: Option[String], fdata: Array[Byte]) extends Msg
 
   case class Get(id: String) extends Msg
 
@@ -238,21 +231,21 @@ object Avatars {
 private[utils] case class ReactiveMongoHelper(dbName: String, servers: Seq[String], auth: Seq[reactivemongo.core.nodeset.Authenticate], nbChannelsPerNode: Option[Int]) {
   import reactivemongo.api._
 
-  val driver = MongoDriver(system)
+  lazy val driver = MongoDriver(system)
 
-  val connection = nbChannelsPerNode match {
+  lazy val connection = nbChannelsPerNode match {
     case Some(numberOfChannels) => driver.connection(servers, auth, nbChannelsPerNode = numberOfChannels)
     case _                      => driver.connection(servers, auth)
   }
 
-  val db = DB(dbName, connection)
+  def db = DB(dbName, connection)
 }
 
 // ------------------------------------------------------------------------------------------------------------
 
 object Mailer {
 
-  val log = org.clapper.avsl.Logger("oadmin.mailer")
+  private val log = org.clapper.avsl.Logger("oadmin.mailer")
 
   def sendPasswordResetEmail(username: String, key: String) {
     val subj = "[Schola] Password reset request"
@@ -265,7 +258,7 @@ object Mailer {
       | Username: $username \r\n\r\n
       | If this was a mistake, just ignore this email and nothing will happen. \r\n\r\n
       | To reset your password, visit the following address:\r\n\r\n
-      | < http://$hostname${if(port == 80) "" else ":"+port}/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
+      | < http://$hostname${if (port == 80) "" else ":" + port}/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
 
     sendEmail(subj, username, (Some(msg), None))
   }
@@ -317,17 +310,17 @@ object Mailer {
       mailer.setReplyTo(fromAddress)
 
       // the mailer plugin handles null / empty string gracefully
-      mailer.send(body._1 getOrElse "" , body._2 getOrElse "")
+      mailer.send(body._1 getOrElse "", body._2 getOrElse "")
     }
   }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 
-import org.fusesource.scalate.{TemplateEngine, Binding, DefaultRenderContext, RenderContext}
-import unfiltered.request.{Path, HttpRequest}
+import org.fusesource.scalate.{ TemplateEngine, Binding, DefaultRenderContext, RenderContext }
+import unfiltered.request.{ Path, HttpRequest }
 import unfiltered.response.ResponseWriter
-import java.io.{File, OutputStreamWriter, PrintWriter}
+import java.io.{ File, OutputStreamWriter, PrintWriter }
 
 object Scalate {
 
@@ -337,34 +330,30 @@ object Scalate {
     unfiltered.request.Cookies(req).get(Flash.COOKIE_NAME).map(Flash.decodeFromCookie(_).data).getOrElse(Map[String, String]())
 
   private def agent[A](req: HttpRequest[A]) = req match {
-    case unfiltered.request.AgentIs.Chrome(_) => "chrome"
+    case unfiltered.request.AgentIs.Chrome(_)  => "chrome"
     case unfiltered.request.AgentIs.FireFox(_) => "moz"
-    case _ => ""
+    case _                                     => ""
   }
 
   def apply[A, B](request: HttpRequest[A],
                   template: String,
-                  attributes: (String, Any)*)
-                 (implicit
-                  engine: TemplateEngine = defaultEngine,
-                  contextBuilder: ToRenderContext = defaultRenderContext,
-                  bindings: List[Binding] = Nil,
-                  additionalAttributes: Seq[(String, Any)] = Nil
-                   ): ResponseWriter = apply(Path(request), template, Seq("agent" -> agent(request), "flash" -> flash(request)) ++ attributes: _*)
+                  attributes: (String, Any)*)(implicit engine: TemplateEngine = defaultEngine,
+                                              contextBuilder: ToRenderContext = defaultRenderContext,
+                                              bindings: List[Binding] = Nil,
+                                              additionalAttributes: Seq[(String, Any)] = Nil): ResponseWriter = apply(Path(request), template, Seq("agent" -> agent(request), "flash" -> flash(request)) ++ attributes: _*)
 
-  /** Constructs a ResponseWriter for Scalate templates.
-    * Note that any parameter in the second, implicit set
-    * can be overriden by specifying an implicit value of the
-    * expected type in a pariticular scope. */
+  /**
+   * Constructs a ResponseWriter for Scalate templates.
+   * Note that any parameter in the second, implicit set
+   * can be overriden by specifying an implicit value of the
+   * expected type in a pariticular scope.
+   */
   def apply[A, B](path: String,
                   template: String,
-                  attributes: (String, Any)*)
-                 (implicit
-                  engine: TemplateEngine = defaultEngine,
-                  contextBuilder: ToRenderContext = defaultRenderContext,
-                  bindings: List[Binding] = Nil,
-                  additionalAttributes: Seq[(String, Any)] = Nil
-                   ) = new ResponseWriter {
+                  attributes: (String, Any)*)(implicit engine: TemplateEngine = defaultEngine,
+                                              contextBuilder: ToRenderContext = defaultRenderContext,
+                                              bindings: List[Binding] = Nil,
+                                              additionalAttributes: Seq[(String, Any)] = Nil) = new ResponseWriter {
     def write(writer: OutputStreamWriter) {
       val printWriter = new PrintWriter(writer)
       try {
@@ -384,8 +373,7 @@ object Scalate {
   }
 
   /* Function to construct a RenderContext. */
-  type ToRenderContext =
-  (String, PrintWriter, TemplateEngine) => RenderContext
+  type ToRenderContext = (String, PrintWriter, TemplateEngine) => RenderContext
 
   private val defaultTemplateDirs =
     new File(config.getString("templates.dir")) :: Nil
@@ -484,7 +472,7 @@ object `package` {
     System.currentTimeMillis - start
   }
 
-  @inline def If[T](cond: Boolean, t: => T, f: => T) = if(cond) t else f
+  @inline def If[T](cond: Boolean, t: => T, f: => T) = if (cond) t else f
 
   @inline def option[T](cond: => Boolean, value: => T): Option[T] = if (cond) Some(value) else None
 
@@ -495,7 +483,7 @@ object `package` {
   def findFieldStr(json: JValue)(field: String) =
     json findField {
       case org.json4s.JField(`field`, _) => true
-      case _ => false
+      case _                             => false
     } collect {
       case org.json4s.JField(_, org.json4s.JString(s)) => s
     }
@@ -503,16 +491,16 @@ object `package` {
   def findFieldJArr(json: JValue)(field: String) =
     json findField {
       case org.json4s.JField(`field`, _) => true
-      case _ => false
+      case _                             => false
     } collect {
-      case org.json4s.JField(_, a@org.json4s.JArray(_)) => a
+      case org.json4s.JField(_, a @ org.json4s.JArray(_)) => a
     }
 
   def findFieldJObj(json: JValue)(field: String) =
     json findField {
       case org.json4s.JField(`field`, _) => true
-      case _ => false
+      case _                             => false
     } collect {
-      case org.json4s.JField(_, o@org.json4s.JObject(_)) => o
+      case org.json4s.JField(_, o @ org.json4s.JObject(_)) => o
     }
 }

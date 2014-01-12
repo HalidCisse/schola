@@ -2,11 +2,11 @@ package schola
 package oadmin
 
 import javax.servlet.http.HttpServletResponse
-import org.json4s.JsonAST.{JValue, JObject}
+import org.json4s.JsonAST.{ JValue, JObject }
 
 import com.mchange.v2.c3p0.ComboPooledDataSource
 
-object Façade extends ServiceComponentFactory with HandlerFactory{
+object Façade extends ServiceComponentFactory with HandlerFactory {
   import javax.servlet.http.HttpServletRequest
   import unfiltered.request._
   import unfiltered.response._
@@ -37,18 +37,18 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
     protected val db = _db
   }
 
-  object simple extends Façade 
-    with CachingServicesComponent
-    with impl.CachingAccessControlServicesComponentImpl
-    with impl.CachingOAuthServicesComponentImpl
-    with impl.CachingServicesComponentImpl
-    with impl.CacheSystemProvider{
+  object simple extends Façade
+      with CachingServicesComponent
+      with impl.CachingAccessControlServicesComponentImpl
+      with impl.CachingOAuthServicesComponentImpl
+      with impl.CachingServicesComponentImpl
+      with impl.CacheSystemProvider {
 
     val cacheSystem = new impl.CacheSystem(config.getInt("cache.ttl"))
 
     val oauthService = new OAuthServicesImpl with CachingOAuthServicesImpl {}
 
-    val accessControlService = new AccessControlServicesImpl with CachingAccessControlServicesImpl {}    
+    val accessControlService = new AccessControlServicesImpl with CachingAccessControlServicesImpl {}
 
     protected val db = _db
   }
@@ -90,7 +90,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
                 cb wrap tojson(
                   ("contentType" -> contentType.getOrElse("application/octet-stream")) ~
                     ("data" -> data) ~
-                      ("base64" -> true)))
+                    ("base64" -> true)))
           }
 
         case _ =>
@@ -109,15 +109,17 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
       val ok = (avatars ? utils.Avatars.Purge(avatarId)).mapTo[Boolean]
 
-      ok onComplete{
+      ok onComplete {
         case scala.util.Success(k) =>
 
           req.respond {
 
             JsonContent ~>
-              ResponseString(cb wrap s"""{"success": ${k && oauthService.updateUser(userId, new utils.DefaultUserSpec {
-                override lazy val avatar = UpdateSpecImpl[String](set = Some(None))
-              })}}""")
+              ResponseString(cb wrap s"""{"success": ${
+                k && oauthService.updateUser(userId, new utils.DefaultUserSpec {
+                  override lazy val avatar = UpdateSpecImpl[String](set = Some(None))
+                })
+              }}""")
           }
 
         case _ =>
@@ -131,7 +133,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
       }
     }
 
-    def uploadAvatar(userId: String, contentType: Option[String], bytes: Array[Byte]) = {
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]) = {
       import scala.concurrent.duration._
       import akka.pattern._
 
@@ -139,7 +141,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
       implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
 
-      val q = (avatars ? utils.Avatars.Save(contentType, bytes)).mapTo[String]
+      val q = (avatars ? utils.Avatars.Save(filename, contentType, bytes)).mapTo[String]
 
       q onComplete {
         case scala.util.Success(it) =>
@@ -147,9 +149,11 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
           req.respond {
 
             JsonContent ~>
-              ResponseString(cb wrap s"""{"success": ${oauthService.updateUser(userId, new utils.DefaultUserSpec {
-                override lazy val avatar = UpdateSpecImpl[String](set = Some(Some(it)))
-              })}}""")
+              ResponseString(cb wrap s"""{"success": ${
+                oauthService.updateUser(userId, new utils.DefaultUserSpec {
+                  override lazy val avatar = UpdateSpecImpl[String](set = Some(Some(it)))
+                })
+              }}""")
           }
 
         case _ => req.respond(BadRequest)
@@ -159,11 +163,11 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
     // -------------------------------------------------------------------------------------------------
 
     def addUser() =
-    // primaryEmail
-    // givenName and familyName
-    // gender
-    // home and work addresses
-    // contacts
+      // primaryEmail
+      // givenName and familyName
+      // gender
+      // home and work addresses
+      // contacts
 
       (for {
         json <- JsonBody(req)
@@ -187,101 +191,87 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
       }
 
     def updateUser(userId: String) =
-    // primaryEmail
-    // givenName and familyName
-    // password
-    // gender
-    // home and work addresses
-    // contacts
+      // primaryEmail
+      // givenName and familyName
+      // password
+      // gender
+      // home and work addresses
+      // contacts
 
       (for {
         json <- JsonBody(req)
-          if oauthService.updateUser(userId, new utils.DefaultUserSpec {
+        if oauthService.updateUser(userId, new utils.DefaultUserSpec {
 
-            val findField =
-              utils.findFieldStr(json)_
+          val findField =
+            utils.findFieldStr(json)_
 
-            val findFieldObj =
-              utils.findFieldJObj(json)_
+          val findFieldObj =
+            utils.findFieldJObj(json)_
 
-            override lazy val primaryEmail = findField("primaryEmail")
+          override lazy val primaryEmail = findField("primaryEmail")
 
-            override lazy val password = findField("password")
-            override lazy val oldPassword = findField("old_password")
+          override lazy val password = findField("password")
+          override lazy val oldPassword = findField("old_password")
 
-            override lazy val givenName = findField("givenName")
-            override lazy val familyName = findField("familyName")
-            override lazy val gender = findField("gender") flatMap (x => allCatch.opt {
-              domain.Gender.withName(x)
-            })
-
-            override lazy val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
-              set = findFieldObj("homeAddress") map (x => allCatch.opt {
-                x.extract[domain.AddressInfo]
-              })
-            )
-
-            override lazy val workAddress = new UpdateSpecImpl[domain.AddressInfo](
-              set = findFieldObj("workAddress") map (x => allCatch.opt {
-                x.extract[domain.AddressInfo]
-              })
-            )
-
-            override lazy val contacts =
-              utils.findFieldJObj(json)("contacts") map{
-                contactsJson =>
-
-                  ContactsSpec(
-
-                    mobiles = {
-                      val mobilesJson = utils.findFieldJObj(contactsJson)("mobiles") getOrElse JObject(List())
-
-                      MobileNumbersSpec(
-                        mobile1 = UpdateSpecImpl[String](
-                          set = utils.findFieldJObj(mobilesJson)("mobile1") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        ),
-
-                        mobile2 = UpdateSpecImpl[String](
-                          set = utils.findFieldJObj(mobilesJson)("mobile2") flatMap(o=>utils.findFieldStr(o)("phoneNumber")) map(s=>utils.If(s.isEmpty, None, Some(s)))
-                        )
-                      )
-                    },
-
-                    home = utils.findFieldJObj(contactsJson)("home") flatMap (x => allCatch.opt {
-                        ContactInfoSpec[domain.HomeContactInfo](
-                          email = UpdateSpecImpl[String](
-                            set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                          ),
-
-                          fax = UpdateSpecImpl[String](
-                            set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                          ),
-
-                          phoneNumber = UpdateSpecImpl[String](
-                            set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                          )
-                        )
-                      }),
-
-                    work = utils.findFieldJObj(contactsJson)("work") flatMap (x => allCatch.opt {
-                        ContactInfoSpec[domain.WorkContactInfo](
-                          email = UpdateSpecImpl[String](
-                            set = utils.findFieldStr(x)("email") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                          ),
-
-                          fax = UpdateSpecImpl[String](
-                            set = utils.findFieldStr(x)("fax") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                          ),
-
-                          phoneNumber = UpdateSpecImpl[String](
-                            set = utils.findFieldStr(x)("phoneNumber") map(s=>utils.If(s.isEmpty, None, Some(s)))
-                          )
-                        )
-                      })
-                  )
-              }
+          override lazy val givenName = findField("givenName")
+          override lazy val familyName = findField("familyName")
+          override lazy val gender = findField("gender") flatMap (x => allCatch.opt {
+            domain.Gender.withName(x)
           })
-      x <- oauthService.getUser(userId)
+
+          override lazy val homeAddress = new UpdateSpecImpl[domain.AddressInfo](
+            set = findFieldObj("homeAddress") map (x => allCatch.opt {
+              x.extract[domain.AddressInfo]
+            }))
+
+          override lazy val workAddress = new UpdateSpecImpl[domain.AddressInfo](
+            set = findFieldObj("workAddress") map (x => allCatch.opt {
+              x.extract[domain.AddressInfo]
+            }))
+
+          override lazy val contacts =
+            utils.findFieldJObj(json)("contacts") map {
+              contactsJson =>
+
+                ContactsSpec(
+
+                  mobiles = {
+                    val mobilesJson = utils.findFieldJObj(contactsJson)("mobiles") getOrElse JObject(List())
+
+                    MobileNumbersSpec(
+                      mobile1 = UpdateSpecImpl[String](
+                        set = utils.findFieldJObj(mobilesJson)("mobile1") flatMap (o => utils.findFieldStr(o)("phoneNumber")) map (s => utils.If(s.isEmpty, None, Some(s)))),
+
+                      mobile2 = UpdateSpecImpl[String](
+                        set = utils.findFieldJObj(mobilesJson)("mobile2") flatMap (o => utils.findFieldStr(o)("phoneNumber")) map (s => utils.If(s.isEmpty, None, Some(s)))))
+                  },
+
+                  home = utils.findFieldJObj(contactsJson)("home") flatMap (x => allCatch.opt {
+                    ContactInfoSpec[domain.HomeContactInfo](
+                      email = UpdateSpecImpl[String](
+                        set = utils.findFieldStr(x)("email") map (s => utils.If(s.isEmpty, None, Some(s)))),
+
+                      fax = UpdateSpecImpl[String](
+                        set = utils.findFieldStr(x)("fax") map (s => utils.If(s.isEmpty, None, Some(s)))),
+
+                      phoneNumber = UpdateSpecImpl[String](
+                        set = utils.findFieldStr(x)("phoneNumber") map (s => utils.If(s.isEmpty, None, Some(s)))))
+                  }),
+
+                  work = utils.findFieldJObj(contactsJson)("work") flatMap (x => allCatch.opt {
+                    ContactInfoSpec[domain.WorkContactInfo](
+                      email = UpdateSpecImpl[String](
+                        set = utils.findFieldStr(x)("email") map (s => utils.If(s.isEmpty, None, Some(s)))),
+
+                      fax = UpdateSpecImpl[String](
+                        set = utils.findFieldStr(x)("fax") map (s => utils.If(s.isEmpty, None, Some(s)))),
+
+                      phoneNumber = UpdateSpecImpl[String](
+                        set = utils.findFieldStr(x)("phoneNumber") map (s => utils.If(s.isEmpty, None, Some(s)))))
+                  }))
+            }
+        })
+        x <- oauthService.getUser(userId)
       } yield x) match {
 
         case Some(user) =>
@@ -323,7 +313,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
       val resp = oauthService.getUsers(page)
 
       req.respond {
-        
+
         JsonContent ~>
           ResponseString(cb wrap tojson(resp))
       }
@@ -483,8 +473,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
       val params = Map(
         /* "userId" -> resourceOwner.id, // -- NOT USED YET */
         "bearerToken" -> oauth2.Token.unapply(req).get,
-        "userAgent" -> UserAgent.unapply(req).get
-      )
+        "userAgent" -> UserAgent.unapply(req).get)
 
       oauthService.getUserSession(params) match {
         case Some(session) =>
@@ -561,8 +550,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory{
 
       req.respond {
         JsonContent ~> ResponseString(
-          cb wrap s"""{"success": $resp}"""
-        )
+          cb wrap s"""{"success": $resp}""")
       }
     }
   }
@@ -576,7 +564,7 @@ trait RouteHandler extends Any {
 
   def purgeAvatar(userId: String, avatarId: String)
 
-  def uploadAvatar(userId: String, contentType: Option[String], bytes: Array[Byte])
+  def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte])
 
   // -------------------------------------------------------------------------------------------------
 
@@ -638,9 +626,9 @@ trait ServiceComponentFactory {
 trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.http.HttpServletRequest] => RouteHandler)
 
 trait Façade extends impl.OAuthServicesRepoComponentImpl
-with impl.OAuthServicesComponentImpl
-with impl.AccessControlServicesRepoComponentImpl
-with impl.AccessControlServicesComponentImpl {
+    with impl.OAuthServicesComponentImpl
+    with impl.AccessControlServicesRepoComponentImpl
+    with impl.AccessControlServicesComponentImpl {
 
   import schema._
   import domain._
@@ -658,12 +646,12 @@ with impl.AccessControlServicesComponentImpl {
 
   def drop() = db withTransaction {
     implicit session =>
-      import scala.slick.jdbc.{StaticQuery=>T}
+      import scala.slick.jdbc.{ StaticQuery => T }
 
-//        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
-//        ddl.drop
+      //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
+      //        ddl.drop
 
-//        T.updateNA("DROP EXTENSION \"uuid-ossp\";")
+      //        T.updateNA("DROP EXTENSION \"uuid-ossp\";")
 
       T.updateNA(
         """
@@ -691,20 +679,19 @@ with impl.AccessControlServicesComponentImpl {
           | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PK";
           | drop table "roles_permissions";
           | DROP EXTENSION "uuid-ossp";
-        """.stripMargin
-      ).execute()
+        """.stripMargin).execute()
   }
 
   def init(userId: java.util.UUID) = db withTransaction {
     implicit session =>
 
-      import scala.slick.jdbc.{StaticQuery=>T}
+      import scala.slick.jdbc.{ StaticQuery => T }
 
-//        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
-//          ddl.createStatements foreach (stmt => println(stmt+";"))
-//        ddl.create
+      //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
+      //          ddl.createStatements foreach (stmt => println(stmt+";"))
+      //        ddl.create
 
-//        T.updateNA("CREATE EXTENSION \"uuid-ossp\";")
+      //        T.updateNA("CREATE EXTENSION \"uuid-ossp\";")
 
       try {
         T.updateNA(
@@ -738,14 +725,12 @@ with impl.AccessControlServicesComponentImpl {
             | alter table "roles_permissions" add constraint "ROLE_PERMISSION_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
             | alter table "roles_permissions" add constraint "ROLE_PERMISSION_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete RESTRICT;
             | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PERMISSION_FK" foreign key("permission") references "permissions"("name") on update NO ACTION on delete NO ACTION;
-          """.stripMargin
-        ).execute()
+          """.stripMargin).execute()
 
         // Add a client - oadmin:oadmin
         val _1 = (OAuthClients ++= List(
           OAuthClient("oadmin", "oadmin", "http://localhost:3880/admin"),
-          OAuthClient("schola", "schola", "http://localhost:3880/schola")
-        )) == Some(2)
+          OAuthClient("schola", "schola", "http://localhost:3880/schola"))) == Some(2)
 
         //Add a user
         val _2 = (Users += SuperUser copy (password = SuperUser.password map passwords.crypt)) == 1
@@ -757,8 +742,7 @@ with impl.AccessControlServicesComponentImpl {
           Role("Role Two", Some(AdministratorR.name), System.currentTimeMillis, None),
           Role("Role Three", Some(AdministratorR.name), System.currentTimeMillis, Some(userId)),
           Role("Role Four", Some(SuperUserR.name), System.currentTimeMillis, None),
-          Role("Role X", Some("Role One"), System.currentTimeMillis, Some(userId))
-        )) == Some(7)
+          Role("Role X", Some("Role One"), System.currentTimeMillis, Some(userId)))) == Some(7)
 
         /*    val _31 = (Roles += Role("Role One", None, System.currentTimeMillis, None)) == 1
             val _32 = (Roles += Role("Role Two", None, System.currentTimeMillis, None)) == 1
@@ -779,31 +763,27 @@ with impl.AccessControlServicesComponentImpl {
           Permission("P7", "schola"),
           Permission("P8", "schola"),
           Permission("P9", "schola"),
-          Permission("P10", "schola")
-        )) == Some(10)
+          Permission("P10", "schola"))) == Some(10)
 
         val _5 = (RolesPermissions ++= List(
           RolePermission("Role One", "P1", grantedBy = None),
           RolePermission("Role One", "P2", grantedBy = Some(userId)),
           RolePermission("Role One", "P3", grantedBy = None),
           RolePermission("Role One", "P4", grantedBy = None),
-          RolePermission("Role One", "P5", grantedBy = Some(userId))
-        )) == Some(5)
+          RolePermission("Role One", "P5", grantedBy = Some(userId)))) == Some(5)
 
         val _6 = (UsersRoles ++= List(
           UserRole(userId, SuperUserR.name, grantedBy = None),
           UserRole(userId, AdministratorR.name, grantedBy = None),
-//          UserRole(userId, "Role One", grantedBy = None),
+          //          UserRole(userId, "Role One", grantedBy = None),
           UserRole(userId, "Role Three", grantedBy = Some(userId)),
-          UserRole(userId, "Role Two", grantedBy = None)
-        )) == Some(3)
+          UserRole(userId, "Role Two", grantedBy = None))) == Some(3)
 
         _1 && _2 && _3 && _4 && _5 && _6
-      }
-      catch {
+      } catch {
         case e: java.sql.SQLException =>
           var cur = e
-          while(cur ne null){
+          while (cur ne null) {
             cur.printStackTrace()
             cur = cur.getNextException
           }
@@ -816,9 +796,9 @@ with impl.AccessControlServicesComponentImpl {
 
     val userId = SuperUser.id.get
 
-//      def initialize() = init(userId)
+    //      def initialize() = init(userId)
 
-//      initialize()
+    //      initialize()
 
     println(o.getRoles)
     println(o.getUserRoles(userId.toString))

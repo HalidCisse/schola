@@ -3,7 +3,7 @@ package oadmin
 
 package impl
 
-trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent with AccessControlServicesComponent{
+trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent with AccessControlServicesComponent {
   self: impl.CacheSystemProvider =>
 
   trait CachingAccessControlServicesImpl extends AccessControlServices {
@@ -15,7 +15,7 @@ trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent
       cachingServices.get[Option[RoleLike]](Params(roleName)) { super.getRole(roleName) } flatten
 
     abstract override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) =
-      super.saveRole(name, parent, createdBy) collect{
+      super.saveRole(name, parent, createdBy) collect {
         case my =>
           cachingServices.evict(Params(my.name))
           cachingServices.evict(RoleParams)
@@ -31,19 +31,19 @@ trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent
 
     abstract override def purgeRoles(roles: Set[String]) {
       super.purgeRoles(roles)
-      roles foreach(o => cachingServices.evict(Params(o)))
+      roles foreach (o => cachingServices.evict(Params(o)))
       cachingServices.evict(RoleParams)
     }
   }
 }
 
-trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OAuthServicesComponent{
+trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OAuthServicesComponent {
   self: impl.CacheSystemProvider =>
 
   trait CachingOAuthServicesImpl extends OAuthServices {
 
     private def pageOf(id: String) = {
-      import scala.slick.jdbc.{StaticQuery=>T}
+      import scala.slick.jdbc.{ StaticQuery => T }
       import T.interpolation
 
       val page = sql""" SELECT (row_number() OVER () - 1) / $MaxResults as page FROM users WHERE id = CAST($id AS UUID); """.as[Int]
@@ -60,7 +60,7 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
       cachingServices.get[Option[UserLike]](Params(id)) { super.getUser(id) } flatten
 
     abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean) =
-      super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) collect{
+      super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) collect {
         case my =>
           cachingServices.evict(Params(my.id.get.toString))
 
@@ -90,7 +90,7 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
 
     abstract override def purgeUsers(users: Set[String]) {
       super.purgeUsers(users)
-      users foreach(o => {cachingServices.evict(Params(o)); cachingServices.evict(UserParams(page = pageOf(o)))})
+      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(page = pageOf(o))) })
     }
   }
 }
@@ -110,7 +110,7 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
 
   class CachingServicesImpl extends CachingServices {
 
-    def get[T : scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
+    def get[T: scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
       implicit val tm = Timeout(60 seconds)
 
       val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]

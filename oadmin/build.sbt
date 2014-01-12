@@ -1,3 +1,4 @@
+import scalariform.formatter.preferences._
 
 organization := "schola.oadmin"
 
@@ -5,7 +6,7 @@ name := "oadmin"
 
 version := "0.5.0-Beta"
 
-scalaVersion := "2.10.3"
+//scalaVersion := "2.10.3"
 
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -27,6 +28,26 @@ ideaExcludeFolders += ".idea_modules"
 
 // ProguardKeys.mergeStrategies in Proguard += ProguardMerge.append("reference.conf")
 
+scalariformSettings
+
+ScalariformKeys.preferences := ScalariformKeys.preferences.value
+ .setPreference(AlignParameters, true).
+  setPreference(AlignSingleLineCaseStatements, true).
+  setPreference(CompactControlReadability, false).
+  setPreference(CompactStringConcatenation, false).
+  setPreference(DoubleIndentClassDeclaration, true).
+  setPreference(FormatXml, true).
+  setPreference(IndentLocalDefs, false).
+  setPreference(IndentPackageBlocks, true).
+  setPreference(IndentSpaces, 2).
+  setPreference(MultilineScaladocCommentsStartOnFirstLine, false).
+  setPreference(PreserveSpaceBeforeArguments, false).
+  setPreference(PreserveDanglingCloseParenthesis, false).
+  setPreference(RewriteArrowSymbols, false).
+  setPreference(SpaceBeforeColon, false).
+  setPreference(SpaceInsideBrackets, false).
+  setPreference(SpacesWithinPatternBinders, true)
+
 libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "2.0.0-RC1",
   "com.typesafe" % "config" % "1.0.2"
@@ -35,7 +56,7 @@ libraryDependencies ++= Seq(
 libraryDependencies ++= Seq(
   // "com.h2database" % "h2" % "1.3.166",
   "org.postgresql" % "postgresql" % "9.3-1100-jdbc41",
-  "c3p0" % "c3p0" % "0.9.1.2"
+  "com.mchange" % "c3p0" % "0.9.5-pre6"
 )
  
 libraryDependencies ++= Seq(
@@ -56,11 +77,11 @@ libraryDependencies ++= Seq(
 // The Typesafe repository
 resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 
-resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
+// resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies ++= Seq(
-  "org.reactivemongo" %% "reactivemongo" % "0.11.0-SNAPSHOT" exclude("com.typesafe.play", "play-iteratees") exclude("com.typesafe.akka", "akka-actor"),
-  "com.typesafe.play" %% "play-iteratees" % "2.2.1"
+  "org.reactivemongo" %% "reactivemongo" % "0.10.0"//,  exclude("com.typesafe.play", "play-iteratees") exclude("com.typesafe.akka", "akka-actor"),
+  //"com.typesafe.play" %% "play-iteratees" % "2.2.1"
 )
 
 libraryDependencies ++= Seq(
@@ -68,8 +89,8 @@ libraryDependencies ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.3-M2",
-  "com.typesafe.akka" %% "akka-slf4j" % "2.3-M2"
+  "com.typesafe.akka" %% "akka-actor" % "2.2.1",
+  "com.typesafe.akka" %% "akka-slf4j" % "2.2.1"
 )
 
 libraryDependencies ++= Seq(
@@ -109,10 +130,12 @@ libraryDependencies +=  "com.sun.mail" % "javax.mail" % "1.5.1"
 
 // libraryDependencies += "net.databinder" %% "unfiltered-directives" % "0.7.1"
 
-libraryDependencies := libraryDependencies.value map(_ excludeAll(ExclusionRule(organization = "javax.mail"), ExclusionRule(organization = "org.scala-lang", name = "scala-compiler"), ExclusionRule(organization = "org.scala-lang", name = "scala-reflect"), ExclusionRule(organization = "org.scala-lang", name = "scalap"), ExclusionRule(organization = "jline", name = "jline")))
+libraryDependencies := libraryDependencies.value map(_ excludeAll(ExclusionRule(organization = "javax.mail"), ExclusionRule(organization = "jline", name = "jline")))
 
-libraryDependencies ++= Seq(
-  "org.scala-lang" % "scalap" % "2.10.3",
-  "org.scala-lang" % "scala-compiler" % "2.10.3",
-  "org.scala-lang" %% "scala-reflect" % "2.10.3"
-)
+//, ExclusionRule(organization = "org.scala-lang", name = "scala-compiler"), ExclusionRule(organization = "org.scala-lang", name = "scala-reflect"), ExclusionRule(organization = "org.scala-lang", name = "scalap")))
+
+//libraryDependencies ++= Seq(
+//  "org.scala-lang" % "scalap" % "2.10.3",
+ // "org.scala-lang" % "scala-compiler" % "2.10.3",
+  //"org.scala-lang" % "scala-reflect" % "2.10.3"
+//)

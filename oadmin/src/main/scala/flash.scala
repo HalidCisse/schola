@@ -2,7 +2,7 @@ package schola
 package oadmin
 package libs
 
-import java.net.{URLEncoder,  URLDecoder}
+import java.net.{ URLEncoder, URLDecoder }
 
 import scala.util.control.NonFatal
 
@@ -104,7 +104,7 @@ trait CookieBaker[T <: AnyRef] {
         else
           Map.empty[String, String]
       } else urldecode(data)
-    } catch {// fail gracefully is the session cookie is corrupted
+    } catch { // fail gracefully is the session cookie is corrupted
       case NonFatal(_) => Map.empty[String, String]
     }
   }
@@ -126,7 +126,7 @@ trait CookieBaker[T <: AnyRef] {
     cookie.filter(_.name == COOKIE_NAME).map(c => deserialize(decode(c.value))).getOrElse(emptyCookie)
   }
 
-//  def discard = DiscardingCookie(COOKIE_NAME, path, domain, secure)
+  //  def discard = DiscardingCookie(COOKIE_NAME, path, domain, secure)
 
   /**
    * Builds the cookie object from the given data map.

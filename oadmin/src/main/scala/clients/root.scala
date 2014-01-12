@@ -2,7 +2,7 @@ package schola
 package oadmin
 package clients
 
-trait Root { self : Plans =>
+trait Root { self: Plans =>
 
   import f.simple._
 
@@ -15,7 +15,7 @@ trait Root { self : Plans =>
 
   import scala.util.control.Exception.allCatch
 
-  import unfiltered.filter.request.{MultiPart, MultiPartParams}
+  import unfiltered.filter.request.{ MultiPart, MultiPartParams }
 
   import libs.Flash
 
@@ -27,7 +27,7 @@ trait Root { self : Plans =>
   }
 
   object Username
-    extends Params.Extract("username", Params.first ~> Params.nonempty ~> Params.trimmed/* ~> Params.pred(EmailValidator.getInstance.isValid)*/)
+    extends Params.Extract("username", Params.first ~> Params.nonempty ~> Params.trimmed /* ~> Params.pred(EmailValidator.getInstance.isValid)*/ )
 
   object Passwd extends Params.Extract("password", Params.first ~> Params.nonempty ~> Params.trimmed)
 
@@ -35,7 +35,7 @@ trait Root { self : Plans =>
 
   object SessionKey {
     def unapply[T](req: HttpRequest[T]) =
-      Cookies.unapply(req) flatMap (_(SESSION_KEY) flatMap (c=>utils.Crypto.extractSignedToken(c.value)))
+      Cookies.unapply(req) flatMap (_(SESSION_KEY) flatMap (c => utils.Crypto.extractSignedToken(c.value)))
   }
 
   val / = (hostname: String, port: Int) => {
@@ -48,7 +48,7 @@ trait Root { self : Plans =>
         allCatch.opt {
           (Username.unapply(params).get,
             Passwd.unapply(params).get,
-              params("remember_me") exists(_ == "remember-me"))
+            params("remember_me") exists (_ == "remember-me"))
         }
     }
 
@@ -62,13 +62,13 @@ trait Root { self : Plans =>
 
     object ReCaptcha {
       val PublicKey = config.getString("recaptcha.public-key")
-      
+
       val PrivateKey = config.getString("recaptcha.private-key")
-      
+
       def unapply(params: Map[String, Seq[String]]) =
         allCatch.opt(
           params("recaptcha_challenge_field")(0),
-            params("recaptcha_response_field")(0))
+          params("recaptcha_response_field")(0))
     }
 
     val localhost = host(hostname, port)
@@ -78,26 +78,25 @@ trait Root { self : Plans =>
 
     val client = domain.OAuthClient(
       "oadmin", "oadmin",
-      f"http://$hostname:${port}%d"
-    )
+      f"http://$hostname:${port}%d")
 
     // --------------------------------------------------------------------------------------------------------------
 
-    implicit class WithFlash(rf: unfiltered.response.ResponseFunction[javax.servlet.http.HttpServletResponse]) {      
-      def flashing(flash: Flash)  =
+    implicit class WithFlash(rf: unfiltered.response.ResponseFunction[javax.servlet.http.HttpServletResponse]) {
+      def flashing(flash: Flash) =
         SetCookies(Flash.encodeAsCookie(flash)) ~> rf
 
       def flashing(values: (String, String)*): unfiltered.response.ResponseFunction[javax.servlet.http.HttpServletResponse] = flashing(Flash(values.toMap))
     }
 
-
     def Logout[B, C](req: HttpRequest[B] with unfiltered.Async.Responder[C], s: oauthService.SessionLike, userAgent: String) {
       withMac(req, s, "GET", s"/api/$API_VERSION/logout", userAgent) {
         auth =>
 
-          for (_ <- xHttp(
-            api / "logout" <:< auth
-          ).either) {
+          for (
+            _ <- xHttp(
+              api / "logout" <:< auth).either
+          ) {
 
             req.respond(
               SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
@@ -115,25 +114,25 @@ trait Root { self : Plans =>
         oauthService.getUserSession(
           Map(
             "bearerToken" -> sessionKey,
-            "userAgent" -> userAgent)
-        )
+            "userAgent" -> userAgent))
 
       def isExpired(s: oauthService.SessionLike) = s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
 
       session match {
 
-        case o@Some(s) =>
+        case o @ Some(s) =>
 
           if (isExpired(s)) {
 
             if (s.refresh.isDefined) {
 
-              for (e <- xHttp(token << Map(
-                "grant_type" -> "refresh_token",
-                "client_id" -> client.id,
-                "client_secret" -> client.secret,
-                "refresh_token" -> s.refresh.get
-              ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
+              for (
+                e <- xHttp(token << Map(
+                  "grant_type" -> "refresh_token",
+                  "client_id" -> client.id,
+                  "client_secret" -> client.secret,
+                  "refresh_token" -> s.refresh.get) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either
+              ) {
 
                 e.fold(
                   msg => fn(Right(None)),
@@ -142,7 +141,7 @@ trait Root { self : Plans =>
                     def findVal(field: String) =
                       info findField {
                         case org.json4s.JField(`field`, _) => true
-                        case _ => false
+                        case _                             => false
                       } collect {
                         case org.json4s.JField(_, org.json4s.JString(st)) => st
                       }
@@ -156,18 +155,12 @@ trait Root { self : Plans =>
                         SESSION_KEY,
                         utils.Crypto.signToken(ss.key),
                         maxAge = if (rememberMe) ss.refreshExpiresIn map (_.toInt) else None,
-                        httpOnly = true
-                      )), ss))
-                  }
-                )
+                        httpOnly = true)), ss))
+                  })
               }
-            }
+            } else Logout(req, s, userAgent)
 
-            else Logout(req, s, userAgent)
-
-          }
-
-          else fn(Right(o))
+          } else fn(Right(o))
 
         case _ => fn(Right(None))
       }
@@ -187,8 +180,7 @@ trait Root { self : Plans =>
 
           val auth = Map(
             "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
-            "User-Agent" -> userAgent
-          )
+            "User-Agent" -> userAgent)
 
           f(auth)
       })
@@ -196,13 +188,14 @@ trait Root { self : Plans =>
 
     def Login[T](username: String, passwd: String, userAgent: String)(fn: Either[Throwable, oauthService.SessionLike] => T) {
 
-      for (e <- xHttp(token << Map(
-        "grant_type" -> "password",
-        "client_id" -> client.id,
-        "client_secret" -> client.secret,
-        "username" -> username,
-        "password" -> passwd
-      ) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either) {
+      for (
+        e <- xHttp(token << Map(
+          "grant_type" -> "password",
+          "client_id" -> client.id,
+          "client_secret" -> client.secret,
+          "username" -> username,
+          "password" -> passwd) <:< Map("User-Agent" -> userAgent) OK as.json4s.Json).either
+      ) {
 
         e.fold(
           res => fn(Left(res)),
@@ -211,7 +204,7 @@ trait Root { self : Plans =>
             def findVal(field: String) =
               info findField {
                 case org.json4s.JField(`field`, _) => true
-                case _ => false
+                case _                             => false
               } collect {
                 case org.json4s.JField(_, org.json4s.JString(s)) => s
               }
@@ -220,14 +213,13 @@ trait Root { self : Plans =>
             val session = oauthService.getUserSession(Map("bearerToken" -> key, "userAgent" -> userAgent))
 
             fn(Right(session.get))
-          }
-        )
+          })
       }
     }
 
     val gCapcha = url("http://www.google.com/recaptcha/api/verify")
 
-    def reCaptchaVerify[T, Rq<:javax.servlet.http.HttpServletRequest, Rp<:javax.servlet.http.HttpServletResponse](req: HttpRequest[Rq] with unfiltered.Async.Responder[Rp], challenge: String, response: String, remoteAddr: String)(onSuccess: => T) {
+    def reCaptchaVerify[T, Rq <: javax.servlet.http.HttpServletRequest, Rp <: javax.servlet.http.HttpServletResponse](req: HttpRequest[Rq] with unfiltered.Async.Responder[Rp], challenge: String, response: String, remoteAddr: String)(onSuccess: => T) {
       val params = Map(
         "challenge" -> challenge,
         "response" -> response,
@@ -240,15 +232,16 @@ trait Root { self : Plans =>
       }
 
       def onError() =
-        req.respond(Redirect("/LostPasswd") flashing("error" -> "T", "Msg" -> "Invalid captcha."))
+        req.respond(Redirect("/LostPasswd") flashing ("error" -> "T", "Msg" -> "Invalid captcha."))
 
-      for(e <- xHttp(
-        gCapcha << params OK as.String).either) {
+      for (
+        e <- xHttp(
+          gCapcha << params OK as.String).either
+      ) {
 
         e.fold(
           _ => onError(),
-          msg => if(isSuccess(msg)) onSuccess else onError()
-        )
+          msg => if (isSuccess(msg)) onSuccess else onError())
       }
     }
 
@@ -257,7 +250,7 @@ trait Root { self : Plans =>
       case UserAgent(uA) & req =>
 
         object LoginP
-          extends Params.Extract("login", Params.first ~> Params.nonempty ~> Params.trimmed/* ~> Params.pred(EmailValidator.getInstance.isValid)*/)
+          extends Params.Extract("login", Params.first ~> Params.nonempty ~> Params.trimmed /* ~> Params.pred(EmailValidator.getInstance.isValid)*/ )
 
         object Key
           extends Params.Extract("key", Params.first ~> Params.nonempty ~> Params.trimmed)
@@ -293,21 +286,21 @@ trait Root { self : Plans =>
 
                     req.respond(session map {
                       s =>
-                        if (s.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing("forcePasswdChange" -> "T")
+                        if (s.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing ("forcePasswdChange" -> "T")
                         else utils.Scalate(req, "index.jade", "session" -> s)
                     } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
 
                   case Left((rf, session)) =>
 
                     req.respond(
-                      rf ~> (if (session.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing("forcePasswdChange" -> "T")
+                      rf ~> (if (session.user.changePasswordAtNextLogin) Redirect("/ChangePasswd") flashing ("forcePasswdChange" -> "T")
                       else utils.Scalate(req, "index.jade", "session" -> session)))
                 }
 
               case GET(ContextPath(_, "/Avatar")) => // TODO: implement Cache & If-Not-Modified
 
                 def getAvatar(user: oauthService.UserLike) =
-                  for(avatarId <- user.avatar) {
+                  for (avatarId <- user.avatar) {
                     oauthService.getAvatar(avatarId) onComplete {
                       case scala.util.Success((contentType, data)) =>
 
@@ -317,12 +310,7 @@ trait Root { self : Plans =>
 
                       case _ =>
 
-                        req.respond {
-
-                          CharContentType("image/png") ~> (if(user.gender eq domain.Gender.Male)
-                            ResponseString(DefaultAvatars.M)
-                          else ResponseString(DefaultAvatars.F))
-                       }
+                        req.respond(NotFound)
                     }
                   }
 
@@ -339,24 +327,24 @@ trait Root { self : Plans =>
                 }
 
               case DELETE(ContextPath(_, "/Avatar")) & Jsonp.Optional(cb) =>
-                
+
                 def RESP(success: Boolean = true) = JsonContent ~> ResponseString(cb wrap s"""{"success": $success}""")
 
-                def PurgeAvatar[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+                def PurgeAvatar[B <: javax.servlet.http.HttpServletRequest, C <: javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C] => unfiltered.response.ResponseFunction[C]) {
 
                   withMac(req, session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatar/${session.user.avatar.getOrElse("")}", uA) {
-                    auth => 
+                    auth =>
 
-                    for(e <- xHttp(
-                      api.DELETE / "user" / session.user.id.get.toString / "avatar" / session.user.avatar.getOrElse("") <:< auth
-                      ).either) {
+                      for (
+                        e <- xHttp(
+                          api.DELETE / "user" / session.user.id.get.toString / "avatar" / session.user.avatar.getOrElse("") <:< auth).either
+                      ) {
 
                         req.respond {
                           fn {
                             e.fold(
                               _ => RESP(success = false),
-                              ryt => utils.If(ryt.getStatusCode == 200, RESP(), RESP(success = false))
-                            )
+                              ryt => utils.If(ryt.getStatusCode == 200, RESP(), RESP(success = false)))
                           }
                         }
                       }
@@ -380,38 +368,38 @@ trait Root { self : Plans =>
                       xrf => rf ~> xrf
                     }
                 }
-                  
+
               case POST(ContextPath(_, "/Avatar")) & MultiPart(_) & Jsonp.Optional(cb) =>
 
                 def RESP(success: Boolean = true) = JsonContent ~> ResponseString(cb wrap s"""{"success": $success}""")
 
-                def AddAvatar[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+                def AddAvatar[B <: javax.servlet.http.HttpServletRequest, C <: javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C] => unfiltered.response.ResponseFunction[C]) {
 
                   MultiPartParams.Disk(req).files("f") match {
-                    case Seq(fp, _*) =>                      
+                    case Seq(fp, _*) =>
 
                       fp.write(java.io.File.createTempFile("OAdmin-", s"-avatar_${session.user.id.get}")).fold(req.respond {
                         fn(RESP(success = false))
                       }) {
                         fs =>
 
-                        withMac(req, session, "POST", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatars", uA) {
-                          auth => 
+                          withMac(req, session, "POST", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatars", uA) {
+                            auth =>
 
-                          for(e <- xHttp(
-                            api.POST / "user" / session.user.id.get.toString / "avatars" <:< auth addBodyPart new com.ning.http.multipart.FilePart("f", fs, fp.contentType, "UTF-8")
-                            ).either) {
+                              for (
+                                e <- xHttp(
+                                  api.POST / "user" / session.user.id.get.toString / "avatars" <:< auth addBodyPart new com.ning.http.multipart.FilePart("f", fs, fp.contentType, "UTF-8")).either
+                              ) {
 
-                              req.respond {
-                                fn {
-                                  e.fold(
-                                    _ => RESP(success = false),
-                                    ryt => utils.If(ryt.getStatusCode == 200, RESP(), RESP(success = false))
-                                  )
+                                req.respond {
+                                  fn {
+                                    e.fold(
+                                      _ => RESP(success = false),
+                                      ryt => utils.If(ryt.getStatusCode == 200, RESP(), RESP(success = false)))
+                                  }
                                 }
                               }
-                            }
-                        }
+                          }
                       }
 
                     case _ => req.respond(fn(RESP(success = false)))
@@ -446,7 +434,6 @@ trait Root { self : Plans =>
                         utils.Scalate(req, "editprofile.jade", "editPrimaryEmail" -> s.hasRole(domain.R.AdministratorR.name), "profile" -> s.user)
                     } getOrElse (SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/")))
 
-
                   case Left((rf, session)) =>
 
                     req.respond(
@@ -457,7 +444,7 @@ trait Root { self : Plans =>
 
                 import domain.U.Params._
 
-                def EditAccount[B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+                def EditAccount[B <: javax.servlet.http.HttpServletRequest, C <: javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C] => unfiltered.response.ResponseFunction[C]) {
                   import org.json4s._
                   import org.json4s.JsonDSL._
                   import org.json4s.native.JsonMethods._
@@ -465,44 +452,44 @@ trait Root { self : Plans =>
                   val param = {
                     val mData = Params.unapply(req).get
 
-                    def cleaned(k: Seq[String]) = if(k.isEmpty) None else Some(k(0).trim)
+                    def cleaned(k: Seq[String]) = if (k.isEmpty) None else Some(k(0).trim)
 
-                    (aKey: String) => 
+                    (aKey: String) =>
                       cleaned(mData(aKey))
                   }
 
                   def read(ps: List[(String, String)]) =
                     (JObject() /: ps) {
-                      case (js, (p, aKey)) => param(p) map(v => (aKey, v) ~ js) getOrElse js
+                      case (js, (p, aKey)) => param(p) map (v => (aKey, v) ~ js) getOrElse js
                     }
 
                   val dft =
                     (JObject() /: DParams) {
-                      case (js, p) => param(p) map(v => if(p.contains("password") && v.isEmpty) js else (p, v) ~ js) getOrElse js
+                      case (js, p) => param(p) map (v => if (p.contains("password") && v.isEmpty) js else (p, v) ~ js) getOrElse js
                     }
 
-                  val jsonInfo = 
+                  val jsonInfo =
                     dft ~
-                    ("homeAddress" -> read(HomeAddressParams)) ~
-                    ("workAddress" -> read(WorkAddressParams)) ~
-                    ("contacts" -> (
-                      ("work" -> read(WorkContactParams)) ~ 
-                        ("home" -> read(HomeContactParams)) ~ 
-                          ("mobiles" -> (
-                            ("mobile1" -> read(Mobile1ContactParams)) ~ 
-                              ("mobile2" -> read(Mobile2ContactParams))))))
+                      ("homeAddress" -> read(HomeAddressParams)) ~
+                      ("workAddress" -> read(WorkAddressParams)) ~
+                      ("contacts" -> (
+                        ("work" -> read(WorkContactParams)) ~
+                        ("home" -> read(HomeContactParams)) ~
+                        ("mobiles" -> (
+                          ("mobile1" -> read(Mobile1ContactParams)) ~
+                          ("mobile2" -> read(Mobile2ContactParams))))))
 
                   withMac(req, session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}", uA) {
                     auth =>
 
-                      for (e <- xHttp(
-                          api.PUT / "user" / session.user.id.get.toString << compact(render(jsonInfo)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
-                        ).either) {
+                      for (
+                        e <- xHttp(
+                          api.PUT / "user" / session.user.id.get.toString << compact(render(jsonInfo)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")).either
+                      ) {
 
                         req.respond(fn(e.fold(
-                          _ => Redirect("/EditAccount") flashing("error" -> "T"),
-                          ryt => utils.If(ryt.getStatusCode == 200, Redirect("/") flashing("success" -> "T", "Msg" -> "Account updated."), Redirect("/EditAccount") flashing("error" -> "T"))
-                        )))
+                          _ => Redirect("/EditAccount") flashing ("error" -> "T"),
+                          ryt => utils.If(ryt.getStatusCode == 200, Redirect("/") flashing ("success" -> "T", "Msg" -> "Account updated."), Redirect("/EditAccount") flashing ("error" -> "T")))))
                       }
                   }
                 }
@@ -532,21 +519,21 @@ trait Root { self : Plans =>
 
               case POST(ContextPath(_, "/ChangePasswd")) & Params(Passwds(passwd, newPasswd)) =>
 
-                def ChangePasswd[T, B<:javax.servlet.http.HttpServletRequest, C<:javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C]=> unfiltered.response.ResponseFunction[C]) {
+                def ChangePasswd[T, B <: javax.servlet.http.HttpServletRequest, C <: javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C] => unfiltered.response.ResponseFunction[C]) {
                   withMac(req, session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}", uA) {
                     auth =>
 
                       import conversions.json.tojson
                       import org.json4s.JsonDSL._
 
-                      for (e <- xHttp(
-                        api.PUT / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")
-                      ).either) {
+                      for (
+                        e <- xHttp(
+                          api.PUT / "user" / session.user.id.get.toString << tojson(("old_password" -> passwd) ~ ("password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8")).either
+                      ) {
 
                         req.respond(fn(e.fold(
-                          _ => Redirect("/ChangePasswd") flashing("error" -> "T"), // utils.Scalate(req, "changepasswd.jade", "error" -> true),
-                          ryt => utils.If(ryt.getStatusCode == 200, Redirect("/") flashing("success" -> "T", "Msg" -> "Password changed."), Redirect("/ChangePasswd") flashing("error" -> "T"))
-                        )))
+                          _ => Redirect("/ChangePasswd") flashing ("error" -> "T"), // utils.Scalate(req, "changepasswd.jade", "error" -> true),
+                          ryt => utils.If(ryt.getStatusCode == 200, Redirect("/") flashing ("success" -> "T", "Msg" -> "Password changed."), Redirect("/ChangePasswd") flashing ("error" -> "T")))))
                       }
                   }
                 }
@@ -575,15 +562,14 @@ trait Root { self : Plans =>
                 oauthService.getUserSession(
                   Map(
                     "bearerToken" -> key,
-                    "userAgent" -> uA)
-                ) match {
-                  case Some(s) =>
-                    Logout(req, s, uA)
+                    "userAgent" -> uA)) match {
+                    case Some(s) =>
+                      Logout(req, s, uA)
 
-                  case _ =>
-                    req.respond(
-                      SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
-                }
+                    case _ =>
+                      req.respond(
+                        SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
+                  }
 
               case _ => req.respond(Redirect("/"))
             }
@@ -598,7 +584,7 @@ trait Root { self : Plans =>
 
             Login(username, passwd, uA) {
               case Left(_) =>
-                req.respond(Redirect("/Login") flashing("error" -> "T", "rememberMe" -> (if(rememberMe) "T" else "F")))
+                req.respond(Redirect("/Login") flashing ("error" -> "T", "rememberMe" -> (if (rememberMe) "T" else "F")))
 
               case Right(session) =>
 
@@ -607,28 +593,22 @@ trait Root { self : Plans =>
 
                     for {
                       e <- xHttp(
-                        api / "session" <:< auth
-                      ).either
+                        api / "session" <:< auth).either
                     } {
                       req.respond(e.fold(
-                        _ => Redirect("/Login") flashing("error" -> "T", "rememberMe" -> (if(rememberMe) "T" else "F")), // utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe),
-                        ryt => 
+                        _ => Redirect("/Login") flashing ("error" -> "T", "rememberMe" -> (if (rememberMe) "T" else "F")), // utils.Scalate(req, "login.jade", "error" -> true, "rememberMe" -> rememberMe),
+                        ryt =>
                           utils.If(
-                            ryt.getStatusCode == 200, 
-                            
+                            ryt.getStatusCode == 200,
+
                             SetCookies(
                               unfiltered.Cookie(
                                 SESSION_KEY,
                                 utils.Crypto.signToken(session.key),
                                 maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
-                                httpOnly = true
-                              ), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */), httpOnly = true)
-                            ) ~> Flash.discard ~> Redirect("/"),
+                                httpOnly = true), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */ ), httpOnly = true)) ~> Flash.discard ~> Redirect("/"),
 
-                            Redirect("/Login") flashing("error" -> "T", "rememberMe" -> (if(rememberMe) "T" else "F"))
-                          )
-                        )
-                      )
+                            Redirect("/Login") flashing ("error" -> "T", "rememberMe" -> (if (rememberMe) "T" else "F")))))
                     }
                 }
             }
@@ -636,20 +616,20 @@ trait Root { self : Plans =>
           case GET(ContextPath(_, "/RstPasswd")) & Params(LoginP(login) & Key(ky)) =>
 
             req.respond {
-              if(oauthService.checkActivationReq(login, ky))
+              if (oauthService.checkActivationReq(login, ky))
                 utils.Scalate(req, "rstpasswd.jade", "login" -> login, "key" -> ky)
-              else Redirect("/") flashing("error" -> "T", "Msg" -> "Invalid request.")
+              else Redirect("/") flashing ("error" -> "T", "Msg" -> "Invalid request.")
             }
 
           case POST(ContextPath(_, "/RstPasswd")) & Params(LoginP(login) & Key(ky) & NewPasswd(newPasswd)) =>
 
             req.respond {
 
-              if(oauthService.checkActivationReq(login, ky))
-                if(oauthService.changePasswd(login, ky, newPasswd)) Redirect("/Login") flashing("success" -> "T", "Msg" -> "Password updated.")
-                else Redirect("/RstPasswd") flashing("error" -> "T")
+              if (oauthService.checkActivationReq(login, ky))
+                if (oauthService.changePasswd(login, ky, newPasswd)) Redirect("/Login") flashing ("success" -> "T", "Msg" -> "Password updated.")
+                else Redirect("/RstPasswd") flashing ("error" -> "T")
 
-              else Redirect("/RstPasswd") flashing("error" -> "T")
+              else Redirect("/RstPasswd") flashing ("error" -> "T")
             }
 
           case GET(ContextPath(_, "/LostPasswd")) =>
@@ -665,9 +645,9 @@ trait Root { self : Plans =>
 
                 try {
                   oauthService.createPasswdResetReq(username)
-                  Redirect("/") flashing("success" -> "T", "Msg" -> "Your request has been sent. Please check your email.")
+                  Redirect("/") flashing ("success" -> "T", "Msg" -> "Your request has been sent. Please check your email.")
                 } catch {
-                  case _: Throwable => Redirect("/LostPasswd") flashing("error" -> "T")
+                  case _: Throwable => Redirect("/LostPasswd") flashing ("error" -> "T")
                 }
               }
             }

@@ -1,19 +1,20 @@
 package schola
+package oadmin
 
-package object oadmin {
-  import com.typesafe.config._  
-
-  lazy val system = akka.actor.ActorSystem("OAdminActorSystem")
-
-  lazy val avatars = system.actorOf(
-    akka.actor.Props(classOf[utils.Avatars], new MongoDBSettings(config getConfig "mongodb")), name = "avatars")
-
-  val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
+object `package` {
+  import com.typesafe.config._
+  import akka.actor.{ ActorSystem, Props }
 
   val config = {
     val root = ConfigFactory.load()
     root getConfig "oadmin"
   }
+
+  val system = ActorSystem("OAdminActorSystem")
+
+  val avatars = system.actorOf(Props(new utils.Avatars(new MongoDBSettings(config getConfig "mongodb"))), name = "avatars")
+
+  val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
   val MaxResults = 50
 
@@ -39,17 +40,8 @@ package object oadmin {
   val MACAlgorithm = config.getString("oauth2.mac-algorithm")
 
   class MongoDBSettings(config: Config) {
-    val Host           = config.getString("host")
-    val Database      = config.getString("db")
-  }
-
-  val DefaultAvatars = new {
-    import com.owtelse.codec.Base64
-    import java.nio.file.{Files, Paths}
-
-    val M = Base64.encode(Files.readAllBytes(Paths.get(getClass.getResource(config.getString("avatars.male")).toURI)))
-
-    val F = Base64.encode(Files.readAllBytes(Paths.get(getClass.getResource(config.getString("avatars.female")).toURI)))
+    val Host = config.getString("host")
+    val Database = config.getString("db")
   }
 
   val S = Façade.simple
