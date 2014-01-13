@@ -305,7 +305,7 @@ trait Root { self: Plans =>
                       case scala.util.Success((contentType, data)) =>
 
                         req.respond {
-                          CharContentType(contentType getOrElse "application/octet-stream") ~> ResponseString(data)
+                          CharContentType(contentType getOrElse "application/octet-stream; charset=UTF-8") ~> ResponseBytes(data)
                         }
 
                       case _ =>
@@ -332,12 +332,12 @@ trait Root { self: Plans =>
 
                 def PurgeAvatar[B <: javax.servlet.http.HttpServletRequest, C <: javax.servlet.http.HttpServletResponse](req: HttpRequest[B] with unfiltered.Async.Responder[C], session: oauthService.SessionLike)(fn: unfiltered.response.ResponseFunction[C] => unfiltered.response.ResponseFunction[C]) {
 
-                  withMac(req, session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatar/${session.user.avatar.getOrElse("")}", uA) {
+                  withMac(req, session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatars/${session.user.avatar.getOrElse("")}", uA) {
                     auth =>
 
                       for (
                         e <- xHttp(
-                          api.DELETE / "user" / session.user.id.get.toString / "avatar" / session.user.avatar.getOrElse("") <:< auth).either
+                          api.DELETE / "user" / session.user.id.get.toString / "avatars" / session.user.avatar.getOrElse("") <:< auth).either
                       ) {
 
                         req.respond {

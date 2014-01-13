@@ -98,7 +98,7 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
   import akka.pattern._
   import scala.concurrent.duration._
 
-  implicit val ec = system.dispatcher
+  import context.dispatcher
 
   import reactivemongo._, bson._, api._, gridfs._, Implicits.DefaultReadFileReader
 
@@ -141,10 +141,10 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
 
       for {
         bytes <- en run Iteratee.consume[Array[Byte]]()
-      } yield (f.contentType, com.owtelse.codec.Base64.encode(bytes))
-    }
+      } yield (f.contentType, bytes)
+    } pipeTo listener
 
-  } pipeTo listener
+  }
 
   def receive = {
     case Avatars.Save(filename, contentType, fdata) =>
@@ -192,15 +192,19 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
 
   override def postStop() {
     import scala.concurrent._, duration._
-    import context.dispatcher
+    import system.dispatcher
+
+    import helper._
 
     log.info("ReactiveMongo stops, closing connections...")
 
-    val fq = helper.connection.askClose()(10 seconds)
+    val fq = connection.askClose()(10 seconds)
 
     fq.onComplete {
       case ex =>
         log.info("ReactiveMongo Connections stopped. [" + ex + "]")
+
+        driver.close()
     }
 
     Await.ready(fq, 10 seconds)
@@ -418,7 +422,7 @@ object Crypto {
     (password: String) => {
       val spec = new PBEKeySpec(password.toCharArray, utils.randomBytes(16), rounds, size)
       val keys = SecretKeyFactory.getInstance(alg)
-      val key  = keys.generateSecret(spec)
+      val key = keys.generateSecret(spec)
       Hex.toHexString(key.getEncoded)
     }
   }

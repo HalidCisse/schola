@@ -87,7 +87,26 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
       type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender.Value, Option[domain.AddressInfo], Option[domain.AddressInfo], domain.Contacts, Option[String], Boolean)
 
-      sql""" select x2.x3, x2.x4, x2.x5, x2.x6, x2.x7, x2.x8, x2.x9, x2.x10, x2.x11, x2.x12, x2.x13, x2.x14, x2.x15, x2.x16, x2.x17 from (select x18."id" as x3, x18."primary_email" as x4, x18."given_name" as x5, x18."family_name" as x6, x18."created_at" as x7, x18."created_by" as x8, x18."last_login_time" as x9, x18."last_modified_at" as x10, x18."last_modified_by" as x11, x18."gender" as x12, x18."home_address" as x13, x18."work_address" as x14, x18."contacts" as x15, x18."avatar" as x16, x18."change_password_at_next_login" as x17 from "users" x18 where not x18."_deleted" limit $MaxResults offset ${page * MaxResults}) x2 """.as[Result]
+      sql""" select
+               x2.x3, x2.x4, x2.x5, x2.x6, x2.x7, x2.x8, x2.x9, x2.x10, x2.x11, x2.x12, x2.x13, x2.x14, x2.x15, x2.x16, x2.x17
+             from (
+                select x18."id" as x3,
+                       x18."primary_email" as x4,
+                       x18."given_name" as x5,
+                       x18."family_name" as x6,
+                       x18."created_at" as x7,
+                       x18."created_by" as x8,
+                       x18."last_login_time" as x9,
+                       x18."last_modified_at" as x10,
+                       x18."last_modified_by" as x11,
+                       x18."gender" as x12,
+                       x18."home_address" as x13,
+                       x18."work_address" as x14,
+                       x18."contacts" as x15,
+                       x18."avatar" as x16,
+                       x18."change_password_at_next_login" as x17
+                from "users" x18 where not x18."_deleted" limit $MaxResults offset ${page * MaxResults}
+             ) x2 """.as[Result]
     }
 
     val trashedUsers = Compiled(for {
@@ -749,9 +768,9 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       import scala.util.control.Exception.allCatch
       import scala.concurrent.Await
 
-      implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
+      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
 
-      (avatars ? utils.Avatars.Get(id)).mapTo[(Option[String], String)]
+      (avatars ? utils.Avatars.Get(id)).mapTo[(Option[String], Array[Byte])]
     }
 
     def primaryEmailExists(primaryEmail: String) = {

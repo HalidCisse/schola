@@ -88,12 +88,12 @@ object Façade extends ServiceComponentFactory with HandlerFactory {
             JsonContent ~>
               ResponseString(
                 cb wrap tojson(
-                  ("contentType" -> contentType.getOrElse("application/octet-stream")) ~
-                    ("data" -> data) ~
+                  ("contentType" -> contentType.getOrElse("application/octet-stream; charset=UTF-8")) ~
+                    ("data" -> com.owtelse.codec.Base64.encode(data)) ~
                     ("base64" -> true)))
           }
 
-        case _ =>
+        case x =>
 
           req.respond(NotFound)
       }

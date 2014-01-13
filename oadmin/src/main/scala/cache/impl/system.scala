@@ -18,7 +18,7 @@ object CacheSystem {
 
 }
 
-class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system: ActorSystem = system) {
+class CacheSystem(val TTL: Int, updateIntervalMin: Int = 30)(implicit system: ActorSystem = system) {
 
   import CacheSystem._
   import CacheActor._
@@ -50,7 +50,7 @@ class CacheSystem(val maxTTL: Int, updateIntervalMin: Int = 30)(implicit system:
     val obj = default()
 
     if (obj != None) {
-      Cache.set(key, obj, maxTTL)
+      Cache.set(key, obj, TTL)
       Some(obj)
     } else None
   }

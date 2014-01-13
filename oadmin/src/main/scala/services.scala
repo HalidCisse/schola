@@ -99,7 +99,7 @@ trait OAuthServicesComponent {
 
     def updateUser(id: String, spec: utils.UserSpec): Boolean
 
-    def getAvatar(id: String): scala.concurrent.Future[(Option[String], String)]
+    def getAvatar(id: String): scala.concurrent.Future[(Option[String], Array[Byte])]
 
     def primaryEmailExists(email: String): Boolean
 
@@ -152,7 +152,7 @@ trait OAuthServicesRepoComponent {
 
     def updateUser(id: String, spec: utils.UserSpec): Boolean
 
-    def getAvatar(id: String): scala.concurrent.Future[(Option[String], String)]
+    def getAvatar(id: String): scala.concurrent.Future[(Option[String], Array[Byte])]
 
     def primaryEmailExists(email: String): Boolean
 

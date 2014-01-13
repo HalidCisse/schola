@@ -235,7 +235,7 @@ html(lang='en')
             avatarImg.src = '/Avatar';
 
             avatarImg.onerror = function() {
-              //- $avatar[0].src = defaultAvatarUrl;
+              $avatar[0].src = defaultAvatarUrl;
             };
 
             avatarImg.onload = function(){
@@ -248,7 +248,7 @@ html(lang='en')
           loadAvatar();
 
         $('a.edit').click(function(){
-          var $f = $("<input type=file id=f name=f class=hidden />");
+          var $f = $("<input type=file id=f name=f class=hidden accept='image/*' />");
           $f.change(function(){
             var f = this.files[0];
 
@@ -276,10 +276,13 @@ html(lang='en')
                     return;
                   }
 
-                  reader.onload = function(evt) {
-                    // f.size
-                    $avatar[0].src = evt.target.result;
-                  };
+                  if(reader.readyState == FileReader.DONE)
+                    $avatar[0].src = reader.result;
+                  else
+                    reader.onload = function(evt) {
+                      // f.size
+                      $avatar[0].src = evt.target.result;
+                    };
                   
                   INFO("Profile image uploaded.", "Success!");
                 })
@@ -313,8 +316,7 @@ html(lang='en')
           $f.click();
         });
         
-        $('a.purge').click(function(){
-          $avatar[0].src = defaultAvatarUrl;
+        $('a.purge').click(function(){          
 
           $.ajax({
             type:"DELETE",
@@ -322,8 +324,10 @@ html(lang='en')
             dataType: 'json'
           })
           .done(function(msg) {
-              if(msg.success)
+              if(msg.success) {
+                $avatar[0].src = defaultAvatarUrl;
                 INFO("Profile image deleted.", "Success!");
+              }
               else 
                 ERROR("Delete failed.", 'Error!');
           })
