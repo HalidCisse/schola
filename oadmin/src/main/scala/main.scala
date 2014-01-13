@@ -48,7 +48,7 @@ object main extends App {
   log.info("Press any key to stop server . . .")
   System.in.read()
 
-  Cache.clearAll()
+  // Cache.clearAll()
 
   system.shutdown()
   system.awaitTermination()

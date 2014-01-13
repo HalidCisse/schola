@@ -1,21 +1,7 @@
-.navbar-form {
-  width: 500px;
-}
-.page-header {
-  border-bottom: none;
-}
-.container .text-muted {
-  margin: 20px 0;
-}
-footer {
-  position: fixed;
-  bottom: 10px;
-  left: 38px;
-  color: #999;
-}
-#msg {
-  position: absolute;
-  left: 300px;
-  top: 70px;
-  display: none;
-}
+body{padding-top:50px}
+.navbar-form{width:500px}
+.page-header{border-bottom:none}
+.container .text-muted{margin:20px 0}
+footer{position:fixed;bottom:10px;left:38px;color:#999}
+#msg{position:absolute;left:300px;top:70px;display:none}
+#main{height:100%}

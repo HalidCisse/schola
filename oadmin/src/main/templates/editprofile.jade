@@ -155,6 +155,7 @@ html(lang='en')
     form#f_fm              
     script(src={uri("/assets/javascripts/countries.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/spin.min.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/jquery.upload.js")} type='text/javascript' charset='utf-8')
     script(src={uri("/assets/javascripts/bootstrap.js")})
@@ -162,11 +163,24 @@ html(lang='en')
     script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
     :&javascript
 
-      var defaultAvatarUrl = "http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195";
-
       jQuery(function($){
         // construct countries list with selected country
         // Set up cities auto-complete
+  
+        var defaultAvatarUrl = "http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195";
+
+        var opts = {
+          lines: 7, // The number of lines to draw
+          length: 6, // The length of each line
+          radius: 7, // The radius of the inner circle
+          left: '200px' // Left position relative to parent in px
+        };
+
+        var spinner = new Spinner(opts),
+            header  = $('.page-header h3')[0];
+
+        $(document).ajaxStop(function() { spinner.stop(); });
+        $(document).ajaxStart(function() { spinner.spin(header); });
 
         $('form.form-editprofile').submit(function(){
           var newPasswd = $('[name=new_password]', this);

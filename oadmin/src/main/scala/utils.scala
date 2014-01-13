@@ -102,11 +102,6 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
 
   import reactivemongo._, bson._, api._, gridfs._, Implicits.DefaultReadFileReader
 
-  override val supervisorStrategy =
-    OneForOneStrategy(maxNrOfRetries = 10, withinTimeRange = 1 minute) {
-      case _: Exception => Restart /* Restart actor and children */
-    }
-
   lazy val gridFS = {
     val gfs = GridFS(helper.db)
 
@@ -136,7 +131,7 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
 
     val fs = gridFS.find(BSONDocument("_id" -> BSONObjectID(id)))
 
-    fs.headOption.filter(_.isDefined).map(_.get).flatMap { f: ReadFile[_ <: BSONValue] =>
+    fs.headOption.filter(_.isDefined).map(_.get).flatMap { f =>
       val en = gridFS.enumerate(f)
 
       for {
@@ -192,7 +187,7 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
 
   override def postStop() {
     import scala.concurrent._, duration._
-    import system.dispatcher
+    import context.dispatcher
 
     import helper._
 
@@ -205,6 +200,8 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
         log.info("ReactiveMongo Connections stopped. [" + ex + "]")
 
         driver.close()
+
+        log.info("ReactiveMongo Driver stopped.")
     }
 
     Await.ready(fq, 10 seconds)
@@ -254,7 +251,7 @@ object Mailer {
   def sendPasswordResetEmail(username: String, key: String) {
     val subj = "[Schola] Password reset request"
 
-    val hostname = "localhost"
+    val hostname = "localhost" // TODO: change to normal host system
     val port = 3000
 
     val msg = s"""
@@ -268,11 +265,32 @@ object Mailer {
   }
 
   def sendPasswordChangedNotice(username: String) {
+    val subj = "[Schola] Password change notice"
 
+    val msg = s"""
+      | Someone just changed the password for the following account:\r\n\r\n
+      | Username: $username \r\n\r\n
+      | If this was you, congratulation! the change was successfull. \r\n\r\n
+      | Otherwise, contact your administrator immediately.\r\n""".stripMargin
+
+    sendEmail(subj, username, (Some(msg), None))
   }
 
-  def sendWelcomeEmail(username: String) {
+  def sendWelcomeEmail(username: String, password: String) {
+    val subj = "[Schola] Welcome to Schola!"
 
+    val hostname = "localhost" // TODO: change to normal host system
+    val port = 3000
+
+    val msg = s"""
+      | Congratulation, your account was successfully created.\r\n\r\n
+      | Here are the details:\r\n\r\n
+      | Username: $username \r\n\r\n
+      | Username: $password \r\n\r\n
+      | Sign in immediately at < http://$hostname${if (port == 80) "" else ":" + port}/Login > to reset your password and start using the service.\r\n\r\n
+      | Thank you.\r\n""".stripMargin
+
+    sendEmail(subj, username, (Some(msg), None))
   }
 
   val fromAddress = config.getString("smtp.from")

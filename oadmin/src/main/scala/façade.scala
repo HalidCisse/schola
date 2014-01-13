@@ -93,7 +93,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory {
                     ("base64" -> true)))
           }
 
-        case x =>
+        case _ =>
 
           req.respond(NotFound)
       }

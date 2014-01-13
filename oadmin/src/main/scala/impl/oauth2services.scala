@@ -631,9 +631,11 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
     def saveUser(primaryEmail: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean) =
       db.withTransaction { implicit session =>
+        import scala.util.control.Exception.allCatch
+
         val currentTimestamp = System.currentTimeMillis
 
-        scala.util.control.Exception.allCatch.opt {
+        allCatch.opt {
 
           try
 
@@ -653,7 +655,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
               changePasswordAtNextLogin)
 
           finally
-            utils.Mailer.sendWelcomeEmail(primaryEmail)
+            utils.Mailer.sendWelcomeEmail(primaryEmail, password)
         }
       }
 
