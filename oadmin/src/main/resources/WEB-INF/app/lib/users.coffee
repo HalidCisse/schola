@@ -3,18 +3,13 @@ $ = require('jqueryify')
 class users
 
   @getUser: (id) ->
-    $.ajax(
-      type:"GET",
-      url: "/api/v1/user/#{id}",
-      dataType: 'json'
-    )
+    $.getJSON "/api/v1/user/#{id}"
 
-  @getUsers: ->
-    $.ajax(
-      type:"GET",
-      url: '/api/v1/users',
-      dataType: 'json'
-    )    
+  @getUsersStats: ->
+    $.getJSON '/api/v1/users/stats'
+
+  @getUsers: (page=0) ->
+    $.getJSON '/api/v1/users', page: page
 
   @upsertUser: (spec) ->
     $.ajax(
@@ -75,13 +70,13 @@ class users
       data: JSON.stringify({workAddress: {}})
     )    
 
-  @updateContacts: (id, specs) ->
+  @updateContacts: (id, contacts) ->
     $.ajax(
       type:"PUT",
       url: "/api/v1/user/#{id}",
       contentType: 'application/json; charset=UTF-8',
       dataType: 'json',
-      data: JSON.stringify({contacts: specs})
+      data: JSON.stringify({contacts})
     )       
 
   @grantRoles: (id, roles) ->
@@ -90,13 +85,13 @@ class users
       url: "/api/v1/user/#{id}/roles",
       dataType: 'json',
       traditional: true,
-      data: {roles: roles}
+      data: {roles}
     )    
 
   @revokeRoles: (id, roles) ->
     $.ajax(
       type:"DELETE",
-      url: "/api/v1/user/#{id}/roles?" + $.param({roles: roles}),
+      url: "/api/v1/user/#{id}/roles?" + $.param({roles}),
       traditional: true,
       dataType: 'json'
     )    
@@ -108,39 +103,22 @@ class users
       dataType: 'json'
     )     
 
-  getAvatar: (userId) ->
-    $.ajax(
-      type:"GET",
-      url: "/api/v1/avatar/#{userId}",
-      dataType: 'json'
-    )
+  @getAvatar: (userId) ->
+    $.getJSON "/api/v1/avatar/#{userId}"
 
-  setAvatar: (id, file) -> 
+  @setAvatar: (id, file) -> 
     data = new FormData
     data.append("f", file);  
 
     $.upload("/api/v1/user/#{id}/avatars", data, 'json')
 
-  getUserRoles: (id) ->
-    $.ajax(
-      type:"GET",
-      url: "/api/v1/user/#{id}/roles",
-      dataType: 'json'
-    )
+  @getUserRoles: (id) ->
+    $.getJSON "/api/v1/user/#{id}/roles"
 
-  userExists: (email) ->
-    $.ajax(
-      type:"GET",
-      url: "/api/v1/userexists",
-      dataType: 'json',
-      data: {email: email}
-    )
+  @userExists: (username) ->
+    $.getJSON '/api/v1/userexists', {username}
 
-  getUserTrash: ->
-    $.ajax(
-      type:"GET",
-      url: "/api/v1/users/_trash",
-      dataType: 'json'
-    )  
+  @getTrashed: ->
+    $.getJSON '/api/v1/users/_trash'
 
 module.exports = users

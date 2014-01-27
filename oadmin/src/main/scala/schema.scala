@@ -7,6 +7,8 @@ object `package` {
   import domain._
   import conversions.jdbc._
 
+  import scala.slick.model.ForeignKeyAction
+
   class OAuthTokens(tag: Tag) extends Table[OAuthToken](tag, "oauth_tokens") {
     def accessToken = column[String]("access_token", O.PrimaryKey)
 
@@ -36,9 +38,9 @@ object `package` {
 
     def * = (accessToken, clientId, redirectUri, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, scopes) <> (OAuthToken.tupled, OAuthToken.unapply)
 
-    def user = foreignKey("TOKEN_USER_FK", userId, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Cascade)
+    def user = foreignKey("TOKEN_USER_FK", userId, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.Cascade)
 
-    def client = foreignKey("TOKEN_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.model.ForeignKeyAction.Cascade)
+    def client = foreignKey("TOKEN_CLIENT_FK", clientId, OAuthClients)(_.id, ForeignKeyAction.Cascade)
   }
 
   val OAuthTokens = TableQuery[OAuthTokens]
@@ -109,9 +111,9 @@ object `package` {
 
     def idx2 = index("USER_USERNAME_PASSWORD_INDEX", (primaryEmail, password))
 
-    def _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
+    def _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
 
-    def _lastModifiedBy = foreignKey("USER_MODIFIER_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
+    def _lastModifiedBy = foreignKey("USER_MODIFIER_FK", createdBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
   }
 
   val Users = TableQuery[Users]
@@ -120,16 +122,18 @@ object `package` {
     Users.map(
       u => (u.primaryEmail, u.password, u.givenName, u.familyName, u.createdAt, u.createdBy, u.lastModifiedAt, u.lastModifiedBy, u.gender, u.homeAddress, u.workAddress, u.contacts, u.changePasswordAtNextLogin)) returning Users.map(_.id) into { case (u, id) => User(u._1, Some(u._2), u._3, u._4, u._5, u._6, None, u._7, u._8, u._9, u._10, u._11, u._12, changePasswordAtNextLogin = u._13, id = Some(id)) }
 
-  implicit class UsersExtensions(users: Query[Users, User]) {
+  private val cForDeletion = {
+    def getDeleted(id: Column[java.util.UUID]) = Users where (u => (u.id isNot SuperUser.id) && (u.id is id)) map { _._deleted }
 
-    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender.Value = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: domain.Contacts = domain.Contacts(MobileNumbers(None, None), None, None), changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
+    Compiled(getDeleted _)
+  }
+
+  implicit class UsersExtensions(val users: Query[Users, User]) extends AnyVal {
+
+    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: domain.Contacts = domain.Contacts(MobileNumbers(None, None), None, None), changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
       usersAutoGenId.insert(email, password, givenName, familyName, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
 
-    val forDeletion = {
-      def getDeleted(id: Column[java.util.UUID]) = Users where (_.id is id) map { _._deleted }
-
-      Compiled(getDeleted _)
-    }
+    def forDeletion = cForDeletion
   }
 
   class Roles(tag: Tag) extends Table[Role](tag, "roles") {
@@ -141,15 +145,15 @@ object `package` {
 
     def createdBy = column[Option[java.util.UUID]]("created_by", O.DBType("uuid"))
 
-    def public = column[Boolean]("public", O.NotNull, O.Default(true))
+    def publiq = column[Boolean]("public", O.NotNull, O.Default(true))
 
-    def * = (name, parent, createdAt, createdBy, public) <> (Role.tupled, Role.unapply)
+    def * = (name, parent, createdAt, createdBy, publiq) <> (Role.tupled, Role.unapply)
 
     def idx = index("ROLE_NAME_INDEX", name, unique = true)
 
-    def _createdBy = foreignKey("ROLE_USER_FK", createdBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
+    def _createdBy = foreignKey("ROLE_USER_FK", createdBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
 
-    def _parent = foreignKey("ROLE_PARENT_ROLE_FK", parent, Roles)(_.name, scala.slick.model.ForeignKeyAction.Cascade)
+    def _parent = foreignKey("ROLE_PARENT_ROLE_FK", parent, Roles)(_.name, ForeignKeyAction.Cascade)
   }
 
   val Roles = TableQuery[Roles]
@@ -159,7 +163,7 @@ object `package` {
 
     def clientId = column[String]("client_id", O.NotNull)
 
-    def client = foreignKey("PERMISSION_CLIENT_FK", clientId, OAuthClients)(_.id, scala.slick.model.ForeignKeyAction.Cascade)
+    def client = foreignKey("PERMISSION_CLIENT_FK", clientId, OAuthClients)(_.id, ForeignKeyAction.Cascade)
 
     def * = (name, clientId) <> (Permission.tupled, Permission.unapply)
 
@@ -179,9 +183,9 @@ object `package` {
 
     def * = (role, permission, grantedAt, grantedBy) <> (RolePermission.tupled, RolePermission.unapply)
 
-    def _role = foreignKey("ROLE_PERMISSION_ROLE_FK", role, Roles)(_.name, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Restrict)
+    def _role = foreignKey("ROLE_PERMISSION_ROLE_FK", role, Roles)(_.name, ForeignKeyAction.Cascade, ForeignKeyAction.Restrict)
 
-    def user = foreignKey("ROLE_PERMISSION_GRANTOR_FK", grantedBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
+    def user = foreignKey("ROLE_PERMISSION_GRANTOR_FK", grantedBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
 
     def _permission = foreignKey("ROLE_PERMISSION_PERMISSION_FK", permission, Permissions)(_.name)
 
@@ -189,6 +193,8 @@ object `package` {
   }
 
   val RolesPermissions = TableQuery[RolesPermissions]
+
+  private[this] val userRole = (userId: java.util.UUID, role: String, grantedAt: Long, grantedBy: Option[java.util.UUID]) => UserRole(userId, role, grantedAt, grantedBy)
 
   class UsersRoles(tag: Tag) extends Table[UserRole](tag, "users_roles") {
     def userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
@@ -199,13 +205,13 @@ object `package` {
 
     def grantedBy = column[Option[java.util.UUID]]("granted_by", O.DBType("uuid"))
 
-    def * = (userId, role, grantedAt, grantedBy) <> (UserRole.tupled, UserRole.unapply)
+    def * = (userId, role, grantedAt, grantedBy) <> (userRole.tupled, (ur: UserRole) => Some(ur.userId, ur.role, ur.grantedAt, ur.grantedBy))
 
-    def user = foreignKey("USER_ROLE_USER_FK", userId, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Restrict)
+    def user = foreignKey("USER_ROLE_USER_FK", userId, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.Restrict)
 
-    def _user = foreignKey("USER_ROLE_USER_GRANTOR_FK", grantedBy, Users)(_.id, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.SetNull)
+    def _user = foreignKey("USER_ROLE_USER_GRANTOR_FK", grantedBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
 
-    def _role = foreignKey("USER_ROLE_ROLE_FK", role, Roles)(_.name, scala.slick.model.ForeignKeyAction.Cascade, scala.slick.model.ForeignKeyAction.Cascade)
+    def _role = foreignKey("USER_ROLE_ROLE_FK", role, Roles)(_.name, ForeignKeyAction.Cascade, ForeignKeyAction.Cascade)
 
     def pk = primaryKey("USER_ROLE_PK", (userId, role))
   }

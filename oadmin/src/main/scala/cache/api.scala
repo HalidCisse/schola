@@ -1,8 +1,6 @@
 package schola
 package oadmin
 
-import org.apache.commons.lang3.reflect.TypeUtils
-
 import scala.concurrent.duration.Duration
 
 /**
@@ -75,11 +73,18 @@ object Cache {
     val Timeout = Duration(config.getString("timeout"))
 
     val Hash = config.getBoolean("hashkeys")
-
-    val Enabled = config.getBoolean("enabled")
   }
 
-  private val cacheAPI: CacheAPI = new caching.Memcached(new MemcachedSettings(config getConfig "memcached")).api
+  private object NullApi extends CacheAPI {
+    def set(key: String, value: Any, expiration: Int) {}
+    def get(key: String) = None
+    def remove(key: String) {}
+    def clearAll() {}
+  }
+
+  private val Enabled = config.getBoolean("memcached.enabled")
+
+  private val cacheAPI: CacheAPI = if (Enabled) new caching.Memcached(new MemcachedSettings(config getConfig "memcached")).api else NullApi
 
   /**
    * Set a value into the cache.

@@ -456,6 +456,36 @@ getClientSession().done( function(){
   })
 })
 
+  app.users.userExists("cisse.amadou.9@gmail.com").success(function(i){
+    if(i.success === false)
+      app.users.upsertUser({primaryEmail: "cisse.amadou.9@gmail.com", password:"amsayk", givenName:'Ousman', familyName:'Cisse', gender:'Male', homeAddress:{
+            city: 'RABAT',
+            country: 'Morocco',
+            zipCode: 10032,
+            addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+          }, workAddress:{
+            city: 'RABAT',
+            country: 'Morocco',
+            zipCode: 10032,
+            addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+          }, contacts:{mobiles:{}}, changePasswordAtNextLogin:true});    
+  })
+
+  app.users.userExists("amadou.cisse@epsilon.ma").success(function(i){
+    if(i.success === false)
+      app.users.upsertUser({primaryEmail:"amadou.cisse@epsilon.ma", password:"amsayk", givenName:'Amadou', familyName:'Cisse', gender:'Male', homeAddress:{
+              city: 'RABAT',
+              country: 'Morocco',
+              zipCode: 10032,
+              addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+            }, workAddress:{
+              city: 'RABAT',
+              country: 'Morocco',
+              zipCode: 10032,
+              addressLine: "Imm. B, Appt. 23, Cite Mabella, Mabella"
+            }, contacts:{mobiles:{}}, changePasswordAtNextLogin:true})
+  })
+
 
 // addContact(id, {type: 'HomeContactInfo', home: {type: 'PhoneNumber', number: '+231886582873'}})
 

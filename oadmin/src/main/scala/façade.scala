@@ -129,7 +129,6 @@ object Façade extends ServiceComponentFactory with HandlerFactory {
             JsonContent ~>
               ResponseString(cb wrap s"""{"success": false}""")
           }
-
       }
     }
 
@@ -141,7 +140,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory {
 
       implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
 
-      val q = (avatars ? utils.Avatars.Save(filename, contentType, bytes)).mapTo[String]
+      val q = (avatars ? utils.Avatars.Save(userId, filename, contentType, bytes)).mapTo[String]
 
       q onComplete {
         case scala.util.Success(it) =>
@@ -247,7 +246,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory {
                   },
 
                   home = utils.findFieldJObj(contactsJson)("home") flatMap (x => allCatch.opt {
-                    ContactInfoSpec[domain.HomeContactInfo](
+                    ContactInfoSpec[domain.ContactInfo](
                       email = UpdateSpecImpl[String](
                         set = utils.findFieldStr(x)("email") map (s => utils.If(s.isEmpty, None, Some(s)))),
 
@@ -259,7 +258,7 @@ object Façade extends ServiceComponentFactory with HandlerFactory {
                   }),
 
                   work = utils.findFieldJObj(contactsJson)("work") flatMap (x => allCatch.opt {
-                    ContactInfoSpec[domain.WorkContactInfo](
+                    ContactInfoSpec[domain.ContactInfo](
                       email = UpdateSpecImpl[String](
                         set = utils.findFieldStr(x)("email") map (s => utils.If(s.isEmpty, None, Some(s)))),
 
@@ -308,6 +307,16 @@ object Façade extends ServiceComponentFactory with HandlerFactory {
 
         case _ => req.respond(NotFound)
       }
+
+    def getUsersStats = {
+      val resp = oauthService.getUsersStats
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap tojson(resp))
+      }
+    }
 
     def getUsers(page: Int) = {
       val resp = oauthService.getUsers(page)
@@ -576,6 +585,8 @@ trait RouteHandler extends Any {
 
   def getUser(userId: String)
 
+  def getUsersStats
+
   def getUsers(page: Int)
 
   def getTrash
@@ -729,8 +740,8 @@ trait Façade extends impl.OAuthServicesRepoComponentImpl
 
         // Add a client - oadmin:oadmin
         val _1 = (OAuthClients ++= List(
-          OAuthClient("oadmin", "oadmin", "http://localhost:3880/admin"),
-          OAuthClient("schola", "schola", "http://localhost:3880/schola"))) == Some(2)
+          OAuthClient("oadmin", "oadmin", "http://localhost:3000/admin"),
+          OAuthClient("schola", "schola", "http://localhost:3000/schola"))) == Some(2)
 
         //Add a user
         val _2 = (Users += SuperUser copy (password = SuperUser.password map passwords.crypt)) == 1
@@ -738,19 +749,11 @@ trait Façade extends impl.OAuthServicesRepoComponentImpl
         val _3 = (Roles ++= List(
           SuperUserR,
           AdministratorR,
-          Role("Role One", Some(AdministratorR.name), System.currentTimeMillis, None),
-          Role("Role Two", Some(AdministratorR.name), System.currentTimeMillis, None),
-          Role("Role Three", Some(AdministratorR.name), System.currentTimeMillis, Some(userId)),
-          Role("Role Four", Some(SuperUserR.name), System.currentTimeMillis, None),
-          Role("Role X", Some("Role One"), System.currentTimeMillis, Some(userId)))) == Some(7)
-
-        /*    val _31 = (Roles += Role("Role One", None, System.currentTimeMillis, None)) == 1
-            val _32 = (Roles += Role("Role Two", None, System.currentTimeMillis, None)) == 1
-            val _33 = (Roles += Role("Role Three", None, System.currentTimeMillis, None)) == 1
-            val _34 = (Roles += Role("Role Four", None, System.currentTimeMillis, None)) == 1
-            val _35 = (Roles += Role("Role X", Some("Role One"), System.currentTimeMillis, None)) == 1
-
-            val _3 = _31 && _32 && _33 && _34 && _35*/
+          Role("Role One"),
+          Role("Role Two"),
+          Role("Role Three", createdBy = Some(userId)),
+          Role("Role Four"),
+          Role("Role X", Some("Role One"), createdBy = Some(userId)))) == Some(7)
 
         val _4 = (Permissions ++= List(
           Permission("P1", "oadmin"),
@@ -766,18 +769,17 @@ trait Façade extends impl.OAuthServicesRepoComponentImpl
           Permission("P10", "schola"))) == Some(10)
 
         val _5 = (RolesPermissions ++= List(
-          RolePermission("Role One", "P1", grantedBy = None),
+          RolePermission("Role One", "P1"),
           RolePermission("Role One", "P2", grantedBy = Some(userId)),
-          RolePermission("Role One", "P3", grantedBy = None),
-          RolePermission("Role One", "P4", grantedBy = None),
+          RolePermission("Role One", "P3"),
+          RolePermission("Role One", "P4"),
           RolePermission("Role One", "P5", grantedBy = Some(userId)))) == Some(5)
 
         val _6 = (UsersRoles ++= List(
-          UserRole(userId, SuperUserR.name, grantedBy = None),
-          UserRole(userId, AdministratorR.name, grantedBy = None),
-          //          UserRole(userId, "Role One", grantedBy = None),
+          UserRole(userId, SuperUserR.name),
+          UserRole(userId, AdministratorR.name),
           UserRole(userId, "Role Three", grantedBy = Some(userId)),
-          UserRole(userId, "Role Two", grantedBy = None))) == Some(3)
+          UserRole(userId, "Role Two"))) == Some(3)
 
         _1 && _2 && _3 && _4 && _5 && _6
       } catch {
@@ -791,26 +793,146 @@ trait Façade extends impl.OAuthServicesRepoComponentImpl
       }
   }
 
-  def test() {
-    val o = accessControlService
+  def genFixtures = {
+    import domain._
+    import org.apache.commons.lang3.{ RandomStringUtils => Rnd }
 
-    val userId = SuperUser.id.get
+    def rndEmail = s"${Rnd.randomAlphanumeric(7)}@${Rnd.randomAlphanumeric(5)}.${Rnd.randomAlphanumeric(3)}"
+    def rndString(len: Int) = Rnd.randomAlphabetic(len).toLowerCase.capitalize
+    def rndPhone = Rnd.randomNumeric(9)
+    def rndPostalCode = Rnd.randomNumeric(5)
+    def rndStreetAddress = s"${rndString(7)} ${rndString(2)} ${rndString(7)} ${rndString(4)}"
 
-    //      def initialize() = init(userId)
+    def rndRole =
+      Role(rndString(6), None, createdBy = SuperUser.id)
 
-    //      initialize()
+    def createRndRoles = {
 
-    println(o.getRoles)
-    println(o.getUserRoles(userId.toString))
-    println(o.getPermissions)
-    println(o.getRolePermissions("Role One"))
-    println(o.getClientPermissions("oadmin"))
-    println(o.getUserPermissions(userId.toString))
-    println(o.saveRole("Role XI", None, None))
-    println(o.grantUserRoles(userId.toString, Set("Role Four"), None))
-    println(o.grantRolePermissions("Role X", Set("P7", "P8"), None))
-    println(o.userHasRole(userId.toString, "Role One"))
-    println(o.userHasRole(userId.toString, "Role X"))
-    println(o.roleHasPermission("Role One", Set("P1")))
+      val rndName1 = rndString(6)
+      val rndName2 = rndString(6)
+      val rndName3 = rndString(6)
+      val rndName4 = rndString(6)
+      val rndName5 = rndString(6)
+      val rndName6 = rndString(6)
+      val rndName7 = rndString(6)
+      val rndName8 = rndString(6)
+      val rndName9 = rndString(6)
+      val rndName10 = rndString(6)
+      val rndName11 = rndString(6)
+
+      Seq(
+        Role(rndName1, Some("Role One"), createdBy = SuperUser.id),
+        Role(rndName2, Some("Role Two"), createdBy = SuperUser.id),
+        Role(rndName3, Some("Role X"), createdBy = SuperUser.id),
+        Role(rndName4, Some(rndName2), createdBy = SuperUser.id),
+        Role(rndName5, Some(rndName2), createdBy = SuperUser.id),
+        Role(rndName6, Some("Role X"), createdBy = SuperUser.id),
+        Role(rndName7, Some(rndName4), createdBy = SuperUser.id),
+        Role(rndName8, Some("Administrator"), createdBy = SuperUser.id),
+        Role(rndName9, Some("Administrator"), createdBy = SuperUser.id),
+        Role(rndName10, Some("Role X"), createdBy = SuperUser.id),
+        Role(rndName11, Some("Role X"), createdBy = SuperUser.id),
+        Role(rndString(6), Some("Administrator"), createdBy = SuperUser.id),
+        Role(rndString(6), Some("Administrator"), createdBy = SuperUser.id),
+        Role(rndString(6), Some(rndName1), createdBy = SuperUser.id),
+        Role(rndString(6), Some(rndName1), createdBy = SuperUser.id),
+        Role(rndString(6), Some(rndName1), createdBy = SuperUser.id),
+        Role(rndString(6), Some(rndName1), createdBy = SuperUser.id),
+        Role(rndString(6), Some("Administrator"), createdBy = SuperUser.id),
+        Role(rndString(6), Some("Role One"), createdBy = SuperUser.id),
+        Role(rndString(6), Some("Role One"), createdBy = SuperUser.id),
+        Role(rndString(6), Some("Role One"), createdBy = SuperUser.id))
+    }
+
+    def rndPermission =
+      Permission(s"${rndString(4).toLowerCase}.${rndString(6).toLowerCase}", "oadmin")
+
+    def rndUser =
+      User(
+        rndEmail.toLowerCase,
+        Some(rndString(4)),
+        rndString(5),
+        rndString(9),
+        createdBy = SuperUser.id,
+        gender = Gender.Male,
+
+        homeAddress = Some(AddressInfo(rndString(10), rndString(10), rndPostalCode, rndStreetAddress)),
+        workAddress = Some(AddressInfo(rndString(10), rndString(10), rndPostalCode, rndStreetAddress)),
+
+        contacts = Contacts(MobileNumbers(Some(rndPhone), None), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone))), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone)))),
+
+        changePasswordAtNextLogin = false,
+        id = Some(java.util.UUID.randomUUID))
+
+    val rndUsers = (0 to 600).par map (_ => rndUser)
+    val rndRoles = (((0 to 5) map (_ => rndRole)) ++ createRndRoles).par
+    val rndPermissions = (0 to 50).par map (_ => rndPermission)
+
+    val users = withTransaction { implicit s =>
+      log.info("Creating users . . . ")
+
+      rndUsers map { u =>
+        oauthService.saveUser(
+          u.primaryEmail,
+          u.password.get,
+          u.givenName,
+          u.familyName,
+          u.createdBy map (_.toString),
+          u.gender,
+          u.homeAddress,
+          u.workAddress,
+          u.contacts,
+          u.changePasswordAtNextLogin).get
+      }
+    }
+
+    val roles = withTransaction { implicit s => log.info("Creating roles . . . "); rndRoles map (r => accessControlService.saveRole(r.name, r.parent, r.createdBy map (_.toString)).get) }
+
+    val permissions = withTransaction { implicit s => log.info("Creating permissions . . . "); rndPermissions map (p => { Permissions.insert(p); p }) }
+
+    withTransaction { implicit s =>
+      log.info("Creating users grants . . . ")
+
+      for (u <- users) try
+        accessControlService.grantUserRoles(u.id.get.toString, roles.seq.map(_.name).toSet, None)
+      catch {
+        case e: java.sql.SQLException =>
+          var cur = e
+          while (cur ne null) {
+            cur.printStackTrace()
+            cur = cur.getNextException
+          }
+
+          throw e
+      }
+    }
+
+    withTransaction { implicit s =>
+      log.info("Creating roles grants . . . ")
+
+      for (r <- roles) try
+        accessControlService.grantRolePermissions(r.name, permissions.seq.map(_.name).toSet, None)
+      catch {
+        case e: java.sql.SQLException =>
+          var cur = e
+          while (cur ne null) {
+            cur.printStackTrace()
+            cur = cur.getNextException
+          }
+
+          throw e
+      }
+    }
+
+    () => withTransaction { implicit s =>
+
+      users foreach { u => accessControlService.revokeUserRole(u.id.get.toString, roles.seq.map(_.name).toSet) }
+      roles foreach { r => accessControlService.revokeRolePermission(r.name, permissions.seq.map(_.name).toSet) }
+
+      users foreach (u => oauthService.purgeUsers(Set(u.id.get.toString)))
+      roles foreach (r => accessControlService.purgeRoles(Set(r.name)))
+
+      Permissions where (_.name inSet permissions.seq.map(_.name)) delete
+    }
   }
 }

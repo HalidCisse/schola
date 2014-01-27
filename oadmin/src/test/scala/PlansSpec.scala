@@ -10,7 +10,7 @@ import org.json4s.native.Serialization
 import org.clapper.avsl.Logger
 
 object PlansSpec extends org.specs.Specification
-with unfiltered.spec.jetty.Served {
+    with unfiltered.spec.jetty.Served {
 
   import S._
 
@@ -33,21 +33,20 @@ with unfiltered.spec.jetty.Served {
     val userSerializer = FieldSerializer[User](FieldSerializer.ignore("_deleted"))
 
     val tokenSerializer = FieldSerializer[OAuthToken](
-      FieldSerializer.ignore("macKey") orElse FieldSerializer.ignore("refreshExpiresIn") orElse FieldSerializer.ignore("tokenType") orElse FieldSerializer.ignore("scopes")
-    )
+      FieldSerializer.ignore("macKey") orElse FieldSerializer.ignore("refreshExpiresIn") orElse FieldSerializer.ignore("tokenType") orElse FieldSerializer.ignore("scopes"))
 
     implicit lazy val my =
       new org.json4s.Formats {
         override val typeHintFieldName = "type"
         val dateFormat = DefaultFormats.lossless.dateFormat
-//        override val typeHints = ShortTypeHints(List(classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]))
+        //        override val typeHints = ShortTypeHints(List(classOf[Email], classOf[PhoneNumber], classOf[Fax], classOf[HomeContactInfo], classOf[WorkContactInfo], classOf[MobileContactInfo]))
       } +
         new conversions.jdbc.EnumNameSerializer(Gender) +
         userSerializer +
         tokenSerializer +
         new conversions.json.UUIDSerializer
 
-    implicit def tojson[T<:AnyRef](v: T) = Serialization.write(v)
+    implicit def tojson[T <: AnyRef](v: T) = Serialization.write(v)
   }
 
   val log = Logger("oadmin.tests.PlansSpec")
@@ -66,8 +65,7 @@ with unfiltered.spec.jetty.Served {
 
         val auth = Map(
           "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
-          "User-Agent" -> "Chrome"
-        )
+          "User-Agent" -> "Chrome")
 
         f(auth)
     })
@@ -81,7 +79,7 @@ with unfiltered.spec.jetty.Served {
         c.setRedirectHandler(new org.apache.http.client.RedirectHandler() {
 
           import org.apache.http.protocol.HttpContext
-          import org.apache.http.{HttpResponse => HcResponse}
+          import org.apache.http.{ HttpResponse => HcResponse }
 
           def getLocationURI(res: HcResponse, ctx: HttpContext) = null
 
@@ -92,8 +90,7 @@ with unfiltered.spec.jetty.Served {
     }
     try {
       h.x(handler)
-    }
-    finally {
+    } finally {
       h.shutdown()
     }
   }
@@ -102,8 +99,7 @@ with unfiltered.spec.jetty.Served {
     scala.util.parsing.json.JSON.parseFull(body) match {
       case Some(obj) =>
         f(
-          Right(obj.asInstanceOf[Map[String, Any]])
-        )
+          Right(obj.asInstanceOf[Map[String, Any]]))
 
       case _ => f(Left(body))
     }
@@ -113,8 +109,7 @@ with unfiltered.spec.jetty.Served {
 
   val client = domain.OAuthClient(
     "oadmin", "oadmin",
-    "http://localhost:%s/api" format port
-  )
+    "http://localhost:%s/api" format port)
 
   val sPassword = config.getString("super-user-password")
   val owner = new ResourceOwner { val id = SuperUser.primaryEmail; val password = Some(sPassword) }
@@ -138,9 +133,9 @@ with unfiltered.spec.jetty.Served {
         })
       }
         .context("/api/v1") {
-        _.filter(OAuth2Protection(new OAdminAuthSource))
-          .filter(Plans.api)
-      }
+          _.filter(OAuth2Protection(new OAdminAuthSource))
+            .filter(Plans.api)
+        }
   }
 
   case class ConnectInfo(username: String, passwd: String, clientId: String = client.id, clientSecret: String = client.secret)
@@ -151,8 +146,7 @@ with unfiltered.spec.jetty.Served {
       "client_id" -> connectInfo.clientId,
       "client_secret" -> connectInfo.clientSecret,
       "username" -> connectInfo.username,
-      "password" -> connectInfo.passwd
-    ) <:< Map("User-Agent" -> "Chrome") as_str)
+      "password" -> connectInfo.passwd) <:< Map("User-Agent" -> "Chrome") as_str)
 
     json(body) {
       case Right(map) =>
@@ -169,7 +163,6 @@ with unfiltered.spec.jetty.Served {
     }
   }
 
-
   "user plans" should {
 
     "save user" in {
@@ -181,7 +174,7 @@ with unfiltered.spec.jetty.Served {
           withMac(session, "POST", "/api/v1/users") {
             auth =>
 
-              val sres = http(api / "users" <:< auth <<(formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
+              val sres = http(api / "users" <:< auth << (formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
 
               import formats.my
               import scala.util.control.Exception.allCatch
@@ -222,7 +215,7 @@ with unfiltered.spec.jetty.Served {
           withMac(session, "POST", "/api/v1/users") {
             auth =>
 
-              val sres = http(api / "users" <:< auth <<(formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
+              val sres = http(api / "users" <:< auth << (formats.tojson(toSave), "application/json; charset=UTF-8") as_str)
 
               import formats.my
               import scala.util.control.Exception.allCatch
@@ -235,13 +228,13 @@ with unfiltered.spec.jetty.Served {
               user.get.givenName must be equalTo toSave.givenName
               user.get.familyName must be equalTo toSave.familyName
 
-//              withSession(ConnectInfo(user.get.email, toSave.password.get)) {
-//                case Right(body) =>
-//
-//                  body must startWith("<h1>Please change your password.")
-//
-//                case _ => fail("passwordValid doesn't work")
-//              }
+              //              withSession(ConnectInfo(user.get.email, toSave.password.get)) {
+              //                case Right(body) =>
+              //
+              //                  body must startWith("<h1>Please change your password.")
+              //
+              //                case _ => fail("passwordValid doesn't work")
+              //              }
 
               withMac(session, "DELETE", s"/api/v1/user/${user.get.id.get.toString}/_purge") {
                 auth =>

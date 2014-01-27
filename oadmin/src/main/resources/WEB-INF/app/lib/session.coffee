@@ -7,37 +7,29 @@ class Session extends Spine.Module
 
   logPrefix: '(Session)'
 
-  constructor: (@app) ->
+  constructor: ->
     super
 
     do @getLoginStatus
 
-  getLoginStatus: =>
+  getLoginStatus: ->
 
     doCheckSession = =>
 
-      x = $.ajax(
-        type:"GET",
-        url: "/session",
-        dataType: 'json'
-      )
+      $.getJSON('/session')
+       .done (s) =>
 
-      x.success (s) =>
-        @log("getLoginStatus success:", arguments)
+          @log("getLoginStatus success:", arguments)
 
-        return @trigger('session.error') if s.error
+          return @trigger('session.error') if s.error
 
-        @trigger 'session.loggedin', s
+          @trigger 'session.loggedin', s
 
-        false
+       .fail =>
 
-      x.error =>
+          @log("getLoginStatus error:", arguments)
 
-        @log("getLoginStatus error:", arguments)
-
-        @trigger 'session.error'
-
-        false
+          @trigger 'session.error'
 
     do doCheckSession
 
@@ -46,11 +38,8 @@ class Session extends Spine.Module
   doLogout: =>
     @log("doLogout")
 
-    $.ajax(
-      type: "GET",
-      url: "/api/v1/logout",
-      dataType: 'json'
-    ).done => 
+    $.getJSON('/api/v1/logout')
+     .done => 
 
         @log("done doLogout:", arguments)
 

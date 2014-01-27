@@ -74,7 +74,7 @@ html(lang='en')
             } catch(e) {}
 
           $(
-            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+            ['<div id=msg class="alert fade ' + className + ' alert-dismissable">',
               '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
               htm,
               '</div>'].join('')).prependTo(document.body);

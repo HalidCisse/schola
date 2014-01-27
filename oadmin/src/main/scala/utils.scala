@@ -46,8 +46,8 @@ trait UserSpec {
 
   case class ContactsSpec(
     mobiles: MobileNumbersSpec = MobileNumbersSpec(),
-    home: Option[ContactInfoSpec[HomeContactInfo]] = None,
-    work: Option[ContactInfoSpec[WorkContactInfo]] = None)
+    home: Option[ContactInfoSpec[ContactInfo]] = None,
+    work: Option[ContactInfoSpec[ContactInfo]] = None)
 
   def contacts: Option[ContactsSpec]
 
@@ -114,17 +114,25 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
     gfs
   }
 
-  def uploadAvatar(filename: String, contentType: Option[String], data: Array[Byte], listener: ActorRef) = {
+  def uploadAvatar(userId: String, filename: String, contentType: Option[String], data: Array[Byte], listener: ActorRef) = {
     import play.api.libs.iteratee.Enumerator
 
     log.debug("uploading new avatar . . .")
 
-    gridFS.save(Enumerator(data), DefaultFileToSave(filename, contentType))
+    gridFS.save(Enumerator(data), DefaultFileToSave(filename, contentType, metadata = BSONDocument("user_id" -> BSONString(userId))))
       .map(_.id.asInstanceOf[BSONObjectID].stringify) pipeTo listener
 
   }
 
   def purgeAvatar(id: String, listener: ActorRef) = gridFS.remove(BSONObjectID(id)) map (_.ok) pipeTo listener
+
+  def purgeAvatarForUser(userId: String, listener: ActorRef) = {
+    val fs = gridFS.find(BSONDocument("metadata" -> BSONDocument("user_id" -> BSONString(userId))))
+
+    fs.headOption.filter(_.isDefined).map(_.get).flatMap { f =>
+      gridFS.remove(f.id) map (_.ok)
+    } pipeTo listener
+  }
 
   def getAvatar(id: String, listener: ActorRef) = {
     import play.api.libs.iteratee.Iteratee
@@ -142,13 +150,17 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
   }
 
   def receive = {
-    case Avatars.Save(filename, contentType, fdata) =>
+    case Avatars.Save(userId, filename, contentType, fdata) =>
 
-      uploadAvatar(filename, contentType, fdata, sender)
+      uploadAvatar(userId, filename, contentType, fdata, sender)
 
     case Avatars.Get(id) =>
 
       getAvatar(id, sender)
+
+    case Avatars.PurgeForUser(userId) =>
+
+      purgeAvatarForUser(userId, sender)
 
     case Avatars.Purge(id) =>
 
@@ -185,7 +197,7 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
 
   } getOrElse (throw new RuntimeException("ReactiveMongo error: no ReactiveMongoHelper available?"))
 
-  override def postStop() {
+  override def postStop {
     import scala.concurrent._, duration._
     import context.dispatcher
 
@@ -221,11 +233,13 @@ object Avatars {
 
   sealed trait Msg
 
-  case class Save(filename: String, contentType: Option[String], fdata: Array[Byte]) extends Msg
+  case class Save(userId: String, filename: String, contentType: Option[String], fdata: Array[Byte]) extends Msg
 
   case class Get(id: String) extends Msg
 
   case class Purge(id: String) extends Msg
+
+  case class PurgeForUser(userId: String) extends Msg
 
 }
 
@@ -251,15 +265,12 @@ object Mailer {
   def sendPasswordResetEmail(username: String, key: String) {
     val subj = "[Schola] Password reset request"
 
-    val hostname = "localhost" // TODO: change to normal host system
-    val port = 3000
-
     val msg = s"""
       | Someone requested that the password be reset for the following account:\r\n\r\n
       | Username: $username \r\n\r\n
       | If this was a mistake, just ignore this email and nothing will happen. \r\n\r\n
       | To reset your password, visit the following address:\r\n\r\n
-      | < http://$hostname${if (port == 80) "" else ":" + port}/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
+      | < http://$Hostname${if (Port == 80) "" else ":" + Port}/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
 
     sendEmail(subj, username, (Some(msg), None))
   }
@@ -279,15 +290,12 @@ object Mailer {
   def sendWelcomeEmail(username: String, password: String) {
     val subj = "[Schola] Welcome to Schola!"
 
-    val hostname = "localhost" // TODO: change to normal host system
-    val port = 3000
-
     val msg = s"""
       | Congratulation, your account was successfully created.\r\n\r\n
       | Here are the details:\r\n\r\n
       | Username: $username \r\n\r\n
-      | Username: $password \r\n\r\n
-      | Sign in immediately at < http://$hostname${if (port == 80) "" else ":" + port}/Login > to reset your password and start using the service.\r\n\r\n
+      | Password: $password \r\n\r\n
+      | Sign in immediately at < http://$Hostname${if (Port == 80) "" else ":" + Port}/Login > to reset your password and start using the service.\r\n\r\n
       | Thank you.\r\n""".stripMargin
 
     sendEmail(subj, username, (Some(msg), None))
@@ -323,7 +331,7 @@ object Mailer {
       log.debug("[oadmin] mail = [%s]".format(body))
     }
 
-    system.scheduler.scheduleOnce(1 second) {
+    system.scheduler.scheduleOnce(3 second) {
 
       mailer.setSubject(subject)
       mailer.setRecipient(recipient)
@@ -398,7 +406,7 @@ object Scalate {
   type ToRenderContext = (String, PrintWriter, TemplateEngine) => RenderContext
 
   private val defaultTemplateDirs =
-    new File(config.getString("templates.dir")) :: Nil
+    new File(config.getString("scalate.templates-dir")) :: Nil
   private val defaultEngine = new TemplateEngine(defaultTemplateDirs)
   private val defaultRenderContext: ToRenderContext =
     (path, writer, engine) =>
@@ -409,16 +417,13 @@ object Scalate {
 
 object Crypto {
 
-  import java.security.SecureRandom
-
-  import javax.crypto._, spec.PBEKeySpec
-  import javax.crypto.spec.SecretKeySpec
+  import javax.crypto._, spec.{ PBEKeySpec, SecretKeySpec }
 
   import org.bouncycastle.util.encoders.Hex
 
-  val secret = config.getString("secret")
+  val Secret = config.getString("secret")
 
-  private val random = new SecureRandom
+  val lineSeparator = System.getProperty("line.separator")
 
   def sign(message: String, key: Array[Byte]): String = {
     val mac = Mac.getInstance("HmacSHA1")
@@ -427,7 +432,7 @@ object Crypto {
   }
 
   def sign(message: String): String =
-    sign(message, secret.getBytes("utf-8"))
+    sign(message, Secret.getBytes("utf-8"))
 
   val genMacKey = {
 
@@ -445,16 +450,15 @@ object Crypto {
     }
   }
 
-  val generateToken = {
-    val bytes = new Array[Byte](12)
+  def sha3(s: String): String = sha3(unifyLineSeparator(s).getBytes("ASCII"))
 
-    () => bytes synchronized {
-      random.nextBytes(bytes)
-      Hex.toHexString(bytes)
-    }
+  @inline def sha3(bytes: Array[Byte]) = SHA3.digest(bytes)
+
+  def generateSecureToken = {
+    val bytes = Array.fill(32)(0.byteValue)
+    random.nextBytes(bytes)
+    sha3(bytes)
   }
-
-  def generateSignedToken = signToken(generateToken())
 
   def signToken(token: String) = {
     val nonce = System.currentTimeMillis()
@@ -480,21 +484,23 @@ object Crypto {
       equal == 0
     }
   }
+
+  private def unifyLineSeparator(text: String): String = text.replaceAll(lineSeparator, "\n")
 }
 
 object `package` {
 
-  def genPasswd(key: String) = passwords.crypt(key)
+  @inline def genPasswd(key: String) = passwords.crypt(key)
 
-  private val random = java.security.SecureRandom.getInstance("SHA1PRNG")
+  private[utils] val random = java.security.SecureRandom.getInstance("SHA1PRNG")
 
   def randomBytes(size: Int) = {
-    val b = new Array[Byte](size)
+    val b = Array.fill(size)(0.byteValue)
     random.nextBytes(b)
     b
   }
 
-  def randomString(size: Int) = {
+  @inline def randomString(size: Int) = {
     org.bouncycastle.util.encoders.Hex.toHexString(randomBytes(size))
   }
 
@@ -509,7 +515,7 @@ object `package` {
     }
   }
 
-  def timeF(thunk: => Any) = {
+  @inline def timeF(thunk: => Any) = {
     val start = System.currentTimeMillis
     thunk
     System.currentTimeMillis - start

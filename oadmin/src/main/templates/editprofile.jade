@@ -44,14 +44,14 @@ html(lang='en')
       form.form-editprofile(role='form' method='POST')
         ul#profiles.nav.nav-tabs
           li.active
-            a(href='#' data-toggle='tab' data-tab='#basic') Basic
+            a(data-toggle='tab' data-target='#basic' href="#") Basic
           li
-            a(href='#' data-toggle='tab' data-tab='#addresses') Addresses
+            a(data-toggle='tab' data-target='#addresses' href="#") Addresses
           li
-            a(href='#' data-toggle='tab' data-tab='#contacts') Contacts
+            a(data-toggle='tab' data-target='#contacts' href="#") Contacts
         fieldset
           #profiles_content.tab-content
-            #basic.tab-pane.active
+            #basic.tab-pane.fade.in.active
               .row
                 .col-xs-6.col-md-3.avatar_fm_wrapper
                   .avatar_fm
@@ -74,7 +74,6 @@ html(lang='en')
               .form-group
                 input.form-control(type='password' name='password_confirmation' placeholder='Confirm Password')                  
               #gender.form-group
-                label Gender
                 - if(profile.gender eq schola.oadmin.domain.Gender.Male)
                   label.radio-inline
                     input(type='radio' name='gender' value='Male' checked)
@@ -89,7 +88,7 @@ html(lang='en')
                   label.radio-inline
                     input(type='radio' name='gender' value='Female' checked)
                     | Female                         
-            #addresses.tab-pane
+            #addresses.tab-pane.fade
               .container
                 .page-header
                   h4
@@ -115,13 +114,13 @@ html(lang='en')
                   input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')
                 .form-group
                   textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address')              
-            #contacts.tab-pane 
+            #contacts.tab-pane.fade
               .container
                 .page-header
                   h4
                     | Mobile
                 .form-group
-                  input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1')
+                  input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1' autofocus)
                 .form-group
                   input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')
 
@@ -153,14 +152,14 @@ html(lang='en')
       footer
         p © Amadou CISSE 2014.          
     form#f_fm              
-    script(src={uri("/assets/javascripts/countries.js")} type='text/javascript' charset='utf-8')
-    script(src={uri("/assets/javascripts/jquery.min.js")} type='text/javascript' charset='utf-8')
-    script(src={uri("/assets/javascripts/spin.min.js")} type='text/javascript' charset='utf-8')
-    script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
-    script(src={uri("/assets/javascripts/jquery.upload.js")} type='text/javascript' charset='utf-8')
+    script(src={uri("/assets/javascripts/countries.js")})
+    script(src={uri("/assets/javascripts/jquery.min.js")})
+    script(src={uri("/assets/javascripts/spin.min.js")})
+    script(src={uri("/assets/javascripts/jquery.cookie.js")})
+    script(src={uri("/assets/javascripts/jquery.upload.js")})
     script(src={uri("/assets/javascripts/bootstrap.js")})
-    script(src={uri("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")})
     script(src={uri("/assets/javascripts/bootstrap3-typeahead.min.js")})
+    script(src={uri("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")})
     :&javascript
 
       jQuery(function($){
@@ -352,13 +351,6 @@ html(lang='en')
           return false;
         });                  
 
-        $('#profiles a').click(function (e) {
-          var tab = $(this).attr('data-tab')
-          e.preventDefault();
-          $("#profiles_content .tab-pane").removeClass('active');
-          $(tab).addClass('active');
-        });
-
         function options(c) {        
           var html = '';
           for(var i in countries) {
@@ -368,19 +360,19 @@ html(lang='en')
         }
 
           $('#home-country').each(function(){
-              $(this).html(options("#{profile.homeAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
+              $(this).html(options("#{profile.homeAddress map(_.country) getOrElse ""}" || window['sGeobytesIso2']));
             });
 
           $('#work-country').each(function(){
-              $(this).html(options("#{profile.workAddress map(_.country) getOrElse ""}" || sGeobytesIso2));
+              $(this).html(options("#{profile.workAddress map(_.country) getOrElse ""}" || window['sGeobytesIso2']));
             });      
 
         //- $.getScript("http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2")
         //-  .complete(function(){
 
            (function(){    
-              $('#home-city').val("#{profile.homeAddress map(_.city) getOrElse ""}" || sGeobytesCity);
-              $('#work-city').val("#{profile.workAddress map(_.city) getOrElse ""}" || sGeobytesCity);
+              $('#home-city').val("#{profile.homeAddress map(_.city) getOrElse ""}" || window['sGeobytesCity']);
+              $('#work-city').val("#{profile.workAddress map(_.city) getOrElse ""}" || window['sGeobytesCity']);
             }).call(this);
           //- })
 
@@ -420,7 +412,7 @@ html(lang='en')
             } catch(e) {}
 
           $(
-            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+            ['<div id=msg class="alert fade ' + className + ' alert-dismissable">',
               '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
               htm,
               '</div>'].join('')).prependTo(document.body);

@@ -43,7 +43,6 @@ html(lang='en')
       p © Amadou CISSE 2014.          
     script(src={uri("/assets/javascripts/jquery.min.js")})
     script(src={uri("/assets/javascripts/jquery.cookie.js")} type='text/javascript' charset='utf-8')
-    script(src={uri("/assets/javascripts/validations.js")})
     :&javascript
 
       jQuery(function($){
@@ -57,7 +56,7 @@ html(lang='en')
           });
 
         if(#{error})
-          ERROR("Invalid username or password.", 'Error!');
+          ERROR("#{Msg}" || "Invalid username or password.", 'Error!');
 
         if(#{success} && !!"#{Msg}")
           INFO("#{Msg}", 'Success!');          
@@ -74,7 +73,7 @@ html(lang='en')
 
           $('#msgs').html(
 
-            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+            ['<div id=msg class="alert fade ' + className + ' alert-dismissable">',
               '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
               htm,
               '</div>'].join('')

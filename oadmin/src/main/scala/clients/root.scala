@@ -38,7 +38,7 @@ trait Root { self: Plans =>
       Cookies.unapply(req) flatMap (_(SESSION_KEY) flatMap (c => utils.Crypto.extractSignedToken(c.value)))
   }
 
-  val / = (hostname: String, port: Int) => {
+  val / = {
 
     import dispatch._
     import system.dispatcher // scala.concurrent.ExecutionContext.Implicits.global // TODO: change this to a real ExecutionContext
@@ -71,14 +71,14 @@ trait Root { self: Plans =>
           params("recaptcha_response_field")(0))
     }
 
-    val localhost = host(hostname, port)
+    val localhost = host(Hostname, Port)
 
     val token = localhost / "oauth" / "token"
     val api = localhost / "api" / API_VERSION
 
     val client = domain.OAuthClient(
       "oadmin", "oadmin",
-      f"http://$hostname:${port}%d")
+      f"http://$Hostname:${Port}%d")
 
     // --------------------------------------------------------------------------------------------------------------
 
@@ -172,7 +172,7 @@ trait Root { self: Plans =>
 
       val nonce = _genNonce(session.issuedTime)
 
-      val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, hostname, port, "", "")
+      val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, Hostname, Port, "", "")
       unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
         _ => req.respond(SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~> Redirect("/"))
       }, {
@@ -588,7 +588,28 @@ trait Root { self: Plans =>
 
               case Right(session) =>
 
-                withMac(req, session, "GET", s"/api/$API_VERSION/session", uA) {
+                req.respond {
+
+                  if (session.user.suspended)
+                    SetCookies.discarding(SESSION_KEY, Flash.COOKIE_NAME) ~>
+                      Redirect("/") flashing ("error" -> "T", "rememberMe" -> (if (rememberMe) "T" else "F"), "Msg" -> "Login failed; account disabled.")
+                  else
+                    SetCookies(
+
+                      unfiltered.Cookie(
+                        SESSION_KEY,
+                        utils.Crypto.signToken(session.key),
+                        maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
+                        httpOnly = true),
+
+                      unfiltered.Cookie(
+                        "_session_rememberMe",
+                        "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */ ),
+                        httpOnly = true)) ~> Redirect("/")
+
+                }
+
+              /* withMac(req, session, "GET", s"/api/$API_VERSION/session", uA) {
                   auth =>
 
                     for {
@@ -606,11 +627,11 @@ trait Root { self: Plans =>
                                 SESSION_KEY,
                                 utils.Crypto.signToken(session.key),
                                 maxAge = if (rememberMe) session.refreshExpiresIn map (_.toInt) else None,
-                                httpOnly = true), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */ ), httpOnly = true)) ~> Flash.discard ~> Redirect("/"),
+                                httpOnly = true), unfiltered.Cookie("_session_rememberMe", "remember-me", maxAge = Some(if (rememberMe) 31536000 /* 1 year */ else 0 /* expire it */ ), httpOnly = true)) ~> Redirect("/"),
 
                             Redirect("/Login") flashing ("error" -> "T", "rememberMe" -> (if (rememberMe) "T" else "F")))))
                     }
-                }
+                } */
             }
 
           case GET(ContextPath(_, "/RstPasswd")) & Params(LoginP(login) & Key(ky)) =>
@@ -626,7 +647,7 @@ trait Root { self: Plans =>
             req.respond {
 
               if (oauthService.checkActivationReq(login, ky))
-                if (oauthService.changePasswd(login, ky, newPasswd)) Redirect("/Login") flashing ("success" -> "T", "Msg" -> "Password updated.")
+                if (oauthService.resetPasswd(login, ky, newPasswd)) Redirect("/Login") flashing ("success" -> "T", "Msg" -> "Password updated.")
                 else Redirect("/RstPasswd") flashing ("error" -> "T")
 
               else Redirect("/RstPasswd") flashing ("error" -> "T")

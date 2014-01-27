@@ -19,8 +19,7 @@ object ConversionSpecification extends org.specs.Specification {
       withTransaction {
         implicit session =>
           OAuthTokens += domain.OAuthToken(
-            "access_token.0", "oadmin", "http://localhost/oadmin", userId, None, "djdjdj", "Chrome", None, None, scopes = Set("oadmin", "schola", "orphans")
-          )
+            "access_token.0", "oadmin", "http://localhost/oadmin", userId, None, "djdjdj", "Chrome", None, None, scopes = Set("oadmin", "schola", "orphans"))
       } must be equalTo 1
 
       val o = withTransaction {
@@ -35,8 +34,7 @@ object ConversionSpecification extends org.specs.Specification {
       val x = withTransaction {
         implicit session =>
           oauthService.saveToken(
-            "access_token.1", None, "djdjdj", "Chrome", "oadmin", "http://localhost/oadmin", userId.toString, None, None, scopes = Set("oadmin", "schola", "orphans")
-          )
+            "access_token.1", None, "djdjdj", "Chrome", "oadmin", "http://localhost/oadmin", userId.toString, None, None, scopes = Set("oadmin", "schola", "orphans"))
       }
 
       x must not be empty
@@ -46,8 +44,7 @@ object ConversionSpecification extends org.specs.Specification {
       withTransaction {
         implicit session =>
           OAuthTokens += domain.OAuthToken(
-            "access_token.3", "oadmin", "http://localhost/oadmin", userId, None, "djdjdj", "Chrome", None, None, scopes = Set()
-          )
+            "access_token.3", "oadmin", "http://localhost/oadmin", userId, None, "djdjdj", "Chrome", None, None, scopes = Set())
       } must be equalTo 1
 
       val g = withTransaction {
@@ -71,9 +68,8 @@ object ConversionSpecification extends org.specs.Specification {
             "Cisse",
             createdBy = SuperUser.id,
             homeAddress = Some(domain.AddressInfo("RABAT", "Morocco", "10032", "Imm. B, Appt. 23, Cite Mabella, Mabella")),
-            workAddress = Some(domain.AddressInfo("RABAT", "Morocco", "10000", "5, Appt. 23, Rue Jabal Tazaka"))
-          )
-      } 
+            workAddress = Some(domain.AddressInfo("RABAT", "Morocco", "10000", "5, Appt. 23, Rue Jabal Tazaka")))
+      }
 
       u must not be null
       val uId = u.id.get
@@ -104,10 +100,9 @@ object ConversionSpecification extends org.specs.Specification {
             passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
-            createdBy = SuperUser.id/*,
-            contacts = None*/
-          )
-      } 
+            createdBy = SuperUser.id /*,
+            contacts = None*/ )
+      }
 
       u must not be null
       val uId = u.id.get
@@ -127,75 +122,75 @@ object ConversionSpecification extends org.specs.Specification {
     // Emails
     "with only emails" in {
 
-//      val contacts = Set[domain.ContactInfo](
-//        domain.HomeContactInfo(domain.Email("cisse.amadou.9@gmail.com")),
-//        domain.WorkContactInfo(domain.Email("amsayk@facebook.com")),
-//        domain.WorkContactInfo(domain.Email("amadou.cisse@epsilon.ma"))
-//      )
-//
-//      val u = withTransaction {
-//        implicit session =>
-//          Users insert (
-//            "amsayk.12",
-//            passwords crypt "amsayk.0",
-//            "Amadou",
-//            "Cisse",
-//            createdBy = SuperUser.id,
-//            contacts = contacts
-//          )
-//      }
-//
-//      u must not be null
-//      val uId = u.id.get
-//
-//      val o = withTransaction {
-//        implicit session =>
-//          oauthService.getUser(uId.toString)
-//      }
-//
-//      o must not be empty
-//      o.get.primaryEmail must be equalTo "amsayk.12"
-//      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
-//      o.get.gender mustBe domain.Gender.Male
-//      o.get.contacts must haveSize(3)
-//
-//      o.get.contacts must be equalTo contacts
+      //      val contacts = Set[domain.ContactInfo](
+      //        domain.HomeContactInfo(domain.Email("cisse.amadou.9@gmail.com")),
+      //        domain.WorkContactInfo(domain.Email("amsayk@facebook.com")),
+      //        domain.WorkContactInfo(domain.Email("amadou.cisse@epsilon.ma"))
+      //      )
+      //
+      //      val u = withTransaction {
+      //        implicit session =>
+      //          Users insert (
+      //            "amsayk.12",
+      //            passwords crypt "amsayk.0",
+      //            "Amadou",
+      //            "Cisse",
+      //            createdBy = SuperUser.id,
+      //            contacts = contacts
+      //          )
+      //      }
+      //
+      //      u must not be null
+      //      val uId = u.id.get
+      //
+      //      val o = withTransaction {
+      //        implicit session =>
+      //          oauthService.getUser(uId.toString)
+      //      }
+      //
+      //      o must not be empty
+      //      o.get.primaryEmail must be equalTo "amsayk.12"
+      //      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
+      //      o.get.gender mustBe domain.Gender.Male
+      //      o.get.contacts must haveSize(3)
+      //
+      //      o.get.contacts must be equalTo contacts
     }
 
     // Telephone
     "with only telephones" in {
-//      val contacts = Set[domain.ContactInfo](
-//        domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
-//        domain.MobileContactInfo(domain.PhoneNumber("+212600793152"))
-//      )
-//
-//      val u = withTransaction {
-//        implicit session =>
-//          Users insert (
-//            "amsayk.13",
-//            passwords crypt "amsayk.0",
-//            "Amadou",
-//            "Cisse",
-//            createdBy = SuperUser.id,
-//            contacts = contacts
-//          )
-//      }
-//
-//      u must not be null
-//      val uId = u.id.get
-//
-//      val o = withTransaction {
-//        implicit session =>
-//          oauthService.getUser(uId.toString)
-//      }
-//
-//      o must not be empty
-//      o.get.primaryEmail must be equalTo "amsayk.13"
-//      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
-//      o.get.gender mustBe domain.Gender.Male
-//      o.get.contacts must haveSize(2)
-//
-//      o.get.contacts must be equalTo contacts
+      //      val contacts = Set[domain.ContactInfo](
+      //        domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
+      //        domain.MobileContactInfo(domain.PhoneNumber("+212600793152"))
+      //      )
+      //
+      //      val u = withTransaction {
+      //        implicit session =>
+      //          Users insert (
+      //            "amsayk.13",
+      //            passwords crypt "amsayk.0",
+      //            "Amadou",
+      //            "Cisse",
+      //            createdBy = SuperUser.id,
+      //            contacts = contacts
+      //          )
+      //      }
+      //
+      //      u must not be null
+      //      val uId = u.id.get
+      //
+      //      val o = withTransaction {
+      //        implicit session =>
+      //          oauthService.getUser(uId.toString)
+      //      }
+      //
+      //      o must not be empty
+      //      o.get.primaryEmail must be equalTo "amsayk.13"
+      //      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
+      //      o.get.gender mustBe domain.Gender.Male
+      //      o.get.contacts must haveSize(2)
+      //
+      //      o.get.contacts must be equalTo contacts
     }
 
     "be able to persist gender" in {
@@ -207,9 +202,8 @@ object ConversionSpecification extends org.specs.Specification {
             passwords crypt "amsayk.0",
             "Amadou",
             "Cisse",
-            createdBy = SuperUser.id
-          )
-      } 
+            createdBy = SuperUser.id)
+      }
 
       u must not be null
       val uId = u.id.get
@@ -232,9 +226,8 @@ object ConversionSpecification extends org.specs.Specification {
             "Amadou",
             "Cisse",
             gender = domain.Gender.Female,
-            createdBy = SuperUser.id
-          )
-      } 
+            createdBy = SuperUser.id)
+      }
 
       u2 must not be null
       val uId2 = u2.id.get
@@ -251,41 +244,41 @@ object ConversionSpecification extends org.specs.Specification {
     }
 
     "be able to persist contacts and handle inheritance right" in {
-//      val contacts = Set[domain.ContactInfo](
-//        domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
-//        domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com"))
-//      )
-//
-//      val u = withTransaction {
-//        implicit session =>
-//          Users insert (
-//            "amsayk.18",
-//            passwords crypt "amsayk.0",
-//            "Amadou",
-//            "Cisse",
-//            createdBy = SuperUser.id,
-//            contacts = contacts
-//          )
-//      }
-//
-//      u must not be null
-//      val uId = u.id.get
-//
-//      val o = withTransaction {
-//        implicit session =>
-//          oauthService.getUser(uId.toString)
-//      }
-//
-//      o must not be empty
-//      o.get.primaryEmail must be equalTo "amsayk.18"
-//      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
-//      o.get.gender mustBe domain.Gender.Male
-//      o.get.contacts must haveSize(2)
-//
-//      o.get.contacts must be equalTo contacts
+      //      val contacts = Set[domain.ContactInfo](
+      //        domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
+      //        domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com"))
+      //      )
+      //
+      //      val u = withTransaction {
+      //        implicit session =>
+      //          Users insert (
+      //            "amsayk.18",
+      //            passwords crypt "amsayk.0",
+      //            "Amadou",
+      //            "Cisse",
+      //            createdBy = SuperUser.id,
+      //            contacts = contacts
+      //          )
+      //      }
+      //
+      //      u must not be null
+      //      val uId = u.id.get
+      //
+      //      val o = withTransaction {
+      //        implicit session =>
+      //          oauthService.getUser(uId.toString)
+      //      }
+      //
+      //      o must not be empty
+      //      o.get.primaryEmail must be equalTo "amsayk.18"
+      //      passwords.verify("amsayk.0", passwords crypt "amsayk.0") must beTrue
+      //      o.get.gender mustBe domain.Gender.Male
+      //      o.get.contacts must haveSize(2)
+      //
+      //      o.get.contacts must be equalTo contacts
     }
   }
 
-  doBeforeSpec { try drop() catch { case _: Throwable => }; initialize () must beTrue }
-  doAfterSpec { drop () }
+  doBeforeSpec { try drop() catch { case _: Throwable => }; initialize() must beTrue }
+  doAfterSpec { drop() }
 }

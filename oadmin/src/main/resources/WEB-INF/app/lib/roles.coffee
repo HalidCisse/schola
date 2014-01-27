@@ -3,11 +3,7 @@ $ = require('jqueryify')
 class roles
 
   @getRoles: ->
-    $.ajax(
-      type: 'GET',
-      url: '/api/v1/roles',
-      dataType: 'json'
-    )
+    $.getJSON '/api/v1/roles'
 
   @addRole: (spec) ->
     $.ajax(
@@ -52,11 +48,6 @@ class roles
     )
 
   @roleExists: (roleName) ->
-    $.ajax(
-      type: 'GET',
-      url: '/api/v1/roleexists',
-      dataType: 'json',
-      data: {name: roleName}
-    )
+    $.getJSON '/api/v1/roleexists', {name: roleName}
 
 module.exports = roles

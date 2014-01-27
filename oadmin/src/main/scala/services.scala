@@ -38,10 +38,9 @@ trait OAuthServicesComponent {
       val createdBy: Option[java.util.UUID]
       val lastModifiedAt: Option[Long]
       val lastModifiedBy: Option[java.util.UUID]
-      val gender: domain.Gender.Value
+      val gender: domain.Gender
       val homeAddress: Option[domain.AddressInfo]
       val workAddress: Option[domain.AddressInfo]
-      //      val contacts: Option[ContactsLike]
       val contacts: domain.Contacts
       val avatar: Option[String]
       val _deleted: Boolean
@@ -65,6 +64,12 @@ trait OAuthServicesComponent {
       val scopes: Set[String]
     }
 
+    type StatsLike = {
+      val count: Int
+    }
+
+    def getUsersStats: StatsLike
+
     def getUsers(page: Int): List[UserLike]
 
     def getUser(id: String): Option[UserLike]
@@ -95,7 +100,7 @@ trait OAuthServicesComponent {
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
 
     def updateUser(id: String, spec: utils.UserSpec): Boolean
 
@@ -107,7 +112,7 @@ trait OAuthServicesComponent {
 
     def checkActivationReq(username: String, ky: String): Boolean
 
-    def changePasswd(username: String, ky: String, newPasswd: String): Boolean
+    def resetPasswd(username: String, ky: String, newPasswd: String): Boolean
   }
 }
 
@@ -118,6 +123,8 @@ trait OAuthServicesRepoComponent {
   trait OAuthServicesRepo {
     import oauthService._
 
+    def getUsersStats: StatsLike
+
     def getUsers(page: Int): List[UserLike]
 
     def getUser(id: String): Option[UserLike]
@@ -148,7 +155,7 @@ trait OAuthServicesRepoComponent {
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean): Option[UserLike]
 
     def updateUser(id: String, spec: utils.UserSpec): Boolean
 
@@ -160,7 +167,7 @@ trait OAuthServicesRepoComponent {
 
     def checkActivationReq(username: String, ky: String): Boolean
 
-    def changePasswd(username: String, ky: String, newPasswd: String): Boolean
+    def resetPasswd(username: String, ky: String, newPasswd: String): Boolean
   }
 }
 
@@ -174,7 +181,7 @@ trait AccessControlServicesComponent {
       val parent: Option[String]
       val createdAt: Long
       val createdBy: Option[java.util.UUID]
-      val public: Boolean
+      val publiq: Boolean
     }
 
     type PermissionLike = {
@@ -274,7 +281,6 @@ trait AccessControlServicesRepoComponent {
 
     def updateRole(name: String, newName: String, parent: Option[String]): Boolean
   }
-
 }
 
 trait CachingServicesComponent {

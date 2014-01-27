@@ -64,7 +64,7 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
         case my =>
           cachingServices.evict(Params(my.id.get.toString))
 
-          cachingServices.evict(UserParams(page = pageOf(my.id.get.toString)))
+          cachingServices.evict(UserParams(calcPage = pageOf(my.id.get.toString)))
 
           my
       }
@@ -74,7 +74,7 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
 
         cachingServices.evict(Params(id))
 
-        cachingServices.evict(UserParams(page = pageOf(id)))
+        cachingServices.evict(UserParams(calcPage = pageOf(id)))
 
         true
       }
@@ -83,14 +83,14 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
       super.removeUser(id) && {
         cachingServices.evict(Params(id))
 
-        cachingServices.evict(UserParams(page = pageOf(id)))
+        cachingServices.evict(UserParams(calcPage = pageOf(id)))
 
         true
       }
 
     abstract override def purgeUsers(users: Set[String]) {
       super.purgeUsers(users)
-      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(page = pageOf(o))) })
+      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(calcPage = pageOf(o))) })
     }
   }
 }
@@ -110,12 +110,12 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
 
   class CachingServicesImpl extends CachingServices {
 
-    def get[T: scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T): Option[T] = {
+    def get[T: scala.reflect.ClassTag](params: impl.CacheActor.Params)(default: => T) = {
       implicit val tm = Timeout(60 seconds)
 
       val q = (cacheActor ? impl.CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
 
-      allCatch.opt {
+      allCatch[Option[T]].opt {
         Await.result(q, tm.duration)
       } getOrElse None
     }

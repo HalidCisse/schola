@@ -21,7 +21,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
       o must not be empty
       o.get.primaryEmail must be equalTo SuperUser.primaryEmail
-//      o.get.password must be equalTo SuperUser.password
+      //      o.get.password must be equalTo SuperUser.password
       o.get.givenName must be equalTo SuperUser.givenName
       o.get.familyName must be equalTo SuperUser.familyName
       o.get.gender must be equalTo SuperUser.gender
@@ -32,7 +32,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
     "update primaryEmail" in {
 
-/*      val o = oauthService.saveUser(
+      /*      val o = oauthService.saveUser(
         "username0",
         "amsayk.0",
         "Amadou",
@@ -74,7 +74,7 @@ object UserUpdateSpec extends org.specs.Specification {
     }
 
     "update password only of it matches" in {
-/*      val o = oauthService.saveUser(
+      /*      val o = oauthService.saveUser(
         "username0",
         "amsayk.0",
         "Amadou",
@@ -134,7 +134,7 @@ object UserUpdateSpec extends org.specs.Specification {
     }
 
     "update contacts" in {
-/*      val sContacts = Set[domain.ContactInfo](
+      /*      val sContacts = Set[domain.ContactInfo](
           domain.HomeContactInfo(domain.PhoneNumber("+212600793159")),
           domain.WorkContactInfo(domain.Email("ousmancisse64@gmail.com"))
         )
@@ -245,7 +245,7 @@ object UserUpdateSpec extends org.specs.Specification {
 
     "remove homeAddress" in {
 
-/*      val o = oauthService.saveUser(
+      /*      val o = oauthService.saveUser(
         "username10",
         "amsayk.0",
         "Amadou",
@@ -364,6 +364,6 @@ object UserUpdateSpec extends org.specs.Specification {
     }
   }
 
-  doBeforeSpec { try drop() catch { case _: Throwable => }; initialize () must beTrue }
-  doAfterSpec { drop () }
+  doBeforeSpec { try drop() catch { case _: Throwable => }; initialize() must beTrue }
+  doAfterSpec { drop() }
 }

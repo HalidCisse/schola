@@ -27,6 +27,10 @@ max-width: 330px;
   margin-top: 7px;
 }
 
+#profiles_content > div > div {
+padding: 0;
+}
+
 .form-editprofile .tab-pane {
 min-height: 380px;
 }
@@ -36,15 +40,15 @@ min-height: 380px;
 }
 
 #gender > label:first-child {
-display: block;
+/*display: block;*/
 }
 
-#gender .radio-inline:last-child {
+#gender .radio-inline{
 margin-top: 3px;
 }
 
 #gender .radio-inline {
-margin-left: 17px;
+/*margin-left: 17px;*/
 }
 
 .form-editprofile .form-control {

@@ -49,7 +49,7 @@ ScalariformKeys.preferences := ScalariformKeys.preferences.value
   setPreference(SpacesWithinPatternBinders, true)
 
 libraryDependencies ++= Seq(
-  "com.typesafe.slick" %% "slick" % "2.0.0-RC1",
+  "com.typesafe.slick" %% "slick" % "2.0.0",
   "com.typesafe" % "config" % "1.0.2"
 )
 

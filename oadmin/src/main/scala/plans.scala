@@ -80,6 +80,10 @@ trait Server { self: Plans =>
 
           routeHandler.getUsers(num)
 
+        case GET(ContextPath(_, Seg("users" :: "stats" :: Nil))) =>
+
+          routeHandler.getUsersStats
+
         case GET(ContextPath(_, Seg("users" :: "_trash" :: Nil))) =>
 
           routeHandler.getTrash

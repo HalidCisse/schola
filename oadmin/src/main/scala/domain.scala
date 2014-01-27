@@ -1,7 +1,8 @@
 package schola
 package oadmin
+package domain
 
-package domain {
+object `package` {
 
   case class Session(
     key: String,
@@ -39,53 +40,66 @@ package domain {
     val OADMIN = "oadmin"
   }
 
+  /*object NamePrefix extends conversions.jdbc.DBEnum {
+    val Mr, Mrs, Dr, Miss, Other = Value
+  }
+
+  type NamePrefix = NamePrefix.Value*/
+
   object Gender extends conversions.jdbc.DBEnum {
     val Male = Value
     val Female = Value
   }
 
-  case class HomeContactInfo(email: Option[String], phoneNumber: Option[String], fax: Option[String])
-  case class WorkContactInfo(email: Option[String], phoneNumber: Option[String], fax: Option[String])
+  type Gender = Gender.Value
+
+  case class ContactInfo(email: Option[String], phoneNumber: Option[String], fax: Option[String])
 
   case class MobileNumbers(mobile1: Option[String], mobile2: Option[String])
 
-  case class Contacts(mobiles: MobileNumbers, home: Option[HomeContactInfo], work: Option[WorkContactInfo])
+  case class Contacts(mobiles: MobileNumbers, home: Option[ContactInfo], work: Option[ContactInfo])
 
   case class AddressInfo(city: String, country: String, postalCode: String, streetAddress: String)
 
-  case class User(
-    primaryEmail: String,
-    password: Option[String],
-    givenName: String,
-    familyName: String,
-    createdAt: Long = System.currentTimeMillis,
-    createdBy: Option[java.util.UUID],
-    lastLoginTime: Option[Long] = None,
-    lastModifiedAt: Option[Long] = None,
-    lastModifiedBy: Option[java.util.UUID] = None,
-    gender: Gender.Value = Gender.Male,
-    homeAddress: Option[AddressInfo] = None,
-    workAddress: Option[AddressInfo] = None,
-    contacts: Contacts = Contacts(MobileNumbers(None, None), None, None),
-    avatar: Option[String] = None,
-    activationKey: Option[String] = None,
-    _deleted: Boolean = false,
-    suspended: Boolean = false,
-    changePasswordAtNextLogin: Boolean = false,
-    id: Option[java.util.UUID] = None)
+  case class UsersStats(count: Int)
 
-  case class Role(name: String, parent: Option[String], createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID], public: Boolean = true)
+  case class User(
+      primaryEmail: String,
+      password: Option[String],
+      givenName: String,
+      familyName: String,
+      createdAt: Long = System.currentTimeMillis,
+      createdBy: Option[java.util.UUID],
+      lastLoginTime: Option[Long] = None,
+      lastModifiedAt: Option[Long] = None,
+      lastModifiedBy: Option[java.util.UUID] = None,
+      gender: Gender = Gender.Male,
+      homeAddress: Option[AddressInfo] = None,
+      workAddress: Option[AddressInfo] = None,
+      contacts: Contacts = Contacts(MobileNumbers(None, None), None, None),
+      avatar: Option[String] = None,
+      activationKey: Option[String] = None,
+      _deleted: Boolean = false,
+      suspended: Boolean = false,
+      changePasswordAtNextLogin: Boolean = false,
+      id: Option[java.util.UUID] = None) {
+
+    @inline def isSuperuser = id == SuperUser.id
+  }
+
+  case class Role(name: String, parent: Option[String] = None, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, publiq: Boolean = true)
 
   case class Permission(name: String, clientId: String)
 
   object P {
+    val ChangeUser = Permission("user.modify", Clients.OADMIN)
     val ViewUser = Permission("user.view", Clients.OADMIN)
-    val ChangeUser = Permission("user.change", Clients.OADMIN)
     val DeleteUser = Permission("user.remove", Clients.OADMIN)
     val PurgeUser = Permission("user.purge", Clients.OADMIN)
+    val UnPurgeUser = Permission("user.undelete", Clients.OADMIN)
 
+    val ChangeRole = Permission("role.modify", Clients.OADMIN)
     val ViewRole = Permission("role.view", Clients.OADMIN)
-    val ChangeRole = Permission("role.change", Clients.OADMIN)
     val PurgeRole = Permission("role.purge", Clients.OADMIN)
 
     val GrantRole = Permission("role.grant", Clients.OADMIN)
@@ -95,13 +109,14 @@ package domain {
     val RevokePermission = Permission("permission.revoke", Clients.OADMIN)
 
     val all = Set(
-      ViewUser,
       ChangeUser,
+      ViewUser,
       DeleteUser,
       PurgeUser,
+      UnPurgeUser,
 
-      ViewRole,
       ChangeRole,
+      ViewRole,
       PurgeRole,
 
       GrantRole,
@@ -112,9 +127,9 @@ package domain {
   }
 
   object R {
-    val SuperUserR = Role(config.getString("oauth2.super-user-role-name"), None, createdAt = 0L, createdBy = None, public = false)
+    val SuperUserR = Role(config.getString("oauth2.super-user-role-name"), None, createdAt = 0L, createdBy = None, publiq = false)
 
-    val AdministratorR = Role(config.getString("oauth2.administrator-role-name"), Some(SuperUserR.name), createdAt = 0L, createdBy = None, public = false)
+    val AdministratorR = Role(config.getString("oauth2.administrator-role-name"), None, createdAt = 0L, createdBy = None, publiq = false)
 
     val all = Set(SuperUserR, AdministratorR)
   }
@@ -170,7 +185,7 @@ package domain {
     }
   }
 
-  case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID])
+  case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None)
 
-  case class UserRole(userId: java.util.UUID, role: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID])
+  case class UserRole(userId: java.util.UUID, role: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None, delegated: Boolean = false)
 }

@@ -15,11 +15,11 @@ object main extends App {
 
   val log = Logger("oadmin.main")
 
-  val server = Http(3000)
+  val server = Http(Port, Hostname)
 
   server
     .context("/") {
-      _.filter(Plans / (server.host, server.port))
+      _.filter(Plans /)
     }
     .context("/assets") {
       _.resources(getClass.getResource("/WEB-INF/assets"))
@@ -35,26 +35,26 @@ object main extends App {
         .filter(Plans.api)
     }
 
-  //  S.test()
+  try S.drop() catch {
+    case ex: Throwable => log.info("DROP failed:"); ex.printStackTrace()
+  }
 
-  //  try S.drop() catch {
-  //    case ex: Throwable => ex.printStackTrace()
-  //  }
-
-  //  S.init(SuperUser.id.get)
+  S.init(SuperUser.id.get)
   server.start()
+
+  val cleanUp = S.genFixtures
 
   log.info("The server is runing . . .")
   log.info("Press any key to stop server . . .")
   System.in.read()
 
-  // Cache.clearAll()
+  Cache.clearAll()
+
+  //  cleanUp()
 
   system.shutdown()
   system.awaitTermination()
 
   server.stop()
   server.destroy()
-
-  //  S.drop()
 }

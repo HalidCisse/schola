@@ -179,6 +179,251 @@ exports.rethrow = function rethrow(err, filename, lineno){
 })({});
 
 
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+/**
+ * @fileoverview This file provides utility functions for position popups.
+ */
+
+(function(exports) {
+
+  /**
+   * Type def for rects as returned by getBoundingClientRect.
+   * @typedef { {left: number, top: number, width: number, height: number,
+   *             right: number, bottom: number}}
+   */
+  var Rect;
+
+  /**
+   * Enum for defining how to anchor a popup to an anchor element.
+   * @enum {number}
+   */
+  var AnchorType = {
+    /**
+     * The popup's right edge is aligned with the left edge of the anchor.
+     * The popup's top edge is aligned with the top edge of the anchor.
+     */
+    BEFORE: 1,  // p: right, a: left, p: top, a: top
+
+    /**
+     * The popop's left edge is aligned with the right edge of the anchor.
+     * The popup's top edge is aligned with the top edge of the anchor.
+     */
+    AFTER: 2,  // p: left a: right, p: top, a: top
+
+    /**
+     * The popop's bottom edge is aligned with the top edge of the anchor.
+     * The popup's left edge is aligned with the left edge of the anchor.
+     */
+    ABOVE: 3,  // p: bottom, a: top, p: left, a: left
+
+    /**
+     * The popop's top edge is aligned with the bottom edge of the anchor.
+     * The popup's left edge is aligned with the left edge of the anchor.
+     */
+    BELOW: 4  // p: top, a: bottom, p: left, a: left
+  };
+
+  /**
+   * Helper function for positionPopupAroundElement and positionPopupAroundRect.
+   * @param {!Rect} anchorRect The rect for the anchor.
+   * @param {!HTMLElement} popupElement The element used for the popup.
+   * @param {AnchorType} type The type of anchoring to do.
+   * @param {boolean} invertLeftRight Whether to invert the right/left
+   *     alignment.
+   */
+  function positionPopupAroundRect(anchorRect, popupElement, type,
+                                   invertLeftRight) {
+    var popupRect = popupElement.getBoundingClientRect();
+    var availRect;
+    var ownerDoc = popupElement.ownerDocument;
+    var cs = ownerDoc.defaultView.getComputedStyle(popupElement);
+    var docElement = ownerDoc.documentElement;
+
+    if (cs.position == 'fixed') {
+      // For 'fixed' positioned popups, the available rectangle should be based
+      // on the viewport rather than the document.
+      availRect = {
+        height: docElement.clientHeight,
+        width: docElement.clientWidth,
+        top: 0,
+        bottom: docElement.clientHeight,
+        left: 0,
+        right: docElement.clientWidth
+      };
+    } else {
+      availRect = popupElement.offsetParent.getBoundingClientRect();
+    }
+
+    if (cs.direction == 'rtl')
+      invertLeftRight = !invertLeftRight;
+
+    // Flip BEFORE, AFTER based on alignment.
+    if (invertLeftRight) {
+      if (type == AnchorType.BEFORE)
+        type = AnchorType.AFTER;
+      else if (type == AnchorType.AFTER)
+        type = AnchorType.BEFORE;
+    }
+
+    // Flip type based on available size
+    switch (type) {
+      case AnchorType.BELOW:
+        if (anchorRect.bottom + popupRect.height > availRect.height &&
+            popupRect.height <= anchorRect.top) {
+          type = AnchorType.ABOVE;
+        }
+        break;
+      case AnchorType.ABOVE:
+        if (popupRect.height > anchorRect.top &&
+            anchorRect.bottom + popupRect.height <= availRect.height) {
+          type = AnchorType.BELOW;
+        }
+        break;
+      case AnchorType.AFTER:
+        if (anchorRect.right + popupRect.width > availRect.width &&
+            popupRect.width <= anchorRect.left) {
+          type = AnchorType.BEFORE;
+        }
+        break;
+      case AnchorType.BEFORE:
+        if (popupRect.width > anchorRect.left &&
+            anchorRect.right + popupRect.width <= availRect.width) {
+          type = AnchorType.AFTER;
+        }
+        break;
+    }
+    // flipping done
+
+    var style = popupElement.style;
+    // Reset all directions.
+    style.left = style.right = style.top = style.bottom = 'auto';
+
+    // Primary direction
+    switch (type) {
+      case AnchorType.BELOW:
+        if (anchorRect.bottom + popupRect.height <= availRect.height)
+          style.top = anchorRect.bottom + 'px';
+        else
+          style.bottom = '0';
+        break;
+      case AnchorType.ABOVE:
+        if (availRect.height - anchorRect.top >= 0)
+          style.bottom = availRect.height - anchorRect.top + 'px';
+        else
+          style.top = '0';
+        break;
+      case AnchorType.AFTER:
+        if (anchorRect.right + popupRect.width <= availRect.width)
+          style.left = anchorRect.right + 'px';
+        else
+          style.right = '0';
+        break;
+      case AnchorType.BEFORE:
+        if (availRect.width - anchorRect.left >= 0)
+          style.right = availRect.width - anchorRect.left + 'px';
+        else
+          style.left = '0';
+        break;
+    }
+
+    // Secondary direction
+    switch (type) {
+      case AnchorType.BELOW:
+      case AnchorType.ABOVE:
+        if (invertLeftRight) {
+          // align right edges
+          if (anchorRect.right - popupRect.width >= 0) {
+            style.right = availRect.width - anchorRect.right + 'px';
+
+          // align left edges
+          } else if (anchorRect.left + popupRect.width <= availRect.width) {
+            style.left = anchorRect.left + 'px';
+
+          // not enough room on either side
+          } else {
+            style.right = '0';
+          }
+        } else {
+          // align left edges
+          if (anchorRect.left + popupRect.width <= availRect.width) {
+            style.left = anchorRect.left + 'px';
+
+          // align right edges
+          } else if (anchorRect.right - popupRect.width >= 0) {
+            style.right = availRect.width - anchorRect.right + 'px';
+
+          // not enough room on either side
+          } else {
+            style.left = '0';
+          }
+        }
+        break;
+
+      case AnchorType.AFTER:
+      case AnchorType.BEFORE:
+        // align top edges
+        if (anchorRect.top + popupRect.height <= availRect.height) {
+          style.top = anchorRect.top + 'px';
+
+        // align bottom edges
+        } else if (anchorRect.bottom - popupRect.height >= 0) {
+          style.bottom = availRect.height - anchorRect.bottom + 'px';
+
+          // not enough room on either side
+        } else {
+          style.top = '0';
+        }
+        break;
+    }
+  }
+
+  /**
+   * Positions a popup element relative to an anchor element. The popup element
+   * should have position set to absolute and it should be a child of the body
+   * element.
+   * @param {!HTMLElement} anchorElement The element that the popup is anchored
+   *     to.
+   * @param {!HTMLElement} popupElement The popup element we are positioning.
+   * @param {AnchorType} type The type of anchoring we want.
+   * @param {boolean} invertLeftRight Whether to invert the right/left
+   *     alignment.
+   */
+  function positionPopupAroundElement(anchorElement, popupElement, type,
+                                      invertLeftRight) {
+    var anchorRect = anchorElement.getBoundingClientRect();
+    positionPopupAroundRect(anchorRect, popupElement, type, invertLeftRight);
+  }
+
+  /**
+   * Positions a popup around a point.
+   * @param {number} x The client x position.
+   * @param {number} y The client y position.
+   * @param {!HTMLElement} popupElement The popup element we are positioning.
+   */
+  function positionPopupAtPoint(x, y, popupElement) {
+    var rect = {
+      left: x,
+      top: y,
+      width: 0,
+      height: 0,
+      right: x,
+      bottom: y
+    };
+    positionPopupAroundRect(rect, popupElement, AnchorType.BELOW);
+  }
+
+  // Export
+  exports.position = {
+    AnchorType: AnchorType,
+    positionPopupAroundElement: positionPopupAroundElement,
+    positionPopupAtPoint: positionPopupAtPoint
+  };
+
+}).call(this, this);
+
 (function(/*! Stitch !*/) {
   if (!this.require) {
     var modules = {}, cache = {}, require = function(name, root) {
@@ -11681,44 +11926,6 @@ Released under the MIT License
 /*
 //@ sourceMappingURL=spine.map
 */
-}, "spine/lib/local": function(exports, require, module) {// Generated by CoffeeScript 1.6.3
-(function() {
-  var Spine;
-
-  Spine = this.Spine || require('spine');
-
-  Spine.Model.Local = {
-    extended: function() {
-      this.change(this.saveLocal);
-      return this.fetch(this.loadLocal);
-    },
-    saveLocal: function() {
-      var result;
-      result = JSON.stringify(this);
-      return localStorage[this.className] = result;
-    },
-    loadLocal: function(options) {
-      var result;
-      if (options == null) {
-        options = {};
-      }
-      if (!options.hasOwnProperty('clear')) {
-        options.clear = true;
-      }
-      result = localStorage[this.className];
-      return this.refresh(result || [], options);
-    }
-  };
-
-  if (typeof module !== "undefined" && module !== null) {
-    module.exports = Spine.Model.Local;
-  }
-
-}).call(this);
-
-/*
-//@ sourceMappingURL=local.map
-*/
 }, "spine/lib/route": function(exports, require, module) {// Generated by CoffeeScript 1.6.3
 (function() {
   var $, Spine, escapeRegExp, hashStrip, namedParam, splatParam,
@@ -12123,103 +12330,1765 @@ Released under the MIT License
 /*
 //@ sourceMappingURL=manager.map
 */
-}, "controllers/Users": function(exports, require, module) {(function() {
-  var Spine, Users,
+}, "controllers/Menu": function(exports, require, module) {(function() {
+  var Menu, Spine,
+    __hasProp = {}.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    __slice = [].slice;
+
+  Spine = require('spine');
+
+  Menu = (function(_super) {
+    __extends(Menu, _super);
+
+    Menu.USERS = 'users';
+
+    Menu.TRASH = 'trash';
+
+    Menu.ROLES = 'roles';
+
+    Menu.STATS = 'stats';
+
+    Menu.prototype.className = 'menu';
+
+    Menu.elements = {
+      '.menuHeader': 'menuHeader',
+      '.menuItems': 'menuItems'
+    };
+
+    function Menu() {
+      Menu.__super__.constructor.apply(this, arguments);
+      this.mgmt = new Menu.Mgmt;
+    }
+
+    Menu.tmpl = require('views/menu/single');
+
+    Menu.prototype.render = function() {
+      var item, _i, _len, _ref;
+      this.html(Menu.tmpl());
+      this.el.attr('id', "menu-" + this.id);
+      this.menuHeader.html(this.header);
+      _ref = this.items;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        item = _ref[_i];
+        this.menuItems.append(this.add(new Menu.Item({
+          item: item
+        })).render());
+      }
+      return this.el;
+    };
+
+    Menu.prototype.getItem = function(id) {
+      var _, _i, _len, _ref;
+      _ref = this.mgmt.items;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        _ = _ref[_i];
+        if (_.item.id === id) {
+          return _;
+        }
+      }
+    };
+
+    Menu.prototype.add = function(item) {
+      this.mgmt.add(item);
+      return item;
+    };
+
+    Menu.Mgmt = (function(_super1) {
+      __extends(Mgmt, _super1);
+
+      Mgmt.include(Spine.Events);
+
+      function Mgmt() {
+        this.items = [];
+        this.bind('change', this.change);
+        this.add.apply(this, arguments);
+      }
+
+      Mgmt.prototype.add = function() {
+        var item, items, _i, _len, _results;
+        items = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+        _results = [];
+        for (_i = 0, _len = items.length; _i < _len; _i++) {
+          item = items[_i];
+          _results.push(this.addOne(item));
+        }
+        return _results;
+      };
+
+      Mgmt.prototype.addOne = function(item) {
+        var _this = this;
+        item.bind('active', function() {
+          var args;
+          args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          return _this.trigger.apply(_this, ['change', item].concat(__slice.call(args)));
+        });
+        item.bind('release', function() {
+          return _this.items.splice(_this.items.indexOf(item), 1);
+        });
+        return this.items.push(item);
+      };
+
+      Mgmt.prototype.deactivate = function() {
+        return this.trigger.apply(this, ['change', false].concat(__slice.call(arguments)));
+      };
+
+      Mgmt.prototype.change = function() {
+        var args, current, item, _i, _len, _ref;
+        current = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+        _ref = this.items;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          item = _ref[_i];
+          if (item !== current) {
+            item.deactivate.apply(item, args);
+          }
+        }
+        if (current) {
+          return current.activate.apply(current, args);
+        }
+      };
+
+      return Mgmt;
+
+    })(Spine.Module);
+
+    Menu.Item = (function(_super1) {
+      __extends(Item, _super1);
+
+      Item.prototype.tag = 'li';
+
+      Item.prototype.className = 'menuItem';
+
+      Item.events = {
+        'click': 'clicked'
+      };
+
+      function Item() {
+        Item.__super__.constructor.apply(this, arguments);
+      }
+
+      Item.prototype.loading = function() {
+        this.el.addClass('loading');
+        return this;
+      };
+
+      Item.prototype.doneLoading = function() {
+        this.el.removeClass('loading');
+        return this;
+      };
+
+      Item.prototype.activate = function() {
+        this.el.addClass('active');
+        return this;
+      };
+
+      Item.prototype.deactivate = function() {
+        this.el.removeClass('active');
+        return this;
+      };
+
+      Item.prototype.clicked = function(e) {
+        this.delay(function() {
+          return this.trigger('active');
+        });
+        e.stopPropagation();
+        e.preventDefault();
+        return this.navigate(this.item.href);
+      };
+
+      Item.tmpl = require('views/menu/item');
+
+      Item.prototype.render = function() {
+        this.html(Item.tmpl());
+        this.$('a').attr('href', this.item.href);
+        this.$('.glyphicon').addClass(this.item.icon);
+        this.$('.title').html(this.item.title);
+        return this.el;
+      };
+
+      return Item;
+
+    })(Spine.Controller);
+
+    return Menu;
+
+  }).call(this, Spine.Controller);
+
+  Menu.Mgr = (function() {
+    function Mgr() {}
+
+    Mgr.el = new Spine.Controller({
+      el: '#sidebar'
+    });
+
+    Mgr.menus = {};
+
+    Mgr.add = function(opts) {
+      this.rm(opts.id);
+      return this.el.append((this.menus[opts.id] = new Menu(opts)).render());
+    };
+
+    Mgr.rm = function(id) {
+      if (this.menus[id]) {
+        this.menus[id].release();
+        return delete this.menus[id];
+      }
+    };
+
+    Mgr.getMenu = function(id) {
+      var item, menu, _, _ref;
+      _ref = this.menus;
+      for (_ in _ref) {
+        menu = _ref[_];
+        item = menu.getItem(id);
+        if (item) {
+          return item;
+        }
+      }
+    };
+
+    return Mgr;
+
+  })();
+
+  module.exports = Menu;
+
+}).call(this);
+}, "controllers/Role": function(exports, require, module) {(function() {
+  var Manager, Menu, Role, RoleM, SelectionMgr, Spine,
+    __hasProp = {}.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
+  Spine = require('spine');
+
+  Manager = require('spine/lib/manager');
+
+  Spine.Stack = Manager.Stack;
+
+  RoleM = require('models/Role');
+
+  Menu = require('controllers/Menu');
+
+  SelectionMgr = require('lib/selection');
+
+  Role = (function() {
+    function Role() {}
+
+    return Role;
+
+  })();
+
+  Role.Tree = (function(_super) {
+    __extends(Tree, _super);
+
+    Tree.prototype.logPrefix = '(Role.Tree)';
+
+    Tree.prototype.className = 'roles';
+
+    function Tree() {
+      var _this = this;
+      Tree.__super__.constructor.apply(this, arguments);
+      this.selMgr = new SelectionMgr;
+      this.toolbar = new Tree.Toolbar({
+        selMgr: this.selMgr,
+        el: Tree.toolbarTmpl
+      });
+      this.tree = new Spine.Controller({
+        className: 'tree'
+      });
+      this.render();
+      this.active(function() {
+        this.log('active');
+        return this.delay(function() {
+          app.menu(Menu.ROLES).loading();
+          return RoleM.Reload();
+        });
+      });
+      RoleM.on('refresh', function() {
+        _this.Refresh();
+        return app.menu(Menu.ROLES).doneLoading();
+      });
+      this.toolbar.on('filter', function(q) {
+        var row, _i, _len, _ref;
+        _ref = _this.topRows;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          row = _ref[_i];
+          row.Filtered(q);
+          row.FilterChildren();
+        }
+        return _this.delay(function() {
+          var $q;
+          $q = this.$('.q:first');
+          if ($q.length) {
+            return $q.scrollIntoView();
+          } else {
+            return document.body.scrollIntoView(true);
+          }
+        });
+      });
+      this.toolbar.on('purge', function() {
+        return _this.Purge(_this.selMgr.getSelection());
+      });
+      this.toolbar.on('new', function() {
+        return this.delay(function() {
+          return Tree.form.New();
+        });
+      });
+      Tree.contextmenu.on('purge', function(role) {
+        return _this.Purge([role]);
+      });
+      Tree.contextmenu.on('edit', function(role) {
+        return this.delay(function() {
+          return Tree.form.Edit(role);
+        });
+      });
+      Tree.form.on('save', this.saveRole);
+      Tree.form.on('update', this.updateRole);
+    }
+
+    Tree.rowTmpl = require('views/role/row')();
+
+    Tree.formTmpl = require('views/role/form')();
+
+    Tree.toolbarTmpl = require('views/role/tree.toolbar')();
+
+    Tree.contextmenuTmpl = require('views/role/contextmenu')();
+
+    Tree.prototype.Purge = function(roles) {};
+
+    Tree.prototype.saveRole = function(info) {
+      return this.log("save role info<" + (JSON.stringify(info)) + ">");
+    };
+
+    Tree.prototype.updateRole = function(name, info) {
+      return this.log("update role name<" + name + ">, info<" + (JSON.stringify(info)) + ">");
+    };
+
+    Tree.prototype.topRows = [];
+
+    Tree.prototype.add = function(row) {
+      var i,
+        _this = this;
+      i = this.topRows.push(row);
+      row.release(function() {
+        var ch, _i, _len, _ref;
+        _ref = row.childRows;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          ch = _ref[_i];
+          ch.release();
+        }
+        if (_this.topRows[i - 1]) {
+          return delete _this.topRows[i - 1];
+        }
+      });
+      row.on('contextmenu', function(evt, role) {
+        return Tree.contextmenu.Show(evt, role);
+      });
+      return row;
+    };
+
+    Tree.prototype.Refresh = function() {
+      var delegate, role, row, _i, _j, _len, _len1, _ref, _ref1, _results;
+      _ref = this.topRows;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        row = _ref[_i];
+        row.release();
+      }
+      _ref1 = RoleM.getTopLevel();
+      _results = [];
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        role = _ref1[_j];
+        this.tree.append(this.add(delegate = new Tree.Row({
+          role: role,
+          selMgr: this.selMgr,
+          el: Tree.rowTmpl,
+          q: this.toolbar.getInput()
+        })).el);
+        delegate.AppendChildren();
+        _results.push(delegate.DelegateEvents());
+      }
+      return _results;
+    };
+
+    Tree.prototype.render = function() {
+      this.append(this.toolbar.el);
+      this.append(this.tree.el);
+      this.append(Tree.contextmenu.el);
+      return this.append(Tree.form.el);
+    };
+
+    Tree.ContextMenu = (function(_super1) {
+      __extends(ContextMenu, _super1);
+
+      ContextMenu.prototype.logPrefix = '(Role.ContextMenu)';
+
+      ContextMenu.events = {
+        'click .edit': 'edit',
+        'click .purge': 'purge'
+      };
+
+      function ContextMenu() {
+        var _this = this;
+        ContextMenu.__super__.constructor.apply(this, arguments);
+        this.$(document).click(function() {
+          return _this.el.hide();
+        });
+      }
+
+      ContextMenu.prototype.Show = function(evt, role) {
+        this.role = role;
+        position.positionPopupAtPoint(evt.clientX, evt.clientY, this.el[0]);
+        return this.el.show();
+      };
+
+      ContextMenu.prototype.edit = function(e) {
+        this.log("edit Role<" + this.role.name + ">");
+        e.preventDefault();
+        return this.trigger('edit', this.role);
+      };
+
+      ContextMenu.prototype.purge = function(e) {
+        this.log("purge Role<" + this.role.name + ">");
+        e.preventDefault();
+        return this.trigger('purge', this.role);
+      };
+
+      return ContextMenu;
+
+    })(Spine.Controller);
+
+    Tree.contextmenu = new Tree.ContextMenu({
+      el: Tree.contextmenuTmpl
+    });
+
+    Tree.Form = (function(_super1) {
+      __extends(Form, _super1);
+
+      Form.elements = {
+        '[name=name]': 'name',
+        '[name=parent]': 'parent'
+      };
+
+      Form.events = {
+        'click .ok': 'save'
+      };
+
+      function Form() {
+        var _this = this;
+        Form.__super__.constructor.apply(this, arguments);
+        this.el.on('hidden.bs.modal', function() {
+          return _this.role = void 0;
+        });
+      }
+
+      Form.prototype.New = function() {
+        return this.load(function() {
+          this.el.modal();
+          return this.delay(function() {
+            return this.name.focus();
+          });
+        });
+      };
+
+      Form.prototype.Edit = function(role) {
+        this.role = role;
+        return this.load(function() {
+          this.name.val(this.role.name);
+          this.parent.val(this.role.parent);
+          this.el.modal();
+          return this.delay(function() {
+            return this.name.focus();
+          });
+        });
+      };
+
+      Form.prototype.save = function() {
+        if (this.role) {
+          return this.trigger('update', this.role.name, this.getInfo());
+        } else {
+          return this.trigger('save', this.getInfo());
+        }
+      };
+
+      Form.prototype.getInfo = function() {
+        var _parent;
+        return {
+          name: app.cleaned(this.name.val()),
+          parent: (_parent = app.cleaned(this.parent.val())) !== ':noparent' ? _parent : void 0
+        };
+      };
+
+      Form.prototype.load = function(callback) {
+        var CreateOptions, GetOthers;
+        GetOthers = function() {
+          var _this = this;
+          return RoleM.select(function(other) {
+            return !other.eql(_this.role);
+          });
+        };
+        CreateOptions = function(roles) {
+          var childrenOf, getLevel, labelOf, options, r1;
+          childrenOf = function(p1) {
+            var r3, _i, _len, _results;
+            _results = [];
+            for (_i = 0, _len = roles.length; _i < _len; _i++) {
+              r3 = roles[_i];
+              if (r3.parent === p1.name) {
+                _results.push(r3);
+              }
+            }
+            return _results;
+          };
+          getLevel = function(rrr) {
+            if (!rrr.parent) {
+              return 0;
+            }
+            return 1 + getLevel(RoleM.findByAttribute('name', rrr.parent));
+          };
+          labelOf = function(rr) {
+            var _;
+            return "" + (((function() {
+              var _i, _ref, _results;
+              _results = [];
+              for (_ = _i = 0, _ref = getLevel(rr); _i <= _ref; _ = _i += 1) {
+                _results.push('&nbsp;&nbsp;');
+              }
+              return _results;
+            })()).join('')) + rr.name;
+          };
+          options = function(roles0) {
+            var r0;
+            return ((function() {
+              var _i, _len, _results;
+              _results = [];
+              for (_i = 0, _len = roles0.length; _i < _len; _i++) {
+                r0 = roles0[_i];
+                _results.push(("<option value='" + r0.name + "'>" + (labelOf(r0)) + "</option>\n") + options(childrenOf(r0)));
+              }
+              return _results;
+            })()).join('');
+          };
+          return '<option value=":noparent"></option>\n' + options((function() {
+            var _i, _len, _results;
+            _results = [];
+            for (_i = 0, _len = roles.length; _i < _len; _i++) {
+              r1 = roles[_i];
+              if (!r1.parent) {
+                _results.push(r1);
+              }
+            }
+            return _results;
+          })());
+        };
+        if (this.role) {
+          this.$('.modal-title').html('Edit Role');
+          this.$('[for=name]').html('Please edit role name:');
+        } else {
+          this.$('.modal-title').html('New Role');
+          this.$('[for=name]').html('Please enter a new role name:');
+        }
+        this.parent.html(CreateOptions(this.role ? GetOthers() : RoleM.all()));
+        return this.delay(function() {
+          return callback.call(this);
+        });
+      };
+
+      return Form;
+
+    })(Spine.Controller);
+
+    Tree.form = new Tree.Form({
+      el: Tree.formTmpl
+    });
+
+    Tree.Toolbar = (function(_super1) {
+      __extends(Toolbar, _super1);
+
+      Toolbar.elements = {
+        '.filter input': 'input'
+      };
+
+      Toolbar.Events = {
+        'click .new': 'New',
+        'click .refresh': 'refresh',
+        'click .purge': 'purge',
+        'input .filter input': 'filter'
+      };
+
+      Toolbar.prototype.allSelected = false;
+
+      function Toolbar() {
+        this.selectionChanged = __bind(this.selectionChanged, this);
+        Toolbar.__super__.constructor.apply(this, arguments);
+        this.selMgr.on('selectionChanged', this.selectionChanged);
+        this.release(function() {
+          return this.selMgr.off('selectionChanged', this.selectionChanged);
+        });
+        this.delegateEvents(Toolbar.Events);
+      }
+
+      Toolbar.prototype.selectionChanged = function() {
+        return this.el.toggleClass('has-selection', this.selMgr.hasSelection());
+      };
+
+      Toolbar.prototype.New = function() {
+        return this.trigger('new');
+      };
+
+      Toolbar.prototype.refresh = function() {
+        return this.delay(function() {
+          app.menu(Menu.ROLES).loading();
+          return RoleM.Reload();
+        });
+      };
+
+      Toolbar.prototype.purge = function() {
+        return this.trigger('purge');
+      };
+
+      Toolbar.prototype.filter = function(e) {
+        e.stopPropagation();
+        return this.trigger('filter', this.getInput());
+      };
+
+      Toolbar.prototype.getInput = function() {
+        return this.input.val();
+      };
+
+      return Toolbar;
+
+    })(Spine.Controller);
+
+    Tree.Row = (function(_super1) {
+      __extends(Row, _super1);
+
+      Row.elements = {
+        '.tree-children:eq(0)': 'childElements',
+        '.tree-row:eq(0)': 'rowElement',
+        '.tree-label:eq(0)': 'nameElement'
+      };
+
+      function Row() {
+        this.select = __bind(this.select, this);
+        this.selectionChanged = __bind(this.selectionChanged, this);
+        this.contextmenu = __bind(this.contextmenu, this);
+        this.DoToggle = __bind(this.DoToggle, this);
+        Row.__super__.constructor.apply(this, arguments);
+        this.selMgr.on("selectionChanged_" + this.role.cid, this.selectionChanged);
+        this.listenTo(this.role, 'change', this.FillData);
+        this.release(function() {
+          return this.selMgr.off("selectionChanged_" + this.role.cid, this.selectionChanged);
+        });
+        this.FillData();
+      }
+
+      Row.prototype.AppendChildren = function() {
+        var child, delegate, hasChildren, _i, _len, _ref;
+        hasChildren = false;
+        _ref = RoleM.getChildren(this.role);
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          child = _ref[_i];
+          hasChildren = true;
+          this.childElements.append(this.add(delegate = new Tree.Row({
+            role: child,
+            selMgr: this.selMgr,
+            el: Tree.rowTmpl,
+            q: this.q,
+            parent: this
+          })).el);
+          delegate.AppendChildren();
+          delegate.DelegateEvents();
+        }
+        this.el.toggleClass('has-children', hasChildren);
+        return this.rowElement.toggleClass('has-children', hasChildren);
+      };
+
+      Row.prototype.DelegateEvents = function() {
+        this.el.on('contextmenu', this.contextmenu);
+        this.rowElement.on('click', this.select);
+        return this.rowElement.on('click', '.expand-icon', this.DoToggle);
+      };
+
+      Row.prototype.childRows = [];
+
+      Row.prototype.add = function(row) {
+        var i,
+          _this = this;
+        i = this.childRows.push(row);
+        row.release(function() {
+          if (_this.childRows[i - 1]) {
+            return delete _this.childRows[i - 1];
+          }
+        });
+        row.on('contextmenu', function(evt, role) {
+          return Tree.contextmenu.Show(evt, role);
+        });
+        return row;
+      };
+
+      Row.prototype.DoToggle = function(e) {
+        var collapse;
+        e.stopPropagation();
+        e.preventDefault();
+        collapse = !this.el.hasClass('expanded');
+        this.el.toggleClass('expanded', collapse);
+        return this.childElements.toggleClass('expanded', collapse);
+      };
+
+      Row.prototype.Expand = function() {
+        var _ref;
+        this.log("Expand Role<" + this.role.name + "> with parent=" + ((_ref = this.parent) != null ? _ref.role.name : void 0));
+        if (this.parent) {
+          this.parent.el.addClass('expanded');
+          this.parent.childElements.addClass('expanded');
+          return this.parent.Expand();
+        }
+      };
+
+      Row.prototype.FillData = function() {
+        this.rowElement.toggleClass('selected', this.selMgr.isSelected(this.role));
+        if (this.q !== void 0) {
+          if (this.Filtered(this.q)) {
+            this.Expand();
+          }
+        } else {
+          this.nameElement.html(this.role.name);
+        }
+        return this.el;
+      };
+
+      Row.prototype.Filtered = function(q) {
+        var found;
+        this.q = q;
+        found = false;
+        this.nameElement.html(this.role.name.replace(new RegExp("^(.*)(" + this.q + ")(.*)$"), function(name, $1, $2, $3) {
+          if (!!$2) {
+            found = true;
+            return "" + $1 + "<cite class='q'>" + $2 + "</cite>" + $3;
+          } else {
+            return name;
+          }
+        }));
+        return found;
+      };
+
+      Row.prototype.FilterChildren = function() {
+        var child, _i, _len, _ref, _results;
+        _ref = this.childRows;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          child = _ref[_i];
+          if (child.Filtered(this.q)) {
+            _results.push(child.Expand());
+          }
+        }
+        return _results;
+      };
+
+      Row.prototype.contextmenu = function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        return this.trigger('contextmenu', e, this.role);
+      };
+
+      Row.prototype.selectionChanged = function(selected) {
+        return this.rowElement.toggleClass('selected', selected);
+      };
+
+      Row.prototype.Off = function(fn) {
+        this.selMgr.off("selectionChanged_" + this.role.cid, this.selectionChanged);
+        fn();
+        return this.selMgr.on("selectionChanged_" + this.role.cid, this.selectionChanged);
+      };
+
+      Row.prototype.select = function(evt) {
+        var _this = this;
+        evt.stopPropagation();
+        evt.preventDefault();
+        this.Off(function() {
+          return _this.selMgr.selectOnly(_this.role);
+        });
+        return this.rowElement.toggleClass('selected', this.selMgr.isSelected(this.role));
+      };
+
+      return Row;
+
+    })(Spine.Controller);
+
+    return Tree;
+
+  }).call(this, Spine.Controller);
+
+  Role.Stack = (function(_super) {
+    __extends(Stack, _super);
+
+    Stack.prototype.logPrefix = '(Role.Stack)';
+
+    Stack.prototype.className = 'spine stack roles';
+
+    Stack.prototype.controllers = {
+      tree: Role.Tree
+    };
+
+    function Stack(opts) {
+      var _this = this;
+      this.routes = {
+        '/roles': 'tree'
+      };
+      Stack.__super__.constructor.apply(this, arguments);
+      this.active(function() {
+        return _this.log('active');
+      });
+      this.manager.on('change', function() {
+        return app.menu(Menu.ROLES).activate();
+      });
+    }
+
+    return Stack;
+
+  })(Manager.Stack);
+
+  module.exports = Role;
+
+}).call(this);
+}, "controllers/User": function(exports, require, module) {(function() {
+  var Manager, Menu, SelectionMgr, Spine, User, UserM,
+    __slice = [].slice,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   Spine = require('spine');
 
-  Users = (function() {
-    function Users() {}
+  Manager = require('spine/lib/manager');
 
-    Users.mainTmpl = require('users/main');
+  UserM = require('models/User');
 
-    return Users;
+  Menu = require('controllers/Menu');
+
+  SelectionMgr = require('lib/selection');
+
+  /* 
+  
+  # Hack to support hierarchy of stacks
+  
+  # Activating a child will activate all its direct parent stacks
+  # and deactivate all siblings (controllers or stacks), their parents and children recursively
+  */
+
+
+  Manager.prototype.change = function() {
+    var args, cont, current, deactivate, parent, _i, _len, _ref, _ref1;
+    current = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+    deactivate = function(cont) {
+      var child, _i, _len, _ref, _results;
+      cont.deactivate.apply(cont, args);
+      if (cont.controllers) {
+        _ref = cont.controllers;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          child = _ref[_i];
+          _results.push(deactivate(child));
+        }
+        return _results;
+      }
+    };
+    _ref = this.controllers;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      cont = _ref[_i];
+      if (cont !== current) {
+        deactivate(cont);
+      }
+    }
+    if (current) {
+      if (current.stack && (parent = current.stack.stack)) {
+        (_ref1 = parent.manager).trigger.apply(_ref1, ['change', current.stack].concat(__slice.call(args)));
+      }
+      return current.activate.apply(current, args);
+    }
+  };
+
+  User = (function() {
+    function User() {}
+
+    return User;
 
   })();
 
-  Users.Toolsbar = (function(_super) {
-    __extends(Toolsbar, _super);
-
-    function Toolsbar() {
-      Toolsbar.__super__.constructor.apply(this, arguments);
-    }
-
-    return Toolsbar;
-
-  })(Spine.Controller);
-
-  Users.Form = (function(_super) {
+  User.Form = (function(_super) {
     __extends(Form, _super);
 
+    Form.prototype.logPrefix = '(User.Form)';
+
+    Form.prototype.className = 'user form spine stack';
+
+    Form.defaultAvatarUrl = "http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195";
+
+    Form.elements = {
+      'fieldset': 'form',
+      '.save': 'saveBtn'
+    };
+
     function Form() {
+      this.Save = __bind(this.Save, this);
+      var _this = this;
+      this.controllers = {
+        edit: Form.Edit,
+        New: Form.New
+      };
+      this.routes = {
+        '/users/new': 'New',
+        '/user/:id/edit': function(params) {
+          return _this.edit.active(params.id);
+        }
+      };
       Form.__super__.constructor.apply(this, arguments);
+      this.edit.Save = this.New.Save = this.Save;
+      this.active(function() {
+        return this.log("active");
+      });
     }
 
-    Form.tmpl = require('users/form');
+    Form.tmpl = require('views/user/form')();
+
+    Form.toolbarTmpl = require('views/user/form.toolbar');
+
+    Form.UserInfo = function(it, id) {
+      if (id == null) {
+        id = void 0;
+      }
+      return {
+        id: id,
+        primaryEmail: app.cleaned(it.primaryEmail),
+        givenName: app.cleaned(it.givenName),
+        familyName: app.cleaned(it.familyName),
+        gender: app.cleaned(it.gender),
+        homeAddress: {
+          city: app.cleaned(it.homeCity),
+          country: app.cleaned(it.homeCountry),
+          postalCode: app.cleaned(it.homePostalCode),
+          streetAddress: app.cleaned(it.homeStreetAddress)
+        },
+        workAddress: {
+          city: app.cleaned(it.workCity),
+          country: app.cleaned(it.workCountry),
+          postalCode: app.cleaned(it.workPostalCode),
+          streetAddress: app.cleaned(it.workStreetAddress)
+        },
+        contacts: {
+          mobiles: {
+            mobile1: app.cleaned(it.mobile1),
+            mobile2: app.cleaned(it.mobile2)
+          },
+          home: {
+            email: app.cleaned(it.homeEmail),
+            phoneNumber: app.cleaned(it.homePhoneNumber),
+            fax: app.cleaned(it.homeFax)
+          },
+          work: {
+            email: app.cleaned(it.workEmail),
+            phoneNumber: app.cleaned(it.workPhoneNumber),
+            fax: app.cleaned(it.workFax)
+          }
+        }
+      };
+    };
+
+    Form.prototype.Save = function(user) {
+      var done,
+        _this = this;
+      this.log("Save " + (JSON.stringify(user)));
+      this.form.prop('disabled', true);
+      this.saving();
+      done = function() {
+        _this.doneSaving();
+        return _this.form.prop('disabled', false);
+      };
+      return done();
+    };
+
+    Form.prototype.saving = function() {
+      this.saveBtn.button('saving');
+      return this.el.addClass('saving');
+    };
+
+    Form.prototype.doneSaving = function() {
+      this.el.removeClass('saving');
+      return this.saveBtn.button('reset');
+    };
+
+    Form.Toolbar = (function(_super1) {
+      __extends(Toolbar, _super1);
+
+      Toolbar.events = {
+        'click .back': 'cancel',
+        'click .save': 'save'
+      };
+
+      function Toolbar() {
+        Toolbar.__super__.constructor.apply(this, arguments);
+      }
+
+      Toolbar.prototype.cancel = function() {
+        return this.navigate('/users');
+      };
+
+      Toolbar.prototype.save = function() {
+        return this.trigger('save');
+      };
+
+      return Toolbar;
+
+    })(Spine.Controller);
+
+    Form.It = (function(_super1) {
+      __extends(It, _super1);
+
+      It.prototype.className = 'it';
+
+      It.elements = {
+        '[name="primaryEmail"]': 'primaryEmail',
+        '[name="givenName"]': 'givenName',
+        '[name="familyName"]': 'familyName',
+        '[name="gender"]': 'gender',
+        '[name="workAddress[city]"]': 'workCity',
+        '[name="workAddress[country]"]': 'workCountry',
+        '[name="workAddress[postalCode]"]': 'workPostalCode',
+        '[name="workAddress[streetAddress]"]': 'workStreetAddress',
+        '[name="homeAddress[city]"]': 'homeCity',
+        '[name="homeAddress[country]"]': 'homeCountry',
+        '[name="homeAddress[postalCode]"]': 'homePostalCode',
+        '[name="homeAddress[streetAddress]"]': 'homeStreetAddress',
+        '[name="contacts[mobiles][mobile1]"]': 'mobile1',
+        '[name="contacts[mobiles][mobile2]"]': 'mobile2',
+        '[name="contacts[work][phoneNumber]"]': 'workPhoneNumber',
+        '[name="contacts[work][email]"]': 'workEmail',
+        '[name="contacts[work][fax]"]': 'workFax',
+        '[name="contacts[home][phoneNumber]"]': 'homePhoneNumber',
+        '[name="contacts[home][email]"]': 'homeEmail',
+        '[name="contacts[home][fax]"]': 'homeFax',
+        '#avatar': 'avatar'
+      };
+
+      function It() {
+        var _this = this;
+        It.__super__.constructor.apply(this, arguments);
+        this.avatarImg = new Image;
+        this.avatarImg.onerror = function() {
+          return _this.avatar[0].src = Form.defaultAvatarUrl;
+        };
+        this.avatarImg.onload = function() {
+          return _this.avatar[0].src = _this.avatarImg.src;
+        };
+        this.render();
+      }
+
+      It.prototype.render = function() {
+        var country, opts;
+        this.html(Form.tmpl);
+        opts = ((function() {
+          var _i, _len, _results;
+          _results = [];
+          for (_i = 0, _len = countries.length; _i < _len; _i++) {
+            country = countries[_i];
+            _results.push("<option value='" + country['code'] + "'>" + country['name'] + "</option>");
+          }
+          return _results;
+        })()).join('');
+        this.homeCountry.html(opts);
+        this.workCountry.html(opts);
+        return this.el;
+      };
+
+      It.prototype.loadAvatar = function(id) {
+        return this.delay(function() {
+          return this.avatarImg.src = "/api/v1/avatar/" + id;
+        });
+      };
+
+      It.prototype.Load = function(user) {
+        var avatar, contacts, home, homeAddress, mobiles, work, workAddress;
+        this.primaryEmail.val(user.primaryEmail);
+        this.givenName.val(user.givenName);
+        this.familyName.val(user.familyName);
+        this.gender.val(user.gender);
+        if (avatar = user.avatar) {
+          this.loadAvatar(avatar);
+        }
+        if (homeAddress = user.homeAddress) {
+          homeAddress.city && (this.homeCity.val(homeAddress.city));
+          homeAddress.country && (this.homeCountry.val(homeAddress.country));
+          homeAddress.postalCode && (this.homePostalCode.val(homeAddress.postalCode));
+          homeAddress.streetAddress && (this.homeStreetAddress.val(homeAddress.streetAddress));
+        }
+        if (workAddress = user.workAddress) {
+          workAddress.city && (this.workCity.val(workAddress.city));
+          workAddress.country && (this.workCountry.val(workAddress.country));
+          workAddress.postalCode && (this.workPostalCode.val(workAddress.postalCode));
+          workAddress.streetAddress && (this.workStreetAddress.val(workAddress.streetAddress));
+        }
+        if (contacts = user.contacts) {
+          if (mobiles = contacts.mobiles) {
+            mobiles.mobile1 && (this.mobile1.val(mobiles.mobile1));
+            mobiles.mobile2 && (this.mobile2.val(mobiles.mobile2));
+          }
+          if (home = contacts.home) {
+            home.phoneNumber && (this.homePhoneNumber.val(home.phoneNumber));
+            home.email && (this.homeEmail.val(home.email));
+            home.fax && (this.homeFax.val(home.fax));
+          }
+          if (work = contacts.work) {
+            work.phoneNumber && (this.workPhoneNumber.val(work.phoneNumber));
+            work.email && (this.workEmail.val(work.email));
+            return work.fax && (this.workFax.val(work.fax));
+          }
+        }
+      };
+
+      return It;
+
+    })(Spine.Controller);
+
+    Form.New = (function(_super1) {
+      __extends(New, _super1);
+
+      New.TITLE = 'Create a new user';
+
+      New.prototype.className = 'form new';
+
+      New.prototype.tag = 'form';
+
+      function New() {
+        this.doSave = __bind(this.doSave, this);
+        New.__super__.constructor.apply(this, arguments);
+        this.toolbar = new Form.Toolbar({
+          el: Form.toolbarTmpl({
+            title: New.TITLE
+          })
+        });
+        this.it = new Form.It;
+        this.active(function() {
+          this.log("New user");
+          return this.it.Load(UserM.Defaults);
+        });
+        this.toolbar.on('save', this.doSave);
+        this.render();
+      }
+
+      New.prototype.render = function() {
+        this.append(this.toolbar.el);
+        return this.append(this.it.el);
+      };
+
+      New.prototype.doSave = function() {
+        return this.Save(Form.UserInfo(this.it));
+      };
+
+      return New;
+
+    })(Spine.Controller);
+
+    Form.Edit = (function(_super1) {
+      __extends(Edit, _super1);
+
+      Edit.TITLE = 'Edit user';
+
+      Edit.prototype.className = 'form edit';
+
+      Edit.prototype.tag = 'form';
+
+      function Edit() {
+        this.doSave = __bind(this.doSave, this);
+        Edit.__super__.constructor.apply(this, arguments);
+        this.toolbar = new Form.Toolbar({
+          el: Form.toolbarTmpl({
+            title: Edit.TITLE
+          })
+        });
+        this.it = new Form.It;
+        this.active(function(id) {
+          var ex, user;
+          this.log("Edit user id=" + id);
+          try {
+            if (user = UserM.find(id)) {
+              this.it.Load(user.toJSON());
+              return this.id = id;
+            }
+          } catch (_error) {
+            ex = _error;
+            return this.log("Error finding User<" + id + ">");
+          }
+        });
+        this.toolbar.on('save', this.doSave);
+        this.render();
+      }
+
+      Edit.prototype.render = function() {
+        this.append(this.toolbar.el);
+        return this.append(this.it.el);
+      };
+
+      Edit.prototype.doSave = function() {
+        return this.Save(Form.UserInfo(this.it, this.id));
+      };
+
+      return Edit;
+
+    })(Spine.Controller);
 
     return Form;
 
-  })(Spine.Controller);
+  }).call(this, Spine.Stack);
 
-  Users.One = (function(_super) {
-    __extends(One, _super);
+  User.Single = (function(_super) {
+    __extends(Single, _super);
 
-    function One() {
-      One.__super__.constructor.apply(this, arguments);
+    Single.prototype.logPrefix = '(User.Single)';
+
+    Single.prototype.className = 'user single';
+
+    function Single() {
+      Single.__super__.constructor.apply(this, arguments);
+      this.toolbar = new Single.Toolbar({
+        el: Single.toolbarTmpl
+      });
+      this.it = new Single.It;
+      this.active(function(id) {
+        var ex, user;
+        this.log("active User<" + id + ">");
+        try {
+          if (user = UserM.find(id)) {
+            return this.it.Load(user);
+          }
+        } catch (_error) {
+          ex = _error;
+          return this.log("Error finding User#" + id);
+        }
+      });
     }
 
-    One.tmpl = require('users/view');
+    Single.tmpl = require('views/user/single')();
 
-    One.Toolsbar = (function(_super1) {
-      __extends(Toolsbar, _super1);
+    Single.toolbarTmpl = require('views/user/single.toolbar')();
 
-      function Toolsbar() {
-        Toolsbar.__super__.constructor.apply(this, arguments);
+    Single.prototype.render = function() {
+      this.append(this.toolbar.el);
+      return this.append(this.it.el);
+    };
+
+    Single.It = (function(_super1) {
+      __extends(It, _super1);
+
+      It.prototype.className = 'it';
+
+      function It() {
+        It.__super__.constructor.apply(this, arguments);
+        this.render();
       }
 
-      Toolsbar.tmpl = require('users/toolbar.user');
+      It.prototype.render = function() {
+        return this.html(Single.tmpl);
+      };
 
-      return Toolsbar;
+      It.prototype.Load = function(user) {
+        if (this.user) {
+          this.stopListening(this.user);
+        }
+        this.user = user;
+        this.listenTo(this.user, 'change', this.FillData);
+        return this.FillData();
+      };
 
-    })(Users.Toolsbar);
+      It.prototype.FillData = function() {
+        return this.el;
+      };
 
-    return One;
+      return It;
+
+    })(Spine.Controller);
+
+    Single.Toolbar = (function(_super1) {
+      __extends(Toolbar, _super1);
+
+      Toolbar.events = {
+        'click .back': 'back',
+        'click .refresh': 'refresh',
+        'click .edit': 'edit',
+        'click .purge': 'purge'
+      };
+
+      function Toolbar() {
+        Toolbar.__super__.constructor.apply(this, arguments);
+      }
+
+      Toolbar.prototype.back = function() {
+        var _this = this;
+        return this.delay(function() {
+          return _this.navigate('/users');
+        });
+      };
+
+      Toolbar.prototype.refresh = function() {
+        return this.log('Single toolbar.refresh');
+      };
+
+      Toolbar.prototype.edit = function() {
+        return this.log('Single toolbar.edit');
+      };
+
+      Toolbar.prototype.purge = function() {
+        return this.log('Single toolbar.purge');
+      };
+
+      return Toolbar;
+
+    })(Spine.Controller);
+
+    return Single;
 
   }).call(this, Spine.Controller);
 
-  Users.List = (function(_super) {
+  User.List = (function(_super) {
     __extends(List, _super);
 
+    List.prototype.logPrefix = '(User.List)';
+
+    List.prototype.className = 'users';
+
     function List() {
+      this.ToggleSelection = __bind(this.ToggleSelection, this);
+      this.Prev = __bind(this.Prev, this);
+      this.Next = __bind(this.Next, this);
+      this.Reload = __bind(this.Reload, this);
+      var _this = this;
       List.__super__.constructor.apply(this, arguments);
+      this.selMgr = new SelectionMgr;
+      this.selMgr.isWholePageSelected = function() {
+        var row, _i, _len, _ref;
+        _ref = _this.rows;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          row = _ref[_i];
+          if (!_this.selMgr.isSelected(row.user)) {
+            return false;
+          }
+        }
+        return true;
+      };
+      this.selMgr.on('toggle-selection', this.ToggleSelection);
+      this.toolbar = new List.Toolbar({
+        selMgr: this.selMgr,
+        el: List.toolbarTmpl
+      });
+      this.list = new Spine.Controller({
+        className: 'list'
+      });
+      this.contextmenu = new List.ContextMenu({
+        el: List.contextmenuTmpl
+      });
+      this.render();
+      this.active(function() {
+        this.log('active');
+        return this.delay(function() {
+          app.menu(Menu.USERS).loading();
+          return UserM.Reload();
+        });
+      });
+      this.toolbar.on('next', this.Next);
+      this.toolbar.on('prev', this.Prev);
+      this.toolbar.on('purge', function() {
+        return _this.Purge(_this.selMgr.getSelection());
+      });
+      UserM.on('refresh', function() {
+        _this.Reload();
+        return app.menu(Menu.USERS).doneLoading();
+      });
+      this.contextmenu.on('purge', function(user) {
+        return _this.Purge([user]);
+      });
     }
 
-    List.tmpl = require('users/users');
+    List.rowTmpl = require('views/user/row')();
 
-    List.Toolsbar = (function(_super1) {
-      __extends(Toolsbar, _super1);
+    List.toolbarTmpl = require('views/user/list.toolbar')();
 
-      function Toolsbar() {
-        Toolsbar.__super__.constructor.apply(this, arguments);
+    List.contextmenuTmpl = require('views/user/contextmenu')();
+
+    List.prototype.start = 0;
+
+    List.prototype.Reload = function() {
+      return this.Refresh(UserM.slice(this.start, this.start + UserM.MaxResults));
+    };
+
+    List.prototype.Next = function() {
+      this.start += UserM.MaxResults;
+      return this.Reload();
+    };
+
+    List.prototype.Prev = function() {
+      if (this.start > 0) {
+        this.start -= UserM.MaxResults;
+      }
+      return this.Reload();
+    };
+
+    List.prototype.Purge = function(users) {};
+
+    List.prototype.rows = [];
+
+    List.prototype.add = function(row) {
+      var i,
+        _this = this;
+      i = this.rows.push(row);
+      row.release(function() {
+        if (_this.rows[i - 1]) {
+          return delete _this.rows[i - 1];
+        }
+      });
+      row.on('contextmenu', function(evt, role) {
+        return _this.contextmenu.Show(evt, role);
+      });
+      return row;
+    };
+
+    List._indexof = function(rec, all) {
+      var i, r, _i, _len;
+      if (all == null) {
+        all = UserM.all();
+      }
+      for (i = _i = 0, _len = all.length; _i < _len; i = ++_i) {
+        r = all[i];
+        if (rec.eql(r)) {
+          return i;
+        }
+      }
+      return -1;
+    };
+
+    List.prototype.AppendOne = function(user) {
+      return this.AppendMany([user]);
+    };
+
+    List.prototype.AppendMany = function(users) {
+      var all, delegate, user, _i, _len, _results;
+      if (users.length) {
+        all = UserM.all();
+        this.toolbar.page(List._indexof(users[0], all), List._indexof(users[users.length - 1], all), all.length);
+        _results = [];
+        for (_i = 0, _len = users.length; _i < _len; _i++) {
+          user = users[_i];
+          this.list.append(this.add(delegate = new List.Row({
+            user: user,
+            selMgr: this.selMgr,
+            el: List.rowTmpl
+          })).el);
+          _results.push(delegate.DelegateEvents());
+        }
+        return _results;
+      }
+    };
+
+    List.prototype.Refresh = function(users) {
+      var row, _i, _len, _ref;
+      _ref = this.rows;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        row = _ref[_i];
+        row.release();
+      }
+      return this.AppendMany(users);
+    };
+
+    List.prototype.ToggleSelection = function(isOn) {
+      var row, _i, _j, _len, _len1, _ref, _ref1, _results, _results1;
+      if (isOn) {
+        _ref = this.rows;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          row = _ref[_i];
+          _results.push(this.selMgr.selected(row.user));
+        }
+        return _results;
+      } else {
+        _ref1 = this.rows;
+        _results1 = [];
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          row = _ref1[_j];
+          _results1.push(this.selMgr.removed(row.user));
+        }
+        return _results1;
+      }
+    };
+
+    List.prototype.render = function() {
+      this.append(this.toolbar.el);
+      this.append(this.list.el);
+      return this.append(this.contextmenu.el);
+    };
+
+    List.ContextMenu = (function(_super1) {
+      __extends(ContextMenu, _super1);
+
+      ContextMenu.prototype.logPrefix = '(User.ContextMenu)';
+
+      ContextMenu.events = {
+        'click .edit': 'edit',
+        'click .purge': 'purge',
+        'click .view': 'view'
+      };
+
+      function ContextMenu() {
+        var _this = this;
+        ContextMenu.__super__.constructor.apply(this, arguments);
+        this.$(document).click(function() {
+          return _this.el.hide();
+        });
       }
 
-      Toolsbar.tmpl = require('user/toolbar.users');
+      ContextMenu.prototype.Show = function(evt, user) {
+        this.user = user;
+        position.positionPopupAtPoint(evt.clientX, evt.clientY, this.el[0]);
+        return this.el.show();
+      };
 
-      return Toolsbar;
+      ContextMenu.prototype.edit = function(e) {
+        this.log("edit User<" + this.user.id + ">");
+        e.preventDefault();
+        this.delay(function() {
+          return this.navigate('/user', this.user.id, 'edit');
+        });
+        return this.trigger('edit', this.user);
+      };
 
-    })(Users.Toolsbar);
+      ContextMenu.prototype.purge = function(e) {
+        this.log("purge User<" + this.user.id + ">");
+        e.preventDefault();
+        return this.trigger('purge', this.user);
+      };
+
+      ContextMenu.prototype.view = function(e) {
+        this.log("view User<" + this.user.id + ">");
+        e.preventDefault();
+        this.delay(function() {
+          return this.navigate('/user', this.user.id);
+        });
+        return this.trigger('view', this.user);
+      };
+
+      return ContextMenu;
+
+    })(Spine.Controller);
+
+    List.Row = (function(_super1) {
+      __extends(Row, _super1);
+
+      Row.Events = {
+        'click': 'clicked',
+        'click .select': 'select',
+        'contextmenu': 'contextmenu'
+      };
+
+      function Row() {
+        this.selectionChanged = __bind(this.selectionChanged, this);
+        Row.__super__.constructor.apply(this, arguments);
+        this.selMgr.on("selectionChanged_" + this.user.cid, this.selectionChanged);
+        this.listenTo(this.user, 'change', this.FillData);
+        this.release(function() {
+          return this.selMgr.off("selectionChanged_" + this.user.cid, this.selectionChanged);
+        });
+        this.FillData();
+      }
+
+      Row.prototype.DelegateEvents = function() {
+        return this.delegateEvents(Row.Events);
+      };
+
+      Row.prototype.FillData = function() {
+        this.el.toggleClass('selected', this.selMgr.isSelected(this.user));
+        this.$('.fullName').html(this.user.fullName());
+        this.$('.primaryEmail').html(this.user.primaryEmail);
+        return this.el;
+      };
+
+      Row.prototype.contextmenu = function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        return this.trigger('contextmenu', e, this.user);
+      };
+
+      Row.prototype.selectionChanged = function(selected) {
+        return this.el.toggleClass('selected', selected);
+      };
+
+      Row.prototype.clicked = function(evt) {
+        evt.stopPropagation();
+        return this.delay(function() {
+          return this.navigate('/user', this.user.id);
+        });
+      };
+
+      Row.prototype.Off = function(fn) {
+        this.selMgr.off("selectionChanged_" + this.user.cid, this.selectionChanged);
+        fn();
+        return this.selMgr.on("selectionChanged_" + this.user.cid, this.selectionChanged);
+      };
+
+      Row.prototype.select = function(evt) {
+        var _this = this;
+        evt.stopPropagation();
+        this.Off(function() {
+          if (_this.el.hasClass('selected')) {
+            return _this.selMgr.removed(_this.user);
+          } else {
+            return _this.selMgr.selected(_this.user);
+          }
+        });
+        return this.el.toggleClass('selected');
+      };
+
+      return Row;
+
+    })(Spine.Controller);
+
+    List.Toolbar = (function(_super1) {
+      __extends(Toolbar, _super1);
+
+      Toolbar.elements = {
+        '.select': 'checkbox',
+        '.next': 'next',
+        '.prev': 'prev'
+      };
+
+      Toolbar.Events = {
+        'click .select': 'ToggleSelection',
+        'click .new': 'New',
+        'click .refresh': 'refresh',
+        'click .purge': 'purge',
+        'click .next': 'Next',
+        'click .prev': 'Prev'
+      };
+
+      Toolbar.prototype.allSelected = false;
+
+      function Toolbar() {
+        this.selectionChanged = __bind(this.selectionChanged, this);
+        Toolbar.__super__.constructor.apply(this, arguments);
+        this.selMgr.on('selectionChanged', this.selectionChanged);
+        this.release(function() {
+          return this.selMgr.off('selectionChanged', this.selectionChanged);
+        });
+        this.delegateEvents(Toolbar.Events);
+      }
+
+      Toolbar.prototype.selectionChanged = function() {
+        var wholePage;
+        this.el.toggleClass('has-selection', this.selMgr.hasSelection());
+        this.el.toggleClass('all', wholePage = this.selMgr.isWholePageSelected());
+        if (wholePage) {
+          return this.allSelected = true;
+        }
+      };
+
+      Toolbar.prototype.Off = function(fn) {
+        this.selMgr.off('selectionChanged', this.selectionChanged);
+        fn();
+        return this.selMgr.on('selectionChanged', this.selectionChanged);
+      };
+
+      Toolbar.prototype.ToggleSelection = function() {
+        var _this = this;
+        this.el.toggleClass('has-selection', this.allSelected = !this.allSelected);
+        this.el.toggleClass('all', this.allSelected);
+        return this.Off(function() {
+          return _this.selMgr.trigger('toggle-selection', _this.allSelected);
+        });
+      };
+
+      Toolbar.prototype.page = function(start, end, total) {
+        if (total > UserM.MaxResults) {
+          this.next.prop('disabled', end === total - 1);
+          this.prev.prop('disabled', start === 0);
+          this.$('.start').html(start + 1);
+          this.$('.end').html(end + 1);
+          this.$('.count').html("" + total + " &nbsp;");
+        }
+        return this.el.toggleClass('needs-paging', total > UserM.MaxResults);
+      };
+
+      Toolbar.prototype.New = function() {
+        return this.delay(function() {
+          return this.navigate('/users/new');
+        });
+      };
+
+      Toolbar.prototype.refresh = function() {
+        if (this.selMgr.hasSelection()) {
+          return;
+        }
+        return this.delay(function() {
+          app.menu(Menu.USERS).loading();
+          return UserM.Reload();
+        });
+      };
+
+      Toolbar.prototype.purge = function() {
+        return this.log('List toolbar.purge');
+      };
+
+      Toolbar.prototype.Next = function() {
+        return this.trigger('next');
+      };
+
+      Toolbar.prototype.Prev = function() {
+        return this.trigger('prev');
+      };
+
+      return Toolbar;
+
+    })(Spine.Controller);
 
     return List;
 
   }).call(this, Spine.Controller);
 
-  module.exports = Users;
+  User.Stack = (function(_super) {
+    __extends(Stack, _super);
+
+    Stack.prototype.logPrefix = '(User.Stack)';
+
+    Stack.prototype.className = 'spine stack users';
+
+    Stack.prototype.controllers = {
+      list: User.List,
+      single: User.Single,
+      form: User.Form
+    };
+
+    function Stack(opts) {
+      var _this = this;
+      this.routes = {
+        '/users': 'list',
+        '/user/:id': function(params) {
+          return _this.single.active(params.id);
+        }
+      };
+      Stack.__super__.constructor.apply(this, arguments);
+      this.active(function() {
+        return _this.log('active');
+      });
+      this.manager.on('change', function() {
+        return app.menu(Menu.USERS).activate();
+      });
+    }
+
+    return Stack;
+
+  })(Manager.Stack);
+
+  module.exports = User;
 
 }).call(this);
 }, "index": function(exports, require, module) {(function() {
-  var App, Mac, Session, Spine,
+  var App, Mac, Menu, Role, Session, Spine, User,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -12231,8 +14100,16 @@ Released under the MIT License
 
   Session = require('lib/session');
 
+  User = require('controllers/User');
+
+  Role = require('controllers/Role');
+
+  Menu = require('controllers/Menu');
+
   App = (function(_super) {
     __extends(App, _super);
+
+    App.include(Spine.Log);
 
     App.prototype.isLoggedIn = function() {
       return !!this.sesssion.key;
@@ -12240,19 +14117,36 @@ Released under the MIT License
 
     App.prototype.session = {};
 
+    App.prototype.users = require('lib/users');
+
+    App.prototype.roles = require('lib/roles');
+
+    App.prototype.mgr = Menu.Mgr;
+
+    App.prototype.menu = function(id) {
+      return this.mgr.getMenu(id);
+    };
+
+    App.prototype.redirect = function(path) {
+      return Spine.Route.redirect(path);
+    };
+
+    App.prototype.cleaned = function(k) {
+      k = k.val();
+      return (k && k.trim()) || '';
+    };
+
     function App() {
       var _this = this;
       App.__super__.constructor.apply(this, arguments);
-      this.sessionMgr = new Session(this);
-      this.users = require('lib/users');
-      this.roles = require('lib/roles');
+      this.sessionMgr = new Session;
       this.sessionMgr.on('session.loggedin', function(s) {
-        _this.delay(function() {
+        setTimeout(function() {
           if (s.user.changePasswordAtNextLogin) {
-            return this.navigate('/');
+            return this.redirect('/');
           }
         });
-        $.extend(true, _this.session, s);
+        _this.session = s;
         return $.ajaxSetup({
           beforeSend: function(xhr, req) {
             var hdr;
@@ -12264,17 +14158,86 @@ Released under the MIT License
       this.sessionMgr.on('session.error', function() {
         _this.session = {};
         return $.ajaxSetup({
-          beforeSend: null
+          beforeSend: $.noop
         });
       });
       this.sessionMgr.on('session.loggedout', function() {
-        return document.location = '/';
+        return _this.redirect('/');
+      });
+      this.sessionMgr.one('session.loggedin', function() {
+        _this.log('Loading application');
+        _this.mgr.add({
+          id: 'admin',
+          header: 'ADMIN',
+          items: [
+            {
+              id: Menu.USERS,
+              title: 'Users',
+              icon: 'glyphicon-user',
+              href: '/users',
+              fn: $.noop
+            }, {
+              id: Menu.TRASH,
+              title: 'Trash',
+              icon: 'glyphicon-trash',
+              href: '/trash',
+              fn: $.noop
+            }, {
+              id: Menu.ROLES,
+              title: 'Roles',
+              icon: 'glyphicon-tags',
+              href: '/roles',
+              fn: $.noop
+            }, {
+              id: Menu.STATS,
+              title: 'Stats',
+              icon: 'glyphicon-stats',
+              href: '/stats',
+              fn: $.noop
+            }
+          ]
+        });
+        return _this.view = new App.Stack;
       });
     }
 
+    App.Stack = (function(_super1) {
+      __extends(Stack, _super1);
+
+      Stack.prototype.className = 'app spine stack';
+
+      Stack.prototype.controllers = {
+        users: User.Stack,
+        roles: Role.Stack
+      };
+
+      function Stack(args) {
+        var _ref;
+        if (args == null) {
+          args = {
+            el: '#content'
+          };
+        }
+        Stack.__super__.constructor.call(this, args);
+        Spine.Route.setup({
+          history: true
+        });
+        if ((_ref = Spine.Route.getPath()) === '/' || _ref === '') {
+          this.delay(function() {
+            return this.navigate('/' + this.pdefault);
+          });
+        }
+      }
+
+      Stack.prototype.pdefault = 'roles';
+
+      return Stack;
+
+    })(Spine.Stack);
+
     return App;
 
-  })(Spine.Controller);
+  })(Spine.Module);
 
   module.exports = App;
 
@@ -12324,11 +14287,7 @@ Released under the MIT License
     function roles() {}
 
     roles.getRoles = function() {
-      return $.ajax({
-        type: 'GET',
-        url: '/api/v1/roles',
-        dataType: 'json'
-      });
+      return $.getJSON('/api/v1/roles');
     };
 
     roles.addRole = function(spec) {
@@ -12388,13 +14347,8 @@ Released under the MIT License
     };
 
     roles.roleExists = function(roleName) {
-      return $.ajax({
-        type: 'GET',
-        url: '/api/v1/roleexists',
-        dataType: 'json',
-        data: {
-          name: roleName
-        }
+      return $.getJSON('/api/v1/roleexists', {
+        name: roleName
       });
     };
 
@@ -12403,6 +14357,89 @@ Released under the MIT License
   })();
 
   module.exports = roles;
+
+}).call(this);
+}, "lib/selection": function(exports, require, module) {(function() {
+  var SelectionMgr, Spine,
+    __hasProp = {}.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+  Spine = require('spine');
+
+  SelectionMgr = (function(_super) {
+    __extends(SelectionMgr, _super);
+
+    SelectionMgr.include(Spine.Events);
+
+    SelectionMgr.prototype._selections = [];
+
+    function SelectionMgr() {
+      SelectionMgr.__super__.constructor.apply(this, arguments);
+    }
+
+    SelectionMgr.prototype.selectOnly = function(item) {
+      var other, _i, _len, _ref;
+      _ref = this.getSelection();
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        other = _ref[_i];
+        this.removed(other);
+      }
+      return this.selected(item);
+    };
+
+    SelectionMgr.prototype.selected = function(item) {
+      if (this._indexof(item) === -1) {
+        this._selections.push(item);
+        this.trigger('selectionChanged');
+        this.trigger("selectionChanged_" + item.cid, true);
+      }
+      return false;
+    };
+
+    SelectionMgr.prototype.count = function() {
+      return this._selections.length;
+    };
+
+    SelectionMgr.prototype.removed = function(item) {
+      var index;
+      index = this._indexof(item);
+      if (index > -1) {
+        this._selections.splice(index, 1);
+        this.trigger('selectionChanged');
+        this.trigger("selectionChanged_" + item.cid, false);
+      }
+      return false;
+    };
+
+    SelectionMgr.prototype.isSelected = function(item) {
+      return this._indexof(item) > -1;
+    };
+
+    SelectionMgr.prototype.getSelection = function() {
+      return this._selections;
+    };
+
+    SelectionMgr.prototype.hasSelection = function() {
+      return this.count() > 0;
+    };
+
+    SelectionMgr.prototype._indexof = function(rec) {
+      var i, r, _i, _len, _ref;
+      _ref = this.getSelection();
+      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+        r = _ref[i];
+        if (rec.eql(r)) {
+          return i;
+        }
+      }
+      return -1;
+    };
+
+    return SelectionMgr;
+
+  })(Spine.Module);
+
+  module.exports = SelectionMgr;
 
 }).call(this);
 }, "lib/session": function(exports, require, module) {(function() {
@@ -12424,10 +14461,8 @@ Released under the MIT License
 
     Session.prototype.logPrefix = '(Session)';
 
-    function Session(app) {
-      this.app = app;
+    function Session() {
       this.doLogout = __bind(this.doLogout, this);
-      this.getLoginStatus = __bind(this.getLoginStatus, this);
       Session.__super__.constructor.apply(this, arguments);
       this.getLoginStatus();
     }
@@ -12436,24 +14471,15 @@ Released under the MIT License
       var doCheckSession,
         _this = this;
       doCheckSession = function() {
-        var x;
-        x = $.ajax({
-          type: "GET",
-          url: "/session",
-          dataType: 'json'
-        });
-        x.success(function(s) {
+        return $.getJSON('/session').done(function(s) {
           _this.log("getLoginStatus success:", arguments);
           if (s.error) {
             return _this.trigger('session.error');
           }
-          _this.trigger('session.loggedin', s);
-          return false;
-        });
-        return x.error(function() {
+          return _this.trigger('session.loggedin', s);
+        }).fail(function() {
           _this.log("getLoginStatus error:", arguments);
-          _this.trigger('session.error');
-          return false;
+          return _this.trigger('session.error');
         });
       };
       doCheckSession();
@@ -12463,11 +14489,7 @@ Released under the MIT License
     Session.prototype.doLogout = function() {
       var _this = this;
       this.log("doLogout");
-      return $.ajax({
-        type: "GET",
-        url: "/api/v1/logout",
-        dataType: 'json'
-      }).done(function() {
+      return $.getJSON('/api/v1/logout').done(function() {
         _this.log("done doLogout:", arguments);
         return _this.trigger('session.loggedout');
       });
@@ -12503,18 +14525,19 @@ Released under the MIT License
     function users() {}
 
     users.getUser = function(id) {
-      return $.ajax({
-        type: "GET",
-        url: "/api/v1/user/" + id,
-        dataType: 'json'
-      });
+      return $.getJSON("/api/v1/user/" + id);
     };
 
-    users.getUsers = function() {
-      return $.ajax({
-        type: "GET",
-        url: '/api/v1/users',
-        dataType: 'json'
+    users.getUsersStats = function() {
+      return $.getJSON('/api/v1/users/stats');
+    };
+
+    users.getUsers = function(page) {
+      if (page == null) {
+        page = 0;
+      }
+      return $.getJSON('/api/v1/users', {
+        page: page
       });
     };
 
@@ -12591,14 +14614,14 @@ Released under the MIT License
       });
     };
 
-    users.updateContacts = function(id, specs) {
+    users.updateContacts = function(id, contacts) {
       return $.ajax({
         type: "PUT",
         url: "/api/v1/user/" + id,
         contentType: 'application/json; charset=UTF-8',
         dataType: 'json',
         data: JSON.stringify({
-          contacts: specs
+          contacts: contacts
         })
       });
     };
@@ -12626,54 +14649,37 @@ Released under the MIT License
       });
     };
 
-    users.remAvatar = function(id) {
+    users.remAvatar = function(id, avatarId) {
       return $.ajax({
         type: "DELETE",
-        url: "/api/v1/user/" + id + "/avatars",
+        url: "/api/v1/user/" + id + "/avatars/" + avatarId,
         dataType: 'json'
       });
     };
 
-    users.prototype.getAvatar = function(userId) {
-      return $.ajax({
-        type: "GET",
-        url: "/api/v1/user/" + userId + "/avatars",
-        dataType: 'json'
-      });
+    users.getAvatar = function(userId) {
+      return $.getJSON("/api/v1/avatar/" + userId);
     };
 
-    users.prototype.setAvatar = function(id, file) {
+    users.setAvatar = function(id, file) {
       var data;
       data = new FormData;
       data.append("f", file);
       return $.upload("/api/v1/user/" + id + "/avatars", data, 'json');
     };
 
-    users.prototype.getUserRoles = function(id) {
-      return $.ajax({
-        type: "GET",
-        url: "/api/v1/user/" + id + "/roles",
-        dataType: 'json'
+    users.getUserRoles = function(id) {
+      return $.getJSON("/api/v1/user/" + id + "/roles");
+    };
+
+    users.userExists = function(username) {
+      return $.getJSON('/api/v1/userexists', {
+        username: username
       });
     };
 
-    users.prototype.userExists = function(email) {
-      return $.ajax({
-        type: "GET",
-        url: "/api/v1/userexists",
-        dataType: 'json',
-        data: {
-          email: email
-        }
-      });
-    };
-
-    users.prototype.getUserTrash = function() {
-      return $.ajax({
-        type: "GET",
-        url: "/api/v1/users/_trash",
-        dataType: 'json'
-      });
+    users.getTrashed = function() {
+      return $.getJSON('/api/v1/users/_trash');
     };
 
     return users;
@@ -12708,11 +14714,13 @@ Released under the MIT License
 
 }).call(this);
 }, "models/Role": function(exports, require, module) {(function() {
-  var Role, Spine, _ref,
+  var Role, RolePermission, Spine, _ref,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   Spine = require('spine');
+
+  RolePermission = require('models/RolePermission');
 
   Role = (function(_super) {
     __extends(Role, _super);
@@ -12722,7 +14730,40 @@ Released under the MIT License
       return _ref;
     }
 
-    Role.configure('Role', 'name', 'parent', 'public', 'createdAt', 'createdBy');
+    Role.configure('Role', 'name', 'parent', 'publiq', 'createdAt', 'createdBy');
+
+    Role.Reload = function() {
+      var _this = this;
+      return $.Deferred(function(deferred) {
+        deferred.done(function(roles) {
+          return _this.refresh(roles, {
+            clear: true
+          });
+        });
+        return app.roles.getRoles().done(deferred.resolve);
+      });
+    };
+
+    Role.getTopLevel = function() {
+      var _this = this;
+      return this.select(function(role) {
+        return !role.parent;
+      });
+    };
+
+    Role.getChildren = function(role) {
+      var _this = this;
+      return this.select(function(other) {
+        return other.parent === role.name;
+      });
+    };
+
+    Role.getPermissions = function(role) {
+      var _this = this;
+      return RolePermission.select(function(rolePermission) {
+        return rolePermission.role === role;
+      });
+    };
 
     return Role;
 
@@ -12756,11 +14797,13 @@ Released under the MIT License
 
 }).call(this);
 }, "models/User": function(exports, require, module) {(function() {
-  var Spine, User, _ref,
+  var $, Spine, User, _ref,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   Spine = require('spine');
+
+  $ = require('jqueryify');
 
   User = (function(_super) {
     __extends(User, _super);
@@ -12770,7 +14813,66 @@ Released under the MIT License
       return _ref;
     }
 
-    User.configure('User', 'id', 'primaryEmail', 'givenName', 'familyName', 'gender', 'homeAddress', 'workAddress', 'contacts', 'avatar', 'createdAt', 'createdBy', 'lastModifiedAt', 'lastModifiedBy');
+    User.MaxResults = 25;
+
+    User.configure('User', 'id', 'primaryEmail', 'givenName', 'familyName', 'gender', 'homeAddress', 'workAddress', 'contacts', 'avatar', 'lastLoginTime', 'createdAt', 'createdBy', 'lastModifiedAt', 'lastModifiedBy', 'suspended');
+
+    User.prototype.fullName = function() {
+      return "" + this.givenName + " " + this.familyName;
+    };
+
+    User.Reload = function() {
+      var completed, users,
+        _this = this;
+      users = [];
+      completed = 0;
+      return app.users.getUsersStats().done(function(_arg) {
+        var PAGES, count;
+        count = _arg['count'];
+        PAGES = Math.ceil(count / _this.MaxResults);
+        return $.Deferred(function(deferred) {
+          var LoadPage, i, _i, _results;
+          deferred.progress(function(us) {
+            var u, _i, _len;
+            for (_i = 0, _len = us.length; _i < _len; _i++) {
+              u = us[_i];
+              users.push(u);
+            }
+            if (++completed === PAGES) {
+              return deferred.resolve(users);
+            }
+          });
+          deferred.done(function(us) {
+            return _this.refresh(us, {
+              clear: true
+            });
+          });
+          LoadPage = function(index) {
+            return app.users.getUsers(index).done(deferred.notify);
+          };
+          _results = [];
+          for (i = _i = 0; _i < PAGES; i = _i += 1) {
+            _results.push(LoadPage(i));
+          }
+          return _results;
+        });
+      });
+    };
+
+    User.Defaults = {
+      primaryEmail: '',
+      givenName: '',
+      familyName: '',
+      gender: 'Male',
+      homeAddress: {
+        city: window['sGeobytesCity'],
+        country: window['sGeobytesIso2']
+      },
+      workAddress: {
+        city: window['sGeobytesCity'],
+        country: window['sGeobytesIso2']
+      }
+    };
 
     return User;
 
@@ -12794,7 +14896,7 @@ Released under the MIT License
       return _ref;
     }
 
-    UserRole.configure('UserRole', 'userId', 'role', 'grantedAt', 'grantedBy');
+    UserRole.configure('UserRole', 'userId', 'role', 'grantedAt', 'grantedBy', 'delegated');
 
     return UserRole;
 
@@ -12803,35 +14905,371 @@ Released under the MIT License
   module.exports = UserRole;
 
 }).call(this);
-}, "views/main": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\main.jade" }];
+}, "views/menu/item": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\menu\\item.jade" }];
 try {
 var buf = [];
-var locals_ = (locals || {}),version = locals_.version;jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-buf.push("<h2>");
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<a href=\"href\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
-jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-buf.push("Welcome to Spine.js version " + (jade.escape((jade.interp = version) == null ? '' : jade.interp)) + "");
-jade.debug.shift();
-jade.debug.shift();
-buf.push("</h2>");
-jade.debug.shift();
 jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
+buf.push("<div class=\"pull-right\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<span class=\"spinner\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<div class=\"glyphicon\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("     ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<span class=\"title\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"a(href=)\r\n  .pull-right\r\n    span.spinner\r\n  .glyphicon      \r\n    span.title\r\n");
+}
+};}, "views/menu/single": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\menu\\single.jade" }];
+try {
+var buf = [];
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<h4 class=\"menuHeader\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</h4>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<div>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<ul class=\"menuItems\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</ul>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"h4.menuHeader\r\ndiv\r\n  ul.menuItems");
+}
+};}, "views/role/contextmenu": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\role\\contextmenu.jade" }];
+try {
+var buf = [];
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<ul role=\"menu\" class=\"dropdown-menu fixed\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\" class=\"view\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<span class=\"no-icon\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("View Permissions");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<li class=\"divider\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\" class=\"edit\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-edit\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("Edit Role");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\" class=\"purge\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-trash\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("Delete Role  ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</ul>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul.dropdown-menu.fixed(role='menu')\r\n  li\r\n    a.view(href='#') \r\n      span.no-icon View Permissions\r\n  li.divider  \r\n  li\r\n    a.edit(href='#') \r\n      span.glyphicon.glyphicon-edit \r\n      span Edit Role\r\n  li\r\n    a.purge(href='#') \r\n      span.glyphicon.glyphicon-trash \r\n      span Delete Role  ");
+}
+};}, "views/role/form": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\role\\form.jade" }];
+try {
+var buf = [];
+var locals_ = (locals || {}),form = locals_.form;jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"modal\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
+buf.push("<div class=\"modal-dialog\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<form" + (jade.attrs({ 'role':(form), "class": [('modal-content')] }, {"role":true})) + ">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<div class=\"modal-header\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
 buf.push("<p>");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
-jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
-buf.push("Time to get busy with this magic!");
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<button type=\"button\" data-dismiss=\"modal\" aria-hidden=\"true\" class=\"close pull-right\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("×");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
 jade.debug.shift();
 jade.debug.shift();
 buf.push("</p>");
 jade.debug.shift();
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<div class=\"modal-title\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("New Role");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push("<div class=\"modal-body\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 10, filename: jade.debug[0].filename });
+buf.push("<fieleset>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 10, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<label for=\"name\" class=\"control-label\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("Please enter a new role name:");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</label>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"name\" autofocus=\"autofocus\" required=\"required\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 14, filename: jade.debug[0].filename });
+buf.push("<label for=\"parent\" class=\"control-label\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 14, filename: jade.debug[0].filename });
+buf.push("Nest role under:");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</label>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("<select name=\"parent\" class=\"form-control\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("               ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</select>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</fieleset>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("<div class=\"modal-footer\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 17, filename: jade.debug[0].filename });
+buf.push("<div class=\"btns pull-left\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("<button type=\"button\" class=\"btn btn-primary\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("Create");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 19, filename: jade.debug[0].filename });
+buf.push("<button type=\"button\" data-dismiss=\"modal\" class=\"btn btn-default\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 19, filename: jade.debug[0].filename });
+buf.push("Cancel");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</form>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"h2 Welcome to Spine.js version #{version}\np Time to get busy with this magic!\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".modal\r\n  .modal-dialog\r\n    form.modal-content(role=form)\r\n      .modal-header\r\n        p\r\n          button.close.pull-right(type='button' data-dismiss='modal' aria-hidden='true') ×\r\n        .modal-title New Role\r\n      .modal-body\r\n        fieleset\r\n          .form-group\r\n            label.control-label(for='name') Please enter a new role name:\r\n            input.form-control(type='text' name='name' autofocus required)\r\n          .form-group\r\n            label.control-label(for='parent') Nest role under:\r\n            select.form-control(name='parent')                \r\n      .modal-footer\r\n        .btns.pull-left\r\n          button.btn.btn-primary(type='button') Create\r\n          button.btn.btn-default(type='button' data-dismiss='modal') Cancel");
 }
-};}, "views/roles/form": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\roles\\form.jade" }];
+};}, "views/role/row": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\role\\row.jade" }];
+try {
+var buf = [];
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"tree-item\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
+buf.push("<div class=\"tree-row\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<span class=\"expand-icon\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<span class=\"tree-label\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<div class=\"tree-children\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".tree-item\r\n  .tree-row\r\n    span.expand-icon\r\n    span.tree-label\r\n  .tree-children");
+}
+};}, "views/role/single": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\role\\single.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -12839,8 +15277,8 @@ jade.debug.shift();;return buf.join("");
 } catch (err) {
   jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
 }
-};}, "views/roles/roles": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\roles\\roles.jade" }];
+};}, "views/role/single.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\role\\single.toolbar.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -12848,113 +15286,1343 @@ jade.debug.shift();;return buf.join("");
 } catch (err) {
   jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
 }
-};}, "views/roles/toolbar.role": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\roles\\toolbar.role.jade" }];
+};}, "views/role/tree.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\role\\tree.toolbar.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"toolbar btn-toolbar\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Create new user\" type=\"button\" class=\"new btn btn-md btn-primary\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("New Role");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Refresh\" type=\"button\" class=\"refresh btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-repeat\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Delete\" type=\"button\" class=\"selection purge btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-trash\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 10, filename: jade.debug[0].filename });
+buf.push("<div class=\"more btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<button type=\"button\" data-toggle=\"dropdown\" class=\"btn btn-default btn-md dropdown-toggle\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("More &nbsp;");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("<span class=\"caret\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 14, filename: jade.debug[0].filename });
+buf.push("<ul class=\"dropdown-menu\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("Suspend");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("Import");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 19, filename: jade.debug[0].filename });
+buf.push("<li class=\"divider\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 21, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 21, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 21, filename: jade.debug[0].filename });
+buf.push("Export");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</ul>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 22, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group filter pull-right\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 23, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" placeholder=\"Search\" class=\"form-control input-md\"/>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 24, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-search\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New Role\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-repeat\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .btn-group.filter.pull-right\r\n    input.form-control.input-md(type='text' placeholder='Search')\r\n    span.glyphicon.glyphicon-search\r\n");
 }
-};}, "views/roles/toolbar.roles": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\roles\\toolbar.roles.jade" }];
+};}, "views/user/contextmenu": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\user\\contextmenu.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<ul role=\"menu\" class=\"dropdown-menu fixed\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\" class=\"view\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<span class=\"no-icon\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("View User Info");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<li class=\"divider\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\" class=\"edit\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-edit\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("Edit User");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\" class=\"purge\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-trash\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("Delete User  ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\" class=\"purge\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-remove\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 17, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 17, filename: jade.debug[0].filename });
+buf.push("Suspend User        ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</ul>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul.dropdown-menu.fixed(role='menu')\r\n  li\r\n    a.view(href='#') \r\n      span.no-icon View User Info\r\n  li.divider  \r\n  li\r\n    a.edit(href='#') \r\n      span.glyphicon.glyphicon-edit \r\n      span Edit User\r\n  li\r\n    a.purge(href='#') \r\n      span.glyphicon.glyphicon-trash \r\n      span Delete User  \r\n  li\r\n    a.purge(href='#') \r\n      span.glyphicon.glyphicon-remove \r\n      span Suspend User        ");
 }
-};}, "views/roles/view": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\roles\\view.jade" }];
+};}, "views/user/form": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\user\\form.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<ul id=\"profiles\" class=\"nav nav-tabs\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
+buf.push("<li class=\"active\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<a data-toggle=\"tab\" data-target=\".basic\" href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("Basic");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<a data-toggle=\"tab\" data-target=\".addresses\" href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("Addresses");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<a data-toggle=\"tab\" data-target=\".contacts\" href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("Contacts");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</ul>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<fieldset>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<div id=\"profiles_content\" class=\"tab-content\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 10, filename: jade.debug[0].filename });
+buf.push("<div class=\"basic tab-pane fade in active\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<div class=\"row\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("<div class=\"col-xs-6 col-md-3 avatar_fm_wrapper\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("<div class=\"avatar_fm\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 14, filename: jade.debug[0].filename });
+buf.push("<a class=\"edit\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 14, filename: jade.debug[0].filename });
+buf.push("Change Picture");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("<a class=\"purge\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("Delete Picture");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("<img id=\"avatar\" src=\"http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&amp;f=y&amp;s=195\" style=\"height: 180px; width: 100%; display: block; max-width: 195px;\" title=\"Click to change your profile picture\" class=\"img-thumbnail\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 17, filename: jade.debug[0].filename });
+buf.push("<div class=\"col-xs-12 col-md-6\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("<div id=\"name\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 19, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 19, filename: jade.debug[0].filename });
+buf.push("                   ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 20, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"givenName\" placeholder=\"First name\" required=\"required\" autofocus=\"autofocus\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 21, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 21, filename: jade.debug[0].filename });
+buf.push("                   ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 22, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"familyName\" placeholder=\"Last name\" required=\"required\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 23, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 24, filename: jade.debug[0].filename });
+buf.push("<input type=\"email\" name=\"primaryEmail\" placeholder=\"Enter email\" required=\"required\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 25, filename: jade.debug[0].filename });
+buf.push("<div id=\"gender\" class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 26, filename: jade.debug[0].filename });
+buf.push("<label class=\"radio-inline\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 27, filename: jade.debug[0].filename });
+buf.push("<input type=\"radio\" name=\"gender\" value=\"Male\" checked=\"checked\"/>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 28, filename: jade.debug[0].filename });
+buf.push("Male");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</label>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 29, filename: jade.debug[0].filename });
+buf.push("<label class=\"radio-inline\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 30, filename: jade.debug[0].filename });
+buf.push("<input type=\"radio\" name=\"gender\" value=\"Female\"/>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 31, filename: jade.debug[0].filename });
+buf.push("Female                                    ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</label>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 32, filename: jade.debug[0].filename });
+buf.push("<div class=\"addresses tab-pane fade\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 33, filename: jade.debug[0].filename });
+buf.push("<div class=\"container\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 34, filename: jade.debug[0].filename });
+buf.push("<div class=\"page-header\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 36, filename: jade.debug[0].filename });
+buf.push("<h4>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 36, filename: jade.debug[0].filename });
+buf.push("Work");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</h4>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 37, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 38, filename: jade.debug[0].filename });
+buf.push("<select id=\"work-country\" name=\"workAddress[country]\" placeholder=\"Select country\" autofocus=\"autofocus\" class=\"form-control\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</select>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 39, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 40, filename: jade.debug[0].filename });
+buf.push("<input id=\"work-city\" type=\"text\" name=\"workAddress[city]\" placeholder=\"City\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 41, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 42, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"workAddress[postalCode]\" placeholder=\"Postal Code\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 43, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 44, filename: jade.debug[0].filename });
+buf.push("<textarea name=\"workAddress[streetAddress]\" placeholder=\"Address\" class=\"form-control\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</textarea>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 45, filename: jade.debug[0].filename });
+buf.push("<div class=\"container\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 46, filename: jade.debug[0].filename });
+buf.push("<div class=\"page-header\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 48, filename: jade.debug[0].filename });
+buf.push("<h4>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 48, filename: jade.debug[0].filename });
+buf.push("Home");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</h4>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 49, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 50, filename: jade.debug[0].filename });
+buf.push("<select id=\"home-country\" name=\"homeAddress[country]\" placeholder=\"Select country\" class=\"form-control\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</select>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 51, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 52, filename: jade.debug[0].filename });
+buf.push("<input id=\"home-city\" type=\"text\" name=\"homeAddress[city]\" placeholder=\"City\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 53, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 54, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"homeAddress[postalCode]\" placeholder=\"Postal Code\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 55, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 56, filename: jade.debug[0].filename });
+buf.push("<textarea name=\"homeAddress[streetAddress]\" placeholder=\"Address\" class=\"form-control\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 56, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</textarea>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 57, filename: jade.debug[0].filename });
+buf.push("<div class=\"contacts tab-pane fade\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 58, filename: jade.debug[0].filename });
+buf.push("<div class=\"container\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 59, filename: jade.debug[0].filename });
+buf.push("<div class=\"page-header\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 61, filename: jade.debug[0].filename });
+buf.push("<h4>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 61, filename: jade.debug[0].filename });
+buf.push("Mobile");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</h4>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 62, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 63, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"contacts[mobiles][mobile1]\" placeholder=\"Enter mobile number 1\" autofocus=\"autofocus\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 64, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 65, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"contacts[mobiles][mobile2]\" placeholder=\"Enter mobile number 2\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 66, filename: jade.debug[0].filename });
+buf.push("<div class=\"container\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 66, filename: jade.debug[0].filename });
+buf.push("   ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 67, filename: jade.debug[0].filename });
+buf.push("<div class=\"page-header\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 69, filename: jade.debug[0].filename });
+buf.push("<h4>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 69, filename: jade.debug[0].filename });
+buf.push("Work");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</h4>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 70, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 71, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"contacts[work][phoneNumber]\" placeholder=\"Enter phone number\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 72, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 73, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"contacts[work][fax]\" placeholder=\"Fax\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 74, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 75, filename: jade.debug[0].filename });
+buf.push("<input type=\"email\" name=\"contacts[work][email]\" placeholder=\"Email\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 76, filename: jade.debug[0].filename });
+buf.push("<div class=\"container\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 77, filename: jade.debug[0].filename });
+buf.push("<div class=\"page-header\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 79, filename: jade.debug[0].filename });
+buf.push("<h4>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 79, filename: jade.debug[0].filename });
+buf.push("Home");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</h4>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 80, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 81, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"contacts[home][phoneNumber]\" placeholder=\"Enter phone number\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 82, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 83, filename: jade.debug[0].filename });
+buf.push("<input type=\"text\" name=\"contacts[home][fax]\" placeholder=\"Fax\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 84, filename: jade.debug[0].filename });
+buf.push("<div class=\"form-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 85, filename: jade.debug[0].filename });
+buf.push("<input type=\"email\" name=\"contacts[home][email]\" placeholder=\"Email\" class=\"form-control\"/>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</fieldset>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul#profiles.nav.nav-tabs\r\n  li.active\r\n    a(data-toggle='tab' data-target='.basic' href=\"#\") Basic\r\n  li\r\n    a(data-toggle='tab' data-target='.addresses' href=\"#\") Addresses\r\n  li\r\n    a(data-toggle='tab' data-target='.contacts' href=\"#\") Contacts\r\nfieldset\r\n  #profiles_content.tab-content\r\n    .basic.tab-pane.fade.in.active\r\n      .row\r\n        .col-xs-6.col-md-3.avatar_fm_wrapper\r\n          .avatar_fm\r\n            a.edit Change Picture\r\n            a.purge Delete Picture\r\n          img#avatar.img-thumbnail(src=\"http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195\" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              \r\n        .col-xs-12.col-md-6\r\n          #name\r\n            .form-group                    \r\n              input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus)\r\n            .form-group                    \r\n              input.form-control(type='text' name='familyName' placeholder='Last name' required)\r\n          .form-group\r\n            input.form-control(type='email' name='primaryEmail' placeholder='Enter email' required)\r\n          #gender.form-group\r\n            label.radio-inline\r\n              input(type='radio' name='gender' value='Male' checked)\r\n              | Male\r\n            label.radio-inline\r\n              input(type='radio' name='gender' value='Female')\r\n              | Female                                    \r\n    .addresses.tab-pane.fade\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Work\r\n        .form-group\r\n          select#work-country.form-control(name='workAddress[country]' placeholder='Select country' autofocus)\r\n        .form-group\r\n          input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City')\r\n        .form-group\r\n          input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code')\r\n        .form-group\r\n          textarea.form-control(name='workAddress[streetAddress]' placeholder='Address')\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Home\r\n        .form-group\r\n          select#home-country.form-control(name='homeAddress[country]' placeholder='Select country')\r\n        .form-group\r\n          input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City')\r\n        .form-group\r\n          input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')\r\n        .form-group\r\n          textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address') \r\n    .contacts.tab-pane.fade\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Mobile\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1' autofocus)\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')\r\n      .container    \r\n        .page-header\r\n          h4\r\n            | Work\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[work][phoneNumber]' placeholder='Enter phone number')\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[work][fax]' placeholder='Fax')\r\n        .form-group\r\n          input.form-control(type='email' name='contacts[work][email]' placeholder='Email')             \r\n      .container\r\n        .page-header\r\n          h4\r\n            | Home\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[home][phoneNumber]' placeholder='Enter phone number')\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[home][fax]' placeholder='Fax')\r\n        .form-group\r\n          input.form-control(type='email' name='contacts[home][email]' placeholder='Email')");
 }
-};}, "views/sample": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\sample.jade" }];
+};}, "views/user/form.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\user\\form.toolbar.jade" }];
 try {
 var buf = [];
-var locals_ = (locals || {}),version = locals_.version;jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+var locals_ = (locals || {}),title = locals_.title;jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-buf.push("<h2>");
+buf.push("<div class=\"toolbar btn-toolbar\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Back\" type=\"button\" class=\"btn back btn-md btn-default\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-chevron-left\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<h3 class=\"title\">" + (jade.escape(null == (jade.interp = title) ? "" : jade.interp)));
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</h3>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group pull-right\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" data-saving-text=\"Saving...\" title=\"Save\" type=\"button\" class=\"save btn btn-primary btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 10, filename: jade.debug[0].filename });
+buf.push("<span class=\"spin\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("Save");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-default(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span\r\n  .btn-group\r\n    h3.title= title\r\n  .btn-group.pull-right\r\n    button.save.btn.btn-primary.btn-md(data-toggle='tooltip' data-placement='bottom' data-saving-text='Saving...' title='Save' type='button')\r\n      span.spin\r\n      span Save");
+}
+};}, "views/user/list.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\user\\list.toolbar.jade" }];
+try {
+var buf = [];
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"toolbar btn-toolbar\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Select\" type=\"button\" class=\"select btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<div class=\"checker\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Create new user\" type=\"button\" class=\"new btn btn-md btn-primary\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("New User");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Refresh\" type=\"button\" class=\"refresh btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-repeat\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 10, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Delete\" type=\"button\" class=\"selection purge btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-trash\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("<div class=\"more btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("<button type=\"button\" data-toggle=\"dropdown\" class=\"btn btn-default btn-md dropdown-toggle\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 14, filename: jade.debug[0].filename });
+buf.push("More &nbsp;");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("<span class=\"caret\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("<ul class=\"dropdown-menu\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("Suspend");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 20, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 20, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 20, filename: jade.debug[0].filename });
+buf.push("Import");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 21, filename: jade.debug[0].filename });
+buf.push("<li class=\"divider\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 23, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 23, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 23, filename: jade.debug[0].filename });
+buf.push("Export");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</ul>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 24, filename: jade.debug[0].filename });
+buf.push("<div class=\"paging pull-right\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 25, filename: jade.debug[0].filename });
+buf.push("<span class=\"paging-info\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 25, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 26, filename: jade.debug[0].filename });
+buf.push("<strong class=\"interval\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 26, filename: jade.debug[0].filename });
+buf.push(" ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 27, filename: jade.debug[0].filename });
+buf.push("<span class=\"start\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 28, filename: jade.debug[0].filename });
+buf.push("–");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 29, filename: jade.debug[0].filename });
+buf.push("<span class=\"end\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</strong>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 30, filename: jade.debug[0].filename });
+buf.push("of ");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 31, filename: jade.debug[0].filename });
+buf.push("<strong class=\"count\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</strong>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 32, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 33, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Previous\" type=\"button\" class=\"prev btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 34, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-chevron-left\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 35, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Next\" type=\"button\" class=\"next btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 36, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-chevron-right\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')\r\n      .checker\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New User\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-repeat\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .paging.pull-right\r\n    span.paging-info \r\n      strong.interval \r\n        span.start\r\n        |–\r\n        span.end\r\n      | of \r\n      strong.count\r\n    .btn-group\r\n      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')\r\n        span.glyphicon.glyphicon-chevron-left\r\n      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')\r\n        span.glyphicon.glyphicon-chevron-right\r\n");
+}
+};}, "views/user/row": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\user\\row.jade" }];
+try {
+var buf = [];
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"user tr\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-buf.push("Welcome to Spine.js version " + (jade.escape((jade.interp = version) == null ? '' : jade.interp)) + "");
-jade.debug.shift();
-jade.debug.shift();
-buf.push("</h2>");
+buf.push(" ");
 jade.debug.shift();
 jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
-buf.push("<p>");
+buf.push("<div class=\"td select\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<div class=\"checker\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<div class=\"td\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<b class=\"fullName\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</b>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<div class=\"td\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<b class=\"primaryEmail\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</b>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".user.tr  \r\n  .td.select\r\n    .checker\r\n  .td\r\n    span\r\n      b.fullName\r\n  .td\r\n    span\r\n      b.primaryEmail");
+}
+};}, "views/user/single": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\user\\single.jade" }];
+try {
+var buf = [];
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"user\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();;return buf.join("");
+} catch (err) {
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".user\r\n  ");
+}
+};}, "views/user/single.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
+jade.debug = [{ lineno: 1, filename: "c:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\WEB-INF\\app\\views\\user\\single.toolbar.jade" }];
+try {
+var buf = [];
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"toolbar btn-toolbar\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.unshift({ lineno: 2, filename: jade.debug[0].filename });
-buf.push("Time to get busy with this magic!");
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 3, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Back\" type=\"button\" class=\"btn back btn-md btn-primary\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 4, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-chevron-left\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("<span>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 5, filename: jade.debug[0].filename });
+buf.push("&nbsp; Back");
 jade.debug.shift();
 jade.debug.shift();
-buf.push("</p>");
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Refresh\" type=\"button\" class=\"refresh btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-repeat\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
+buf.push("<div class=\"btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 10, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Edit\" type=\"button\" class=\"edit btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 11, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-edit\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Delete\" type=\"button\" class=\"purge btn btn-default btn-md\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 13, filename: jade.debug[0].filename });
+buf.push("<span class=\"glyphicon glyphicon-trash\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 14, filename: jade.debug[0].filename });
+buf.push("<div class=\"more btn-group\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 15, filename: jade.debug[0].filename });
+buf.push("<button type=\"button\" data-toggle=\"dropdown\" class=\"btn btn-default btn-md dropdown-toggle\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 16, filename: jade.debug[0].filename });
+buf.push("More &nbsp;");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 17, filename: jade.debug[0].filename });
+buf.push("<span class=\"caret\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</span>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</button>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 18, filename: jade.debug[0].filename });
+buf.push("<ul class=\"dropdown-menu\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 20, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 20, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 20, filename: jade.debug[0].filename });
+buf.push("Suspend");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 22, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 22, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 22, filename: jade.debug[0].filename });
+buf.push("Import");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 23, filename: jade.debug[0].filename });
+buf.push("<li class=\"divider\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.unshift({ lineno: 25, filename: jade.debug[0].filename });
+buf.push("<li>");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 25, filename: jade.debug[0].filename });
+buf.push("<a href=\"#\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 25, filename: jade.debug[0].filename });
+buf.push("Export");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</a>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</li>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</ul>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
+jade.debug.shift();
+buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"h2 Welcome to Spine.js version #{version}\np Time to get busy with this magic!\n");
-}
-};}, "views/users/form": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\users\\form.jade" }];
-try {
-var buf = [];
-jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-jade.debug.shift();;return buf.join("");
-} catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
-}
-};}, "views/users/main": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\users\\main.jade" }];
-try {
-var buf = [];
-jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-jade.debug.shift();;return buf.join("");
-} catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
-}
-};}, "views/users/toolbar.user": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\users\\toolbar.user.jade" }];
-try {
-var buf = [];
-jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-jade.debug.shift();;return buf.join("");
-} catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
-}
-};}, "views/users/toolbar.users": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\users\\toolbar.users.jade" }];
-try {
-var buf = [];
-jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-jade.debug.shift();;return buf.join("");
-} catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
-}
-};}, "views/users/users": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\users\\users.jade" }];
-try {
-var buf = [];
-jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-jade.debug.shift();;return buf.join("");
-} catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
-}
-};}, "views/users/view": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "C:\\Documents and Settings\\amadou\\Desktop\\schola\\oadmin\\src\\main\\resources\\static\\app\\views\\users\\view.jade" }];
-try {
-var buf = [];
-jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
-jade.debug.shift();;return buf.join("");
-} catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span &nbsp; Back\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-repeat\r\n  .btn-group\r\n    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')\r\n      span.glyphicon.glyphicon-edit\r\n    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export");
 }
 };}
 });

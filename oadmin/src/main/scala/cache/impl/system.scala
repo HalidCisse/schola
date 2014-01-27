@@ -37,7 +37,6 @@ class CacheSystem(val TTL: Int, updateIntervalMin: Int = 30)(implicit system: Ac
 
     val actor = system.actorOf(Props(actorCreator(this)), name = cacheName + "CacheActor")
 
-    // TODO: use pro-active caching
     system.scheduler.schedule(scheduleDelay,
       updateIntervalMin minutes,
       actor, UpdateCacheForNow)
@@ -122,30 +121,21 @@ object CacheActor {
 class OAdminCacheActor(cacheSystem: CacheSystem)
     extends CacheActor(cacheSystem) {
 
-  override def receive = _busy
+  override def receive = busy
 
-  private val _busy = findValueReceive orElse purgeValueReceive orElse updateCacheForNowReceive
+  private[this] val busy = findValueReceive orElse purgeValueReceive orElse updateCacheForNowReceive
 
-  def updateCacheForNow() { // TODO: Fix UpdateCacheForNow
+  def updateCacheForNow() {
     log.info("updating cache for now . . .")
 
-    context.become({ case _ => () })
+    context.become({ case _ => () }) // Idle
 
     val elapsed = utils.timeF {
       import Façade.nocache._
 
-      def pageCount() = {
-        import scala.slick.jdbc.{ StaticQuery => T }
-        import T.interpolation
+      def pageCount = (oauthService.getUsersStats.count / MaxResults) + 1
 
-        val pages = sql""" SELECT (count(*) OVER () / $MaxResults) + 1 as pages FROM users; """.as[Int]
-
-        S.withSession { implicit session =>
-          pages.firstOption getOrElse 1
-        }
-      }
-
-      for (page <- 0 until pageCount()) {
+      for (page <- 0 until pageCount) {
         val users = oauthService.getUsers(page)
         Cache.set(s"users_$page", users)
 
@@ -157,7 +147,7 @@ class OAdminCacheActor(cacheSystem: CacheSystem)
       roles foreach (role => Cache.set(role.name, Some(role)))
     }
 
-    context.become(_busy)
+    context.become(busy)
 
     log.info(s"cache successfully updated in  ${elapsed / 1000} secs")
   }
@@ -170,11 +160,11 @@ case object RoleParams extends CacheActor.Params {
   val cacheKey = "roles"
 }
 
-private[impl] class UserParams private (page: () => Int) extends CacheActor.Params {
-  lazy val cacheKey = s"users_${page()}"
+private[impl] class UserParams private (calcPage: () => Int) extends CacheActor.Params {
+  lazy val cacheKey = s"users_${calcPage()}"
 }
 
 object UserParams {
   def apply(page: Int = 0): UserParams = apply(() => page)
-  def apply(page: () => Int) = new UserParams(page)
+  def apply(calcPage: () => Int) = new UserParams(calcPage)
 }

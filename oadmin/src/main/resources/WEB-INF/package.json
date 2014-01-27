@@ -1,6 +1,6 @@
 {
   "name": "oadmin",
-  "version": "0.1.0",
+  "version": "0.5.0-Beta",
   "dependencies": {
     "es5-shimify": "~2.0.5",
     "json2ify": "~0.0.3",

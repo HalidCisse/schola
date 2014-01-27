@@ -14,7 +14,11 @@ object `package` {
 
   val avatars = system.actorOf(Props(new utils.Avatars(new MongoDBSettings(config getConfig "mongodb"))), name = "avatars")
 
-  val passwords = webcrank.password.Passwords.pbkdf2() // TODO: register bouncycastle provider and use {digest = SHA512} . . .
+  val passwords = webcrank.password.Passwords.scrypt(n = 4096) // TODO: register bouncycastle provider and use {digest = SHA512} . . .
+
+  val Hostname = config.getString("hostname")
+
+  val Port = config.getInt("port")
 
   val MaxResults = 50
 

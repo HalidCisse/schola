@@ -1,0 +1,25 @@
+.toolbar.btn-toolbar
+  .btn-group
+    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')
+      span.glyphicon.glyphicon-chevron-left
+      span &nbsp; Back
+  .btn-group
+    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')
+      span.glyphicon.glyphicon-repeat
+  .btn-group
+    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')
+      span.glyphicon.glyphicon-edit
+    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')
+      span.glyphicon.glyphicon-trash
+  .more.btn-group
+    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')
+      | More &nbsp;
+      span.caret
+    ul.dropdown-menu
+      li
+        a(href='#') Suspend
+      li
+        a(href='#') Import
+      li.divider
+      li
+        a(href='#') Export

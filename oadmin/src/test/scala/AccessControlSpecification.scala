@@ -2,7 +2,7 @@ package schola
 package oadmin
 package test
 
-object AccessControlSpecification extends org.specs.Specification{
+object AccessControlSpecification extends org.specs.Specification {
   import S._
 
   val userId = SuperUser.id.get
@@ -21,8 +21,8 @@ object AccessControlSpecification extends org.specs.Specification{
     "get all client permissions in db" in { accessControlService.getClientPermissions("oadmin").length must be equalTo 4 }
 
     "save role" in { accessControlService.saveRole("Role XI", None, None) must not be empty }
-    "grant role" in { accessControlService.grantUserRoles(userId.toString, Set("Role Four"), None) must not throwA(new Exception) }
-    "grant permission" in { accessControlService.grantRolePermissions("Role X", Set("P7", "P8"), None) must not throwA(new Exception) }
+    "grant role" in { accessControlService.grantUserRoles(userId.toString, Set("Role Four"), None) must not throwA (new Exception) }
+    "grant permission" in { accessControlService.grantRolePermissions("Role X", Set("P7", "P8"), None) must not throwA (new Exception) }
 
     "test user role" in { accessControlService.userHasRole(userId.toString, "Role One") must beTrue }
     "test user role - case of parent delegation" in { accessControlService.userHasRole(userId.toString, "Role X") must beTrue }

@@ -6,3 +6,12 @@ target
 oadmin.sublime-project
 oadmin.sublime-workspace
 node_modules
+activator
+activator.bat
+activator-launch-1.0.11.jar
+activator-*.sbt
+templates
+README.html
+LICENSE.html
+repository
+RUNNING_PID

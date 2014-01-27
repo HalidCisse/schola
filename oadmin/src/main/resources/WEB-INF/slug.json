@@ -8,14 +8,13 @@
   ],
 
   "packages": {
-    "appName": {
+    "oadmin": {
       "libs"    : ["lib/runtime.js"],
       "modules" : [
         "es5-shimify",
         "json2ify",
         "jqueryify",
         "spine",
-        "spine/lib/local",
         "spine/lib/route",
         "spine/lib/manager"
       ],
