@@ -1,0 +1,30 @@
+{
+  "server": {
+    "port"  : 9294
+  },
+
+  "routes": [
+    { ""        : "./public" }
+  ],
+
+  "packages": {
+    "oadmin": {
+      "libs"    : ["lib/runtime.js"],
+      "modules" : [
+        "es5-shimify",
+        "json2ify",
+        "jqueryify",
+        "spine",
+        "spine/lib/route",
+        "spine/lib/manager"
+      ],
+      "paths"  : ["./js"],
+      "target" : "./public/main.js",
+      "jsAfter": "jade.rethrow = function rethrow(err, filename, lineno){ throw err; } "
+    },
+    "css": {
+      "paths"  : "./css",
+      "target" : "./public/main.css"
+    }
+  }
+}

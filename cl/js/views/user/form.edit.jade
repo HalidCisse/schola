@@ -1,0 +1,85 @@
+ul#profiles.nav.nav-tabs
+  li.active
+    a(data-toggle='tab' data-target='#basic_edit' href="#") Basic
+  li
+    a(data-toggle='tab' data-target='#addresses_edit' href="#") Addresses
+  li
+    a(data-toggle='tab' data-target='#contacts_edit' href="#") Contacts
+fieldset
+  #profiles_content.tab-content
+    #basic_edit.tab-pane.fade.in.active
+      .row
+        .col-xs-6.col-md-3.avatar_fm_wrapper
+          .avatar_fm
+            a.edit Change Picture
+            a.purge Delete Picture
+          img#avatar.img-thumbnail(src="http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              
+        .col-xs-12.col-md-6
+          #name
+            .form-group                    
+              input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus)
+            .form-group                    
+              input.form-control(type='text' name='familyName' placeholder='Last name' required)
+          .form-group
+            input.form-control(type='email' name='primaryEmail' placeholder='Enter email' required)
+          #gender.form-group
+            label.radio-inline
+              input(type='radio' name='gender' value='Male' checked)
+              | Male
+            label.radio-inline
+              input(type='radio' name='gender' value='Female')
+              | Female                                    
+    #addresses_edit.tab-pane.fade
+      .container
+        .page-header
+          h4
+            | Work
+        .form-group
+          select#work-country.form-control(name='workAddress[country]' data-placeholder="Your work country"  placeholder='Select country' autofocus)
+        .form-group
+          input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City')
+        .form-group
+          input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code')
+        .form-group
+          textarea.form-control(name='workAddress[streetAddress]' placeholder='Address')
+      .container
+        .page-header
+          h4
+            | Home
+        .form-group
+          select#home-country.form-control(name='homeAddress[country]' data-placeholder="Your home country"  placeholder='Select country')
+        .form-group
+          input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City')
+        .form-group
+          input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')
+        .form-group
+          textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address') 
+    #contacts_edit.tab-pane.fade
+      .container
+        .page-header
+          h4
+            | Mobile
+        .form-group
+          input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1' autofocus)
+        .form-group
+          input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')
+      .container    
+        .page-header
+          h4
+            | Work
+        .form-group
+          input.form-control(type='text' name='contacts[work][phoneNumber]' placeholder='Enter phone number')
+        .form-group
+          input.form-control(type='text' name='contacts[work][fax]' placeholder='Fax')
+        .form-group
+          input.form-control(type='email' name='contacts[work][email]' placeholder='Email')             
+      .container
+        .page-header
+          h4
+            | Home
+        .form-group
+          input.form-control(type='text' name='contacts[home][phoneNumber]' placeholder='Enter phone number')
+        .form-group
+          input.form-control(type='text' name='contacts[home][fax]' placeholder='Fax')
+        .form-group
+          input.form-control(type='email' name='contacts[home][email]' placeholder='Email')

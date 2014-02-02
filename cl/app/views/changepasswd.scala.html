@@ -1,0 +1,158 @@
+@(form: Form[controllers.Passwords.ChangeInfo])(implicit request: RequestHeader)
+
+@required = @{
+  form("required").value.exists(_ eq "true")
+}
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="Amadou Cisse">
+    <link rel="shortcut icon" href='@routes.Assets.at("ico/favicon.png")'>
+    <title>Schola - Change password</title>
+    <link href='@routes.Assets.at("css/bootstrap.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/changepasswd.css")' rel="stylesheet">
+  </head>
+  <body>
+    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header"><a href='@routes.Application.index' class="navbar-brand">Schola</a></div>
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav navbar-right">
+            @if(!required) { 
+              <li class="dropdown"><a href="#" data-toggle="dropdown" class="dropdown-toggle"><span class="glyphicon glyphicon-wrench"></span><span class="caret"></span></a>
+                <ul class="dropdown-menu">
+                  <li><a href='@routes.Profile.edit'>Edit Account</a></li>
+                </ul>
+              </li>
+            }
+            <li><a href='@routes.LoginPage.logout' data-toggle="tooltip" data-placement="bottom" title="Logout"><span class="glyphicon glyphicon-log-out"></span></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="page-header">
+        <h2>Change your password</h2>
+      </div>
+    </div>
+    <div class="container">
+      <form role="form" method="POST" class="form-changepasswd" action='@routes.Passwords.change'>
+        @form.forField("required") { f =>
+          <input type="hidden" name='@f.name' value='@f.value.getOrElse("false")'>
+        }
+        <fieldset>
+          @if(required) { 
+            <div class="bs-callout bs-callout-danger">
+              <p>This application requires that you change your password.</p>
+            </div>
+          }
+          <div class="form-group">
+            <input type="password" id="password" name="password" placeholder="Enter current password" required autofocus class="form-control">
+          </div>
+          <div class="form-group">
+            <input type="password" id="password1" name="newPassword.password1" placeholder="New Password" required class="form-control">
+          </div>
+          <div class="form-group">
+            <input type="password" id="password2" name="newPassword.password2" placeholder="Confirm Password" required class="form-control">
+          </div>
+          <button type="submit" class="btn btn-primary">Change Password</button>
+          @if(!required) { 
+            <a href='@routes.Application.index' class="btn btn-default">Cancel</a> 
+          }
+        </fieldset>
+      </form>
+    </div>
+    <div id="footer">
+      <div class="container">
+        <p class="text-muted">© Amadou CISSE 2014.</p>
+      </div>
+    </div>
+    <script src='@routes.Assets.at("javascripts/jquery.min.js")' type="text/javascript" charset="utf-8"></script>
+    <script src='@routes.Assets.at("javascripts/bootstrap.js")'></script>
+    <script type="text/javascript" charset="utf-8">
+
+      //<![CDATA[
+
+      jQuery(function($){
+
+        $(document.body).on('click', '.close', function(){ $(this).parent('.alert').fadeOut(); return false; });
+      
+        $('form.form-changepasswd').submit(function(){
+
+          var newPasswd = $('#password1');
+          var passwordConfirmation = $('#password2');
+          
+          if(newPasswd.val() != passwordConfirmation.val()) {
+            ERROR("Passwords don't match", 'Error!');
+            setTimeout(passwordConfirmation[0].focus.bind(passwordConfirmation[0]), 0)
+            return false;
+          }
+          
+          function cleaned(k) {
+            return (k && k.trim()) || "";
+          }
+          
+          var i = cleaned(newPasswd.val());
+          
+          if(i.length < @schola.oadmin.PasswordMinLength) {
+            ERROR("Password must be at least @schola.oadmin.PasswordMinLength characters long.", "Error!");
+            setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
+            return false;
+          }
+          
+        });
+        
+        //- Show only one message
+        
+        @request.flash.get("error").map { msg =>
+        
+          ERROR('@msg', "Error!");
+
+        }.getOrElse {
+          
+            @form.errors.headOption.map { msg =>
+              ERROR('@msg.message', "Error!");
+              setTimeout(function(){$('#@msg.key').focus()}, 0)
+              setTimeout(function(){$('[name="@msg.key"]').focus()}, 0)
+              setTimeout(function(){$('[name^="@msg.key"]:eq(1)').focus()}, 0)
+            }
+        }
+        
+        function ShowMsg(msg, title, className) {
+          var htm = '';
+          if(title) htm = "<strong>" + title + "</strong> &nbsp;" + msg;
+          else htm = msg;
+          
+            try { 
+              $('#msg').fadeOut();
+              window.__msgs && clearTimeout(window.__msgs);
+            } catch(e) {}
+            
+          $(
+            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+              '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
+              htm,
+              '</div>'].join('')).prependTo(document.body);
+              
+          $('#msg').fadeIn();
+          
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 10000);
+        }
+        
+        function ERROR(msg, title) {
+          ShowMsg(msg, title, 'alert-danger')
+        }
+        
+        function INFO(msg, title) {
+          ShowMsg(msg, title, 'alert-success')
+        } 
+        
+      })
+      //]]>
+    </script>
+  </body>
+</html>

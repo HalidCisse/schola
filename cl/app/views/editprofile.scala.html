@@ -1,0 +1,521 @@
+@(form: Form[controllers.Profile.UserInfo])(implicit request: RequestHeader)
+
+@primaryEmail = @{
+  form("primaryEmail").value.getOrElse("")
+}
+
+@givenName = @{ 
+  form("givenName").value.getOrElse("")
+}
+
+@familyName = @{
+  form("familyName").value.getOrElse("")
+}
+
+@gender = @{
+  form("gender")
+    .value
+    .flatMap(g => scala.util.control.Exception.allCatch.opt{schola.oadmin.domain.Gender.withName(g)})
+    .getOrElse(schola.oadmin.domain.Gender.Male)
+}
+
+@homeCity = @{
+  form("homeAddress.city").value.getOrElse("")
+}
+
+@homeCountry = @{
+  form("homeAddress.country").value.getOrElse("")
+}
+
+@homePostalCode = @{
+  form("homeAddress.postalCode").value.getOrElse("")
+}
+
+@homeStreetAddress = @{
+  form("homeAddress.streetAddress").value.getOrElse("")
+}
+
+@workCity = @{
+  form("workAddress.city").value.getOrElse("")
+}
+
+@workCountry = @{
+  form("workAddress.country").value.getOrElse("")
+}
+
+@workPostalCode = @{
+  form("workAddress.postalCode").value.getOrElse("")
+}
+
+@workStreetAddress = @{
+  form("workAddress.streetAddress").value.getOrElse("")  
+}
+
+@mobile1 = @{
+  form("contacts.mobiles.mobile1").value.getOrElse("")  
+}
+
+@mobile2 = @{
+  form("contacts.mobiles.mobile2").value.getOrElse("")  
+}
+
+@homeEmail = @{
+  form("contacts.home.email").value.getOrElse("")
+}
+
+@homePhoneNumber = @{
+  form("contacts.home.phoneNumber").value.getOrElse("")
+}
+
+@homeFax = @{
+  form("contacts.home.fax").value.getOrElse("")
+}
+
+@workEmail = @{
+  form("contacts.work.email").value.getOrElse("")
+}
+
+@workPhoneNumber = @{
+  form("contacts.work.phoneNumber").value.getOrElse("")
+}
+
+@workFax = @{
+  form("contacts.work.fax").value.getOrElse("")  
+}
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="Amadou Cisse">
+    <link rel="shortcut icon" href='@routes.Assets.at("ico/favicon.png")'>
+    <title>Schola - Edit Account</title>
+    <link href='@routes.Assets.at("css/bootstrap.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/chosen.min.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/editprofile.css")' rel="stylesheet">
+    <style type="text/css">
+      *:required:after {
+        content: "*";
+      }
+      
+    </style>
+  </head>
+  <body>
+    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header"><a href='@routes.Application.index' class="navbar-brand">Schola</a></div>
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav navbar-right">
+            <li class="dropdown"><a href="#" data-toggle="dropdown" class="dropdown-toggle"><span class="glyphicon glyphicon-wrench"></span><span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href='@routes.Passwords.changePage()'>Change Password</a></li>
+              </ul>
+            </li>
+            <li><a href='@routes.LoginPage.logout' title="Logout"><span class="glyphicon glyphicon-log-out"> </span></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="page-header">
+        <h3>Edit your profile</h3>
+      </div>
+    </div>
+    <div class="container">
+      <form role="form" method="POST" class="form-editprofile" action='@routes.Profile.update'>
+        <ul id="profiles" class="nav nav-tabs">
+          <li class="active"><a data-toggle="tab" data-target="#basic" href="#">Basic</a></li>
+          <li><a data-toggle="tab" data-target="#addresses" href="#">Addresses</a></li>
+          <li><a data-toggle="tab" data-target="#contacts" href="#">Contacts</a></li>
+        </ul>
+        <fieldset>
+          <div id="profiles_content" class="tab-content">
+            <div id="basic" class="tab-pane fade in active">
+              <div class="row">
+                <div class="col-xs-6 col-md-3 avatar_fm_wrapper">
+                  <div class="avatar_fm"><a class="edit">Change Picture</a><a class="purge">Delete Picture</a></div><img src="http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&amp;f=y&amp;s=195" style="height: 180px; width: 100%; display: block; max-width: 195px;" title="Click to change your profile picture" class="img-thumbnail avatar">
+                </div>
+                <div class="col-xs-12 col-md-6">
+                  <div id="name" class="form-group">                   
+                    <input type="text" name="givenName" value='@givenName' placeholder="First name" required autofocus class="form-control"> &nbsp; &nbsp;
+                    <input type="text" name="familyName" value='@familyName' placeholder="Last name" required class="form-control">
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <input type="email" name="primaryEmail" value='@primaryEmail' placeholder="Enter email" required class="form-control">
+                <!-- <p data-toggle="tooltip" data-placement="right" title="Only an administrator can modify his or her primary email"></p> -->
+              </div>
+              <div class="form-group">
+                <input type="password" name="password" placeholder="Enter current password" class="form-control">
+              </div>
+              <div class="form-group">
+                <input type="password" name="password.password1" placeholder="New Password" class="form-control">
+              </div>
+              <div class="form-group">
+                <input type="password" name="password.password2" placeholder="Confirm Password" class="form-control">
+              </div>
+              <div id="gender" class="form-group">
+                <label class="radio-inline">
+                  <input type="radio" name="gender" value="Male" @if(gender eq schola.oadmin.domain.Gender.Male) {checked}> Male
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="gender" value="Female"  @if(gender eq schola.oadmin.domain.Gender.Female) {checked}> Female
+                </label>
+              </div>
+            </div>
+            <div id="addresses" class="tab-pane fade">
+              <div class="container">
+                <div class="page-header">
+                  <h4>Work</h4>
+                </div>
+                <div class="form-group">
+                  <select id="work-country" data-placeholder="Your work country" name="workAddress.country" value='@workCountry' placeholder="Select country" autofocus class="form-control chosen"></select>
+                </div>
+                <div class="form-group">
+                  <input id="work-city" type="text" name="workAddress.city" value='@workCity' placeholder="City" class="form-control">
+                </div>
+                <div class="form-group">
+                  <input type="text" name="workAddress.postalCode" value='@workPostalCode' placeholder="Postal Code" class="form-control">
+                </div>
+                <div class="form-group">
+                  <textarea name="workAddress.streetAddress" value='@workStreetAddress' placeholder="Address" class="form-control"></textarea>
+                </div>
+              </div>
+              <div class="container">
+                <div class="page-header">
+                  <h4>Home</h4>
+                </div>
+                <div class="form-group">
+                  <select id="home-country" data-placeholder="Your home country" name="homeAddress.country" value='@homeCountry' placeholder="Select country" class="form-control chosen" ></select>
+                </div>
+                <div class="form-group">
+                  <input id="home-city" type="text" name="homeAddress.city" value='@homeCity' placeholder="City" class="form-control">
+                </div>
+                <div class="form-group">
+                  <input type="text" name="homeAddress.postalCode" value='@homePostalCode' placeholder="Postal Code" class="form-control">
+                </div>
+                <div class="form-group">
+                  <textarea name="homeAddress.streetAddress" value='@homeStreetAddress' placeholder="Address" class="form-control"></textarea>
+                </div>
+              </div>
+            </div>
+            <div id="contacts" class="tab-pane fade">
+              <div class="container">
+                <div class="page-header">
+                  <h4>Mobile</h4>
+                </div>
+                <div class="form-group">
+                  <input type="text" name="contacts.mobiles.mobile1" value='@mobile1' placeholder="Enter mobile number 1" autofocus class="form-control">
+                </div>
+                <div class="form-group">
+                  <input type="text" name="contacts.mobiles.mobile2" value='@mobile2' placeholder="Enter mobile number 2" class="form-control">
+                </div>
+              </div>
+              <div class="container">   
+                <div class="page-header">
+                  <h4>Work</h4>
+                </div>
+                <div class="form-group">
+                  <input type="text" name="contacts.work.phoneNumber" value='@workPhoneNumber' placeholder="Enter phone number" class="form-control">
+                </div>
+                <div class="form-group">
+                  <input type="text" name="contacts.work.fax" value='@workFax' placeholder="Fax" class="form-control">
+                </div>
+                <div class="form-group">
+                  <input type="email" name="contacts.work.email" value='@workEmail' placeholder="Email" class="form-control">
+                </div>
+              </div>
+              <div class="container">
+                <div class="page-header">
+                  <h4>Home</h4>
+                </div>
+                <div class="form-group">
+                  <input type="text" name="contacts.home.phoneNumber" value='@homePhoneNumber' placeholder="Enter phone number" class="form-control">
+                </div>
+                <div class="form-group">
+                  <input type="text" name="contacts.home.fax" value='@homeFax' placeholder="Fax" class="form-control">
+                </div>
+                <div class="form-group">
+                  <input type="email" name="contacts.home.email" value='@homeEmail' placeholder="Email" class="form-control">
+                </div>
+              </div>
+            </div><br>
+            <button type="submit" class="btn btn-primary">Save</button><a href='@routes.Application.index' class="btn btn-default">Cancel</a>
+          </div>
+        </fieldset>
+      </form>
+      <footer>
+        <p>© Amadou CISSE 2014.</p>
+      </footer>
+    </div>
+    <form id="f_fm"></form>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/countries.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/jquery.min.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/spin.min.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/bootstrap.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/chosen.jquery.min.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/bootstrap3-typeahead.min.js")'></script>
+    <script type='text/javascript' charset='utf-8' src="http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2"></script>
+    <script type='text/javascript' charset='utf-8' type='text/javascript' charset='utf-8'>
+      //<![CDATA[ 
+
+      jQuery(function($){
+        // construct countries list with selected country
+        // Set up cities auto-complete
+
+        var defaultAvatarUrl = "http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195";
+
+        var opts = {
+          lines: 7, // The number of lines to draw
+          length: 6, // The length of each line
+          radius: 7, // The radius of the inner circle
+          left: '200px' // Left position relative to parent in px
+        };
+
+        var spinner = new Spinner(opts),
+            header  = $('.page-header h3')[0];
+
+        $(document).ajaxStop(function() { spinner.stop(); })
+                   .ajaxStart(function() { spinner.spin(header); });
+
+        $('form.form-editprofile').submit(function(){
+          var newPasswd = $('[name=new_password]', this);
+          var passwordConfirmation = $('[name=password_confirmation]', this);
+
+          function cleaned(k) {
+            return(k && k.trim()) || "";
+          }
+
+          var i = cleaned(newPasswd.val());
+
+          if(i.length > 0 && i != passwordConfirmation.val()) {
+            ERROR("Passwords don't match", 'Error!');
+            setTimeout(passwordConfirmation[0].focus.bind(passwordConfirmation[0]), 0)
+            return false;
+          }
+
+          if(i.length > 0 && i.length < @schola.oadmin.PasswordMinLength) {
+            ERROR("Password must be at least @schola.oadmin.PasswordMinLength characters long.", "Error!");
+            setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
+            return false;
+          }
+
+        });
+
+        $('[data-toggle=tooltip]').tooltip();    
+
+         @request.flash.get("error").map { msg => 
+          ERROR('@msg', "Error!")
+        }    
+
+        var $avatar = $('.avatar');
+
+        function loadAvatar() {                  
+          return $.getJSON("/Avatar")
+           .done(function(data){ $avatar[0].src = "data:"+data.contentType+";base64,"+data.data; })                       
+        }
+
+        setTimeout(function(){
+          loadAvatar();
+        }, 0);
+
+        function sendFile(file) {
+          return $.ajax({
+            type: 'POST',
+            url: '/Avatar?name=' + file.name,
+            data: file,
+            success: function () {
+              // do something
+              console.log("success")
+            },
+            xhrFields: {
+              // add listener to XMLHTTPRequest object directly for progress (jquery doesn't have this yet)
+              onprogress: function (progress) {
+                // calculate upload progress
+                var percentage = Math.floor((progress.total / progress.totalSize) * 100);
+                // log upload progress to console
+                console.log('progress', percentage);
+                if (percentage === 100) {
+                  console.log('DONE!');
+                }
+              }      
+            },
+            dataType: 'json',
+            processData: false,
+            contentType: file.type,
+            mimeType: file.type
+          }) 
+        }         
+
+        $('a.edit').click(function(){
+          var $f = $("<input type=file id=f name=f class=hidden accept='image/*' />");
+          $f.change(function(){
+            var f = this.files[0];
+
+            if(f) {
+
+              if(f.size > @schola.oadmin.MaxUploadSize * 1024 * 1024) { // Check the constraint
+                ERROR("The selected file must not be larger than @schola.oadmin.MaxUploadSize MB.", 'Error!');
+                return false;
+              }
+
+              var reader = new FileReader; 
+
+              sendFile(f).done(function(res){ 
+                  
+                  $f.remove();
+                  $f = null;
+
+                  if(!res.success) {
+                    ERROR("Upload failed.", 'Error!');
+                    setTimeout(function(){loadAvatar().fail(function(){$avatar[0].src = defaultAvatarUrl;})},0);
+                    return;
+                  }
+
+                  if(reader.readyState == FileReader.DONE)
+                    $avatar[0].src = reader.result;
+                  else
+                    reader.onload = function(evt) {
+                      // f.size
+                      $avatar[0].src = evt.target.result;
+                    };
+                  
+                  INFO("Profile image uploaded.", "Success!");
+                })
+               .fail(function(){
+                  ERROR("Upload failed.", 'Error!');
+                })
+
+               /*.progress(function(e, upload) {
+                    if( e.lengthComputable) {
+                      var percent = Math.round( e.loaded * 100 / e.total) + '%';
+                      if(upload)
+                        console.log( percent + ' uploaded');
+                      else
+                        console.log( percent + ' downloaded');
+                }
+              });*/
+                                                       
+              reader.readAsDataURL(f);
+
+            }
+            else {
+              $f.remove();
+              $f = null;
+              $avatar[0].src = defaultAvatarUrl;
+            }
+
+            return false;
+          });
+
+          $f.prependTo($('#f_fm'));              
+
+          $f.click();
+        });
+        
+        $('a.purge').click(function(){          
+
+          $.ajax({
+            type:"DELETE",
+            url: "/Avatar",
+            dataType: 'json'
+          })
+          .done(function(msg) {
+              if(msg.success) {
+                $avatar[0].src = defaultAvatarUrl;
+                INFO("Profile image deleted.", "Success!");
+              }
+              else 
+                ERROR("Delete failed.", 'Error!');
+          })
+          .fail(function(){
+            ERROR("Delete failed.", 'Error!');
+          });
+
+          return false;
+        });                  
+
+        var options = (function () {        
+          var html = '';
+          for(var i in countries) {
+            html += '<option value="' + countries[i]['code'] + '">' + countries[i]['name'] + '</option>';
+          }
+          return html;
+        })();
+
+          $('#home-country').html(options)
+                            .val('@homeCountry' || window['sGeobytesIso2'])
+                            .chosen({width:"330px"});
+
+          $('#work-country').html(options)
+                            .val('@workCountry' || window['sGeobytesIso2'])
+                            .chosen({width:"330px"});
+
+          (function(){    
+              $('#home-city').val('@homeCity' || window['sGeobytesCity']);
+              $('#work-city').val('@workCity' || window['sGeobytesCity']);
+            }).call(this);
+
+
+        $('#work-city').typeahead({
+            source: function(q, process) {
+              var filter = $("#work-country").val();
+              filter = filter ?("&filter=" + filter) : '';
+
+              var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
+              
+              $.getJSON(url, process)
+            },
+            showHintOnFocus: true
+          });
+
+        $('#home-city').typeahead({
+            source: function(q, process) {
+              var filter = $("#home-country").val();
+              filter = filter ?("&filter=" + filter) : '';
+
+              var url = "http://gd.geobytes.com/AutoCompleteCity?callback=?" + filter + "&q="+q;
+              
+              $.getJSON(url, process)
+            },
+            showHintOnFocus: true
+          });  
+
+        function ShowMsg(msg, title, className) {
+          var htm = '';
+          if(title) htm = "<strong>" + title + "</strong> &nbsp;" + msg;
+          else htm = msg;
+
+            try { 
+              $('#msg').fadeOut();
+              window.__msgs && clearTimeout(window.__msgs);
+            } catch(e) {}
+
+          $(
+            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+              '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
+              htm,
+              '</div>'].join('')).prependTo(document.body);
+
+          $('#msg').fadeIn();
+          
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 10000);
+        }
+
+        function ERROR(msg, title) {
+          ShowMsg(msg, title, 'alert-danger')
+        }
+
+        function INFO(msg, title) {
+          ShowMsg(msg, title, 'alert-success')
+        }
+
+      });
+        
+      //]]>
+    </script>
+  </body>
+</html>

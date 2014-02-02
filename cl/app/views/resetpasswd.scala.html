@@ -1,0 +1,120 @@
+@(username: String, key: String)(implicit request: RequestHeader)
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="Amadou Cisse">
+    <link rel="shortcut icon" href='@routes.Assets.at("ico/favicon.png")'>
+    <title>Schola - Password reset</title>
+    <link href='@routes.Assets.at("css/bootstrap.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/rstpasswd.css")' rel="stylesheet">
+  </head>
+  <body>
+    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header"><a href='@routes.Application.index()' class="navbar-brand">Schola</a></div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="page-header">
+        <h2>Reset your password</h2>
+      </div>
+    </div>
+    <div class="container">
+      <form role="form" method="POST" class="form-rstpasswd" action='@routes.Passwords.reset'>
+        <fieldset>
+          <div class="bs-callout bs-callout-info">
+            <p>Please enter your new password.</p>
+          </div>
+          <div class="form-group">
+            <input type="password" id="password1" name="newPassword.password1" placeholder="New password" required autofocus class="form-control">
+            <input type="hidden" name="username" value='@username'>
+            <input type="hidden" name="key" value='@key'>
+          </div>
+          <div class="form-group">
+            <input type="password" id="password2" name="newPassword.password2" placeholder="Confirm Password" required class="form-control">
+          </div>
+          <button type="submit" class="btn btn-primary">Reset Password</button><a href='@routes.Application.index' class="btn btn-default">Cancel</a>
+        </fieldset>
+      </form>
+    </div>
+    <div class="container">
+      <footer>
+        <p>© Amadou CISSE 2014.</p>
+      </footer>
+    </div>
+    <script src='@routes.Assets.at("javascripts/jquery.min.js")' type="text/javascript" charset="utf-8"></script>
+    <script type="text/javascript" charset="utf-8">
+
+      //<![CDATA[
+
+      jQuery(function($){
+      
+        $(document.body).on('click', '.close', function(){ $(this).parent('.alert').fadeOut(); return false; });
+        
+        $('form.form-rstpasswd').submit(function(){
+          var newPasswd = $('#password1');
+          var passwordConfirmation = $('#password2');
+          
+          if(newPasswd.val() != passwordConfirmation.val()) {
+            ERROR("Passwords don't match", 'Error!');
+            setTimeout(passwordConfirmation[0].focus.bind(passwordConfirmation[0]), 0)
+            return false;
+          }
+          
+          function cleaned(k) {
+            return (k && k.trim()) || "";
+          }
+          
+          var i = cleaned(newPasswd.val());
+          
+          if(i.length < @schola.oadmin.PasswordMinLength) {
+            ERROR("Password must be at least @schola.oadmin.PasswordMinLength characters long.", "Error!");
+            setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
+            return false;
+          }
+          
+        });
+        
+        @request.flash.get("error").map { msg => 
+          ERROR('@Html(msg)', "Error!")
+        }        
+        
+        function ShowMsg(msg, title, className) {
+          var htm = '';
+          if(title) htm = "<strong>" + title + "</strong> &nbsp;" + msg;
+          else htm = msg;
+          
+            try { 
+              $('#msg').fadeOut();
+              window.__msgs && clearTimeout(window.__msgs);
+            } catch(e) {}
+            
+          $(
+            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+              '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
+              htm,
+              '</div>'].join('')).prependTo(document.body);
+              
+          $('#msg').fadeIn();
+          
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 30000);
+        }
+        
+        function ERROR(msg, title) {
+          ShowMsg(msg, title, 'alert-danger')
+        }
+        
+        function INFO(msg, title) {
+          ShowMsg(msg, title, 'alert-success')
+        }          
+        
+      })
+
+      //]]>
+    </script>
+  </body>
+</html>

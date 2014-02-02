@@ -1,0 +1,151 @@
+@()(implicit request: RequestHeader)
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <meta name="author" content="Amadou Cisse">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href='@routes.Assets.at("ico/favicon.png")'>
+    <title>Schola</title>
+    <link href='@routes.Assets.at("css/bootstrap.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/bootstrap-theme.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/chosen.min.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("main.css")' rel="stylesheet">
+  </head>
+  <body>
+    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header"><a href='@routes.Application.index' class="navbar-brand">Schola</a></div>
+        <div class="collapse navbar-collapse">
+          <form id="search" role="search" class="navbar-form navbar-left">
+            <div class="btn-group">
+              <input type="text" placeholder="Search users, roles or permissions" style='width:100%;' class="not-squared form-control input-sm"><span class="glyphicon glyphicon-search"></span>
+            </div>
+          </form>
+          <ul class="nav navbar-nav navbar-right">
+            <li class="dropdown"><a href="#" data-toggle="dropdown" class="dropdown-toggle"><span class="glyphicon glyphicon-wrench"></span><span class="caret"></span></a>
+              <ul role="menu" class="dropdown-menu squared">
+                <li><a href='@routes.Profile.edit'>Edit Account</a></li>
+                <li><a href='@routes.Passwords.changePage()'>Change Password</a></li>
+                <li class="divider"></li>
+                <li><a href="#/Sessions">Sessions</a></li>
+              </ul>
+            </li>
+            <li><a href='@routes.LoginPage.logout' data-toggle="tooltip" title="Logout"><span class="glyphicon glyphicon-log-out"></span></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div id="main" class="container">
+      <div class="row">
+        <div id="sidebar" class="col-md-2"></div>
+        <div id="content" class="col-md-10"></div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">    
+          <footer class="pull-right">
+            <p>© Amadou CISSE 2014.</p>
+          </footer>
+        </div>
+      </div>
+    </div>
+    <script src='@routes.Assets.at("javascripts/countries.js")'></script>
+    <script src='@routes.Assets.at("main.js")'>   </script>
+    <script src='@routes.Assets.at("javascripts/spin.min.js")'></script>
+    <script src='@routes.Assets.at("javascripts/crypto/hmac-sha1.js")'></script>
+    <script src='@routes.Assets.at("javascripts/crypto/enc-base64-min.js")'></script>
+    <script type="text/javascript">var jQuery = require("jqueryify");</script>
+    <script src='@routes.Assets.at("javascripts/jquery.upload.js")'></script>
+    <script src='@routes.Assets.at("javascripts/bootstrap.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/chosen.jquery.min.js")'></script>
+    <script src='@routes.Assets.at("javascripts/bootstrap3-typeahead.min.js")'></script>
+    <script src="http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2"></script>
+    <script type="text/javascript">
+      var exports = this;
+      
+      function isElementInViewport(el) {
+        var rect = el.getBoundingClientRect();
+        
+        return (
+          rect.top >= 0 &&
+          rect.left >= 0 &&
+          rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) && /*or $(window).height() */
+          rect.right <= (window.innerWidth || document.documentElement.clientWidth) /*or $(window).width() */
+        );
+      }        
+      
+      (function($) {
+        $.fn.scrollIntoView = function() {
+          return this.each(function(){
+            if(!isElementInViewport(this)) 
+              this.scrollIntoView();
+            })
+        }
+      })(jQuery);
+      
+      jQuery(function($){
+      
+      
+        var App = require("index");
+        
+        exports.app = new App;
+        
+        // button state demo
+        //- $('#fat-btn')
+        //-   .click(function () {
+        //-     var btn = $(this)
+        //-     btn.button('loading')
+        //-     setTimeout(function () {
+        //-       btn.button('reset')
+        //-     }, 3000)
+        //-   });
+        
+        $('button[data-dismiss=alert]').click(function(){ $(this).parent('.alert').remove(); return false; })
+        
+        $(document).tooltip({
+          selector: '[data-toggle=tooltip]',
+          container: $(document.body)
+        });
+        
+        @request.flash.get("success").map { msg =>
+          INFO('@msg', 'Success!')
+        }
+        
+        @request.flash.get("error").map { msg =>
+          ERROR('@msg', 'Error!'); 
+        }               
+        
+        function ShowMsg(msg, title, className) {
+          var htm = '';
+          if(title) htm = "<strong>" + title + "</strong> &nbsp;" + msg;
+          else htm = msg;
+          
+            try { 
+              $('#msg').fadeOut();
+              window.__msgs && clearTimeout(window.__msgs);
+            } catch(e) {}
+            
+          $(
+            ['<div id=msg class="alert ' + className + ' alert-dismissable">',
+              '<button type=button class=close data-dismiss=alert aria-hidden=true>&times;</button>',
+              htm,
+              '</div>'].join('')).prependTo(document.body);
+              
+          $('#msg').fadeIn();
+          
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 10000);
+        }
+        
+        function ERROR(msg, title) {
+          ShowMsg(msg, title, 'alert-danger')
+        }
+        
+        function INFO(msg, title) {
+          ShowMsg(msg, title, 'alert-success')
+        }      
+      });
+    </script>
+  </body>
+</html>
