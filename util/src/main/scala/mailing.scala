@@ -3,7 +3,6 @@ package oadmin
 package utils
 
 import org.apache.commons.mail.{ HtmlEmail, DefaultAuthenticator, MultiPartEmail }
-import org.clapper.avsl.Logger
 
 trait MailerAPI {
 
@@ -138,7 +137,7 @@ class CommonsMailer(smtpHost: String, smtpPort: Int, smtpSsl: Boolean, smtpTls: 
 
   private def setAddress(emailAddress: String)(setter: (String, String) => Unit) = {
 
-    if (emailAddress != null) {
+    if (emailAddress ne null) {
       try {
         val iAddress = new javax.mail.internet.InternetAddress(emailAddress)
         val address = iAddress.getAddress
@@ -170,10 +169,10 @@ class CommonsMailer(smtpHost: String, smtpPort: Int, smtpSsl: Boolean, smtpTls: 
 
 case object MockMailer extends MailerBuilder {
 
-  val log = Logger("oadmin.mockmailer")
+  // private val log = Logger("oadmin.mockmailer")
 
   def send(bodyText: String, bodyHtml: String): Unit = {
-    log.info("MOCK MAILER: send email")
+    /*log.info("MOCK MAILER: send email")
     e("from").foreach(from => log.info("FROM:" + from))
     e("replyTo").foreach(replyTo => log.info("REPLYTO:" + replyTo))
     e("recipients").foreach(to => log.info("TO:" + to))
@@ -186,7 +185,7 @@ case object MockMailer extends MailerBuilder {
     }
     if (bodyHtml != null && bodyHtml != "") {
       log.info("HTML: " + bodyHtml)
-    }
+    }*/
     context.get.clear()
   }
 }

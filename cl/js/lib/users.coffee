@@ -91,7 +91,7 @@ class users
   @revokeRoles: (id, roles) ->
     $.ajax(
       type:"DELETE",
-      url: "/api/v1/user/#{id}/roles?" + $.param({roles}),
+      url: "/api/v1/user/#{id}/roles?" + $.param({roles}, true),
       traditional: true,
       dataType: 'json'
     )    

@@ -1,7 +1,6 @@
 package schola
 package oadmin
 
-import org.clapper.avsl.Logger
 // import org.apache.commons.validator.routines.EmailValidator
 
 trait HandlerFactory extends (unfiltered.request.HttpRequest[_ <: javax.servlet.http.HttpServletRequest] => RouteHandler)
@@ -12,9 +11,9 @@ trait Plans {
 
 trait Server {
 
-  self: Plans =>
+  self: Plans =>  
 
-  private val log = Logger("oadmin.server")
+  import scala.util.control.Exception.allCatch
 
   import oauth2._
   import unfiltered.request._
@@ -24,6 +23,8 @@ trait Server {
 
   import unfiltered.filter.request.{ MultiPart, MultiPartParams }
 
+  private val log = Logger("oadmin.server")
+
   object Login
     extends Params.Extract("username", Params.first ~> Params.nonempty ~> Params.trimmed /* ~> Params.pred(EmailValidator.getInstance.isValid)*/ )
 
@@ -32,9 +33,7 @@ trait Server {
   object Key
     extends Params.Extract("key", Params.first ~> Params.nonempty ~> Params.trimmed)
 
-  object Page {
-    import scala.util.control.Exception.allCatch
-
+  object Page {  
     def unapply(params: Map[String, Seq[String]]) =
       allCatch.opt { params("page")(0).toInt } orElse Some(0)
   }
@@ -65,7 +64,7 @@ trait Server {
 
         case GET(ContextPath(_, Seg("users" :: "check_activation_req" :: Nil))) & Params(Login(username) & Key(ky)) =>
 
-            routeHandler.checkActivationReq(username, ky)      
+          routeHandler.checkActivationReq(username, ky)
 
         case POST(ContextPath(_, Seg("users" :: "lostpassword" :: Nil))) & Params(Login(username)) =>
 
@@ -91,6 +90,20 @@ trait Server {
 
       object Permissions
         extends Params.Extract("permissions", new Params.ParamMapper(f => Some(Set(f: _*))))
+
+      object Tags
+        extends Params.Extract("labels", new Params.ParamMapper(f => Some(Set(f: _*))))
+
+      object NewLabel{
+        def unapply(params: Map[String, Seq[String]]) = 
+          allCatch.opt { params("label")(0) } map(label => (label, allCatch.opt { params("color")(0) }))
+      }
+
+      object Label
+        extends Params.Extract("label", Params.first ~> Params.nonempty ~> Params.trimmed)
+
+      object Color
+        extends Params.Extract("color", Params.first ~> Params.nonempty ~> Params.trimmed)
 
       val routeHandler = f(req)
 
@@ -169,6 +182,18 @@ trait Server {
 
           routeHandler.undeleteUsers(Set(userId))
 
+        case GET(ContextPath(_, Seg("user" :: userId :: "labels" :: Nil))) =>
+
+          routeHandler.getUserTags(userId)
+
+        case PUT(ContextPath(_, Seg("user" :: userId :: "labels" :: Nil))) & Params(Tags(labels)) =>
+
+          routeHandler.addUserTags(userId, labels)
+
+        case DELETE(ContextPath(_, Seg("user" :: userId :: "labels" :: Nil))) & Params(Tags(labels)) =>
+
+          routeHandler.removeUserTags(userId, labels)
+
         // Roles API
 
         case POST(ContextPath(_, "/roles")) =>
@@ -217,6 +242,28 @@ trait Server {
 
           routeHandler.logout(token)
 
+        // Tags API
+
+        case GET(ContextPath(_, "/labels")) =>        
+
+          routeHandler.getLabels
+
+        case POST(ContextPath(_, "/labels")) & Params(NewLabel(name, color)) =>
+
+          routeHandler.addLabel(name, color)
+
+        case PUT(ContextPath(_, Seg("label" :: label :: Nil))) & Params(Label(name)) =>
+
+          routeHandler.updateLabelName(label, name) 
+        
+        case PUT(ContextPath(_, Seg("label" :: label :: "color" :: Nil))) & Params(Color(color)) =>
+
+          routeHandler.addLabel(label, Some(color))         
+
+        case DELETE(ContextPath(_, "/labels")) & Params(Tags(labels)) =>
+
+          routeHandler.purgeLabels(labels)
+
         // Nothing
 
         case _ => req.respond { Pass }
@@ -233,6 +280,22 @@ trait RouteHandler extends Any {
   def purgeAvatar(userId: String, avatarId: String)
 
   def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte])
+
+  // -------------------------------------------------------------------------------------------------
+
+  def getUserTags(userId: String)
+
+  def addUserTags(userId: String, labels: Set[String])
+
+  def removeUserTags(userId: String, labels: Set[String])
+
+  def getLabels
+
+  def addLabel(name: String, color: Option[String])
+
+  def updateLabelName(label: String, newName: String)
+
+  def purgeLabels(labels: Set[String])
 
   // -------------------------------------------------------------------------------------------------
 
@@ -253,7 +316,7 @@ trait RouteHandler extends Any {
   def resetPasswd(username: String, activationKey: String, newPasswd: String): unfiltered.response.ResponseFunction[Any]
 
   def checkActivationReq(username: String, key: String): unfiltered.response.ResponseFunction[Any]
-  
+
   def createPasswdResetReq(username: String): unfiltered.response.ResponseFunction[Any]
 
   def getTrash

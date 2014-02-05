@@ -21,6 +21,8 @@ class App extends Spine.Module
   users: require('lib/users')
 
   roles: require('lib/roles')
+  
+  labels: require('lib/labels')
 
   mgr: Menu.Mgr
 

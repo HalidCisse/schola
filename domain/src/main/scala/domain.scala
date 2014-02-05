@@ -78,7 +78,8 @@ object `package` {
       _deleted: Boolean = false,
       suspended: Boolean = false,
       changePasswordAtNextLogin: Boolean = false,
-      id: Option[java.util.UUID] = None) {
+      id: Option[java.util.UUID] = None,
+      labels: List[String] = Nil) {
 
     @inline def isSuperuser = id == U.SuperUser.id
   }
@@ -186,4 +187,8 @@ object `package` {
   case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None)
 
   case class UserRole(userId: java.util.UUID, role: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None, delegated: Boolean = false)
+
+  case class Label(name: String, color: String)
+
+  case class UserLabel(userId: java.util.UUID, label: String)
 }

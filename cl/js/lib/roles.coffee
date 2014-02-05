@@ -42,7 +42,7 @@ class roles
   @revokePermissions: (roleName, permissions) ->
     $.ajax(
       type: 'DELETE',
-      url: "/api/v1/role/_/permissions?" + $.param({name: roleName, permissions: permissions}),
+      url: "/api/v1/role/_/permissions?" + $.param({name: roleName, permissions: permissions}, true),
       traditional: true,
       dataType: 'json'
     )

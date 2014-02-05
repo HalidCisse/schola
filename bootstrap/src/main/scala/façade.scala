@@ -16,7 +16,7 @@ abstract class FaçadeImpl(implicit system: akka.actor.ActorSystem) extends impl
 
   import scala.util.control.Exception.allCatch
 
-  private val log = org.clapper.avsl.Logger("oadmin.Façade")
+  private[this] val log = Logger("oadmin.FaçadeImpl")
 
   private val ds = new ComboPooledDataSource
 
@@ -35,6 +35,8 @@ abstract class FaçadeImpl(implicit system: akka.actor.ActorSystem) extends impl
 
     val oauthService = new OAuthServicesImpl with CachingOAuthServicesImpl {}
 
+    val labelService = new LabelServicesImpl
+
     protected val db = Database.forDataSource(ds)
   }
 
@@ -47,6 +49,8 @@ trait Façade extends impl.AccessControlServicesRepoComponentImpl
     with impl.AccessControlServicesComponentImpl
     with impl.OAuthServicesRepoComponentImpl
     with impl.OAuthServicesComponentImpl
+    with impl.LabelServicesRepoComponentImpl
+    with impl.LabelServicesComponentImpl
     with CachingServicesComponent
     with impl.CachingAccessControlServicesComponentImpl
     with impl.CachingOAuthServicesComponentImpl
@@ -56,6 +60,8 @@ trait Façade extends impl.AccessControlServicesRepoComponentImpl
   import schema._
   import domain._
   import Q._
+
+  private[this] val log = Logger("oadmin.Façade")
 
   def withTransaction[T](f: Q.Session => T) =
     db.withTransaction {
@@ -71,37 +77,43 @@ trait Façade extends impl.AccessControlServicesRepoComponentImpl
     implicit session =>
       import scala.slick.jdbc.{ StaticQuery => T }
 
-      //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
+      //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl ++ Labels.dll ++ UsersLabels.ddl
       //        ddl.drop
 
       //        T.updateNA("DROP EXTENSION \"uuid-ossp\";")
 
       T.updateNA(
         """
-          | alter table "oauth_tokens" drop constraint "TOKEN_CLIENT_FK";
-          | alter table "oauth_tokens" drop constraint "TOKEN_USER_FK";
-          | alter table "users" drop constraint "USER_CREATOR_FK";
-          | alter table "users" drop constraint "USER_MODIFIER_FK";
-          | alter table "roles" drop constraint "ROLE_PARENT_ROLE_FK";
-          | alter table "roles" drop constraint "ROLE_USER_FK";
-          | alter table "permissions" drop constraint "PERMISSION_CLIENT_FK";
-          | alter table "users_roles" drop constraint "USER_ROLE_USER_FK";
-          | alter table "users_roles" drop constraint "USER_ROLE_ROLE_FK";
-          | alter table "users_roles" drop constraint "USER_ROLE_USER_GRANTOR_FK";
-          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_GRANTOR_FK";
-          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_ROLE_FK";
-          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PERMISSION_FK";
-          | drop table "oauth_tokens";
-          | alter table "oauth_clients" drop constraint "CLIENT_PK";
-          | drop table "oauth_clients";
-          | drop table "users";
-          | drop table "roles";
-          | drop table "permissions";
-          | alter table "users_roles" drop constraint "USER_ROLE_PK";
-          | drop table "users_roles";
-          | alter table "roles_permissions" drop constraint "ROLE_PERMISSION_PK";
-          | drop table "roles_permissions";
-          | DROP EXTENSION "uuid-ossp";
+          | alter table if exists "oauth_tokens" drop constraint "TOKEN_CLIENT_FK";
+          | alter table if exists "oauth_tokens" drop constraint "TOKEN_USER_FK";
+          | alter table if exists "users" drop constraint "USER_CREATOR_FK";
+          | alter table if exists "users" drop constraint "USER_MODIFIER_FK";
+          | alter table if exists "roles" drop constraint "ROLE_PARENT_ROLE_FK";
+          | alter table if exists "roles" drop constraint "ROLE_USER_FK";
+          | alter table if exists "permissions" drop constraint "PERMISSION_CLIENT_FK";
+          | alter table if exists "users_roles" drop constraint "USER_ROLE_USER_FK";
+          | alter table if exists "users_roles" drop constraint "USER_ROLE_ROLE_FK";
+          | alter table if exists "users_roles" drop constraint "USER_ROLE_USER_GRANTOR_FK";
+          | alter table if exists "roles_permissions" drop constraint "ROLE_PERMISSION_GRANTOR_FK";
+          | alter table if exists "roles_permissions" drop constraint "ROLE_PERMISSION_ROLE_FK";
+          | alter table if exists "roles_permissions" drop constraint "ROLE_PERMISSION_PERMISSION_FK";
+          | alter table if exists "users_labels" drop constraint "USER_LABEL_USER_FK";
+          | alter table if exists "users_labels" drop constraint "USER_LABEL_LABEL_FK";
+          | alter table if exists "labels" drop constraint "LABEL_PK";
+          | alter table if exists "users_labels" drop constraint "USER_LABEL_PK";
+          | drop table  if exists "oauth_tokens";
+          | alter table if exists "oauth_clients" drop constraint "CLIENT_PK";
+          | drop table if exists "oauth_clients";
+          | drop table if exists "users";
+          | drop table if exists "roles";
+          | drop table if exists "permissions";
+          | alter table if exists "users_roles" drop constraint "USER_ROLE_PK";
+          | drop table if exists "users_roles";
+          | alter table if exists "roles_permissions" drop constraint "ROLE_PERMISSION_PK";
+          | drop table if exists "roles_permissions";
+          | drop table if exists "labels";
+          | drop table if exists "users_labels";        
+          | DROP EXTENSION if exists "uuid-ossp";
         """.stripMargin).execute()
   }
 
@@ -110,7 +122,7 @@ trait Façade extends impl.AccessControlServicesRepoComponentImpl
 
       import scala.slick.jdbc.{ StaticQuery => T }
 
-      //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl
+      //        val ddl = OAuthTokens.ddl ++ OAuthClients.ddl ++ Users.ddl ++ Roles.ddl ++ Permissions.ddl ++ UsersRoles.ddl ++ RolesPermissions.ddl ++ Labels.dll ++ UsersLabels.ddl
       //          ddl.createStatements foreach (stmt => println(stmt+";"))
       //        ddl.create
 
@@ -134,6 +146,8 @@ trait Façade extends impl.AccessControlServicesRepoComponentImpl
             | create table "users_roles" ("user_id" uuid NOT NULL,"role" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
             | alter table "users_roles" add constraint "USER_ROLE_PK" primary key("user_id","role");
             | create table "roles_permissions" ("role" VARCHAR(254) NOT NULL,"permission" VARCHAR(254) NOT NULL,"granted_at" BIGINT NOT NULL,"granted_by" uuid);
+            | create table "labels" ("name" VARCHAR(254) NOT NULL,"color" VARCHAR(254) NOT NULL);
+            | create table "users_labels" ("user_id" uuid NOT NULL,"label" VARCHAR(254) NOT NULL);
             | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PK" primary key("role","permission");
             | alter table "oauth_tokens" add constraint "TOKEN_CLIENT_FK" foreign key("client_id") references "oauth_clients"("client_id") on update CASCADE on delete NO ACTION;
             | alter table "oauth_tokens" add constraint "TOKEN_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete CASCADE;
@@ -148,6 +162,10 @@ trait Façade extends impl.AccessControlServicesRepoComponentImpl
             | alter table "roles_permissions" add constraint "ROLE_PERMISSION_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
             | alter table "roles_permissions" add constraint "ROLE_PERMISSION_ROLE_FK" foreign key("role") references "roles"("name") on update CASCADE on delete RESTRICT;
             | alter table "roles_permissions" add constraint "ROLE_PERMISSION_PERMISSION_FK" foreign key("permission") references "permissions"("name") on update NO ACTION on delete NO ACTION;
+            | alter table "labels" add constraint "LABEL_PK" primary key("name");
+            | alter table "users_labels" add constraint "USER_LABEL_PK" primary key("user_id","label");
+            | alter table "users_labels" add constraint "USER_LABEL_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete CASCADE;
+            | alter table "users_labels" add constraint "USER_LABEL_LABEL_FK" foreign key("label") references "labels"("name") on update CASCADE on delete CASCADE;                        
           """.stripMargin).execute()
 
         // Add a client - oadmin:oadmin
@@ -299,7 +317,7 @@ trait Façade extends impl.AccessControlServicesRepoComponentImpl
     }
 
     log.info("Creating roles . . . ");
-    val roles = rndRoles map (r => withTransaction { implicit s => accessControlService.saveRole(r.name, r.parent, r.createdBy map (_.toString)).get })
+    val roles = rndRoles.seq map (r => withTransaction { implicit s => accessControlService.saveRole(r.name, r.parent, r.createdBy map (_.toString)).get })
 
     val permissions = withTransaction { implicit s => log.info("Creating permissions . . . "); rndPermissions map (p => { Permissions.insert(p); p }) }
 

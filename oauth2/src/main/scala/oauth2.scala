@@ -5,8 +5,6 @@ package oauth2
 import unfiltered.oauth2._
 import unfiltered.request.HttpRequest
 
-import org.clapper.avsl.Logger
-
 trait OAuth2Component {
   self: ServiceComponentFactory =>
 
@@ -172,7 +170,7 @@ trait OAuth2Component {
 
             case Some(
               domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
-                domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId)), userAgent, _, _, scopes)
+                domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId), _), userAgent, _, _, scopes)
               ) if userAgent == uA =>
 
               expiresIn match {
@@ -202,14 +200,9 @@ trait OAuth2Component {
   def newProtection() = OAuth2Protection(new OAdminAuthSource)
 
   case class OAuth2Protection(source: AuthSource) extends ProtectionLike {
-    //    import _root_.io.mth.unfiltered.cors.{ CorsConfig, Cors }
-
-    //    val cors = Cors(
-    //      CorsConfig.origins("http://localhost:9000" :: Nil))
 
     object OAuth2MacAuth extends MacAuth {
       val algorithm = MACAlgorithm
-      //      override def intent(protection: ProtectionLike) = cors { case req => super.intent(protection).lift(req).getOrElse(unfiltered.response.Pass) }
       def tokenSecret(key: String) = oauthService.getTokenSecret(key)
     }
 

@@ -93,6 +93,87 @@ trait HandlerComponent extends ServiceComponentFactory with HandlerFactory {
 
     // -------------------------------------------------------------------------------------------------
 
+    def getUserTags(userId: String) {
+      val resp = labelService.getUserLabels(userId)
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap tojson(resp))
+      }
+    }
+
+    def addUserTags(userId: String, labels: Set[String]) {
+      val resp = allCatch.opt {
+        labelService.labelUser(userId, labels)
+        true
+      } getOrElse false
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap s"""{"success": $resp}""")
+      }
+    }
+
+    def removeUserTags(userId: String, labels: Set[String]) {
+      val resp = allCatch.opt {
+        labelService.unLabelUser(userId, labels)
+        true
+      } getOrElse false
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap s"""{"success": $resp}""")
+      }
+    }
+
+    def getLabels {
+      val resp = labelService.getLabels
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap tojson(resp))
+      }
+    }
+
+    def addLabel(name: String, color: Option[String]) {
+      val resp = labelService.findOrNew(name, color)
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap tojson(resp))
+      }      
+    }
+
+    def updateLabelName(label: String, newName: String) {
+      val resp = labelService.updateLabel(label, newName)
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap s"""{"success": $resp}""")
+      }      
+    }
+
+    def purgeLabels(labels: Set[String]) {
+      val resp = allCatch.opt {
+        labelService.remove(labels)
+        true
+      } getOrElse false
+
+      req.respond {
+
+        JsonContent ~>
+          ResponseString(cb wrap s"""{"success": $resp}""")
+      }
+    }
+
+    // -------------------------------------------------------------------------------------------------    
+
     def addUser() =
       // primaryEmail
       // givenName and familyName
@@ -289,7 +370,7 @@ trait HandlerComponent extends ServiceComponentFactory with HandlerFactory {
 
       JsonContent ~>
         ResponseString(cb wrap s"""{"success": $resp}""")
-    }    
+    }
 
     def createPasswdResetReq(username: String) = {
       val resp = allCatch.opt {

@@ -238,12 +238,12 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
     }
   }
 
-  def checkActivationReq(username: String, ky: String): Future[Boolean] = 
+  def checkActivationReq(username: String, ky: String): Future[Boolean] =
     xHttp(api / "users" / "check_activation_req" <<? Map("username" -> username, "key" -> ky) OK as.json4s.Json) flatMap { json =>
 
       allCatch.opt { json.extract[Response] }
         .fold[Future[Boolean]](Future.successful(false)) { response => Future.successful(response.success) }
-    }  
+    }
 
   def createPasswdResetReq(username: String) =
     xHttp(api / "users" / "lostpassword" << Map("username" -> username) OK as.json4s.Json) flatMap { json =>

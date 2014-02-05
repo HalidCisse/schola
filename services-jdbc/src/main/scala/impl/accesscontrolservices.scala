@@ -51,6 +51,8 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
   import domain._
   import Q._
 
+  private[this] val log = Logger("oadmin.AccessControlServicesRepoComponentImpl")
+
   protected val db: Database
 
   protected val accessControlServiceRepo = new AccessControlServiceRepoImpl
@@ -199,7 +201,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getUserRoles(userId: String) = {
       import Database.dynamicSession
 
-      val id = java.util.UUID.fromString(userId)
+      val id = uuid(userId)
       val userRoles = oq.userRoles(id)
 
       val result = db.withDynSession {
@@ -243,7 +245,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     def getUserPermissions(userId: String) = {
       import Database.dynamicSession
 
-      val userPermissions = oq.userPermissions(java.util.UUID.fromString(userId))
+      val userPermissions = oq.userPermissions(uuid(userId))
 
       Set(
         db.withDynSession {
@@ -266,7 +268,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     }
 
     def saveRole(name: String, parent: Option[String], createdBy: Option[String]) = db.withTransaction { implicit session =>
-      Roles += Role(name, parent, System.currentTimeMillis, createdBy = createdBy map java.util.UUID.fromString)
+      Roles += Role(name, parent, System.currentTimeMillis, createdBy = createdBy map uuid)
 
       val role = oq.named(name)
 
@@ -276,15 +278,15 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
     }
 
     def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String]) = db.withTransaction { implicit session =>
-      RolesPermissions ++= (permissions map (RolePermission(role, _, grantedBy = grantedBy map java.util.UUID.fromString)))
+      RolesPermissions ++= (permissions map (RolePermission(role, _, grantedBy = grantedBy map uuid)))
     }
 
     def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String]) = db.withTransaction { implicit session =>
-      UsersRoles ++= (roles map (UserRole(java.util.UUID.fromString(userId), _, grantedBy = grantedBy map java.util.UUID.fromString)))
+      UsersRoles ++= (roles map (UserRole(uuid(userId), _, grantedBy = grantedBy map uuid)))
     }
 
     def revokeUserRole(userId: String, roles: Set[String]) = db.withTransaction { implicit session =>
-      val q = for { arg <- UsersRoles if (arg.userId is java.util.UUID.fromString(userId)) && (arg.role inSet roles) } yield arg
+      val q = for { arg <- UsersRoles if (arg.userId is uuid(userId)) && (arg.role inSet roles) } yield arg
       q.delete
     }
 
@@ -303,7 +305,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       else {
         import Database.dynamicSession
 
-        val id = java.util.UUID.fromString(userId)
+        val id = uuid(userId)
 
         @inline
         def getParent(role: String) =

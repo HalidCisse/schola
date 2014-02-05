@@ -9,14 +9,14 @@ import scala.concurrent.Future
 
 import play.api.Play.current
 
-trait ExecutionSystem{
+trait ExecutionSystem {
 
   implicit def system = play.libs.Akka.system
 
-  implicit def dispatcher = system.dispatcher  
+  implicit def dispatcher = system.dispatcher
 }
 
-trait Helpers extends ExecutionSystem{
+trait Helpers extends ExecutionSystem {
 
   def userAgent(implicit request: RequestHeader) = request.headers.get("User-Agent").getOrElse("")
 
@@ -56,7 +56,7 @@ object Application extends Controller with Helpers {
                     httpOnly = true))
 
           } recover {
-            case ex: ScholaException =>
+            case _: Throwable =>
 
               Ok(Json.obj("error" -> true))
                 .discardingCookies(DiscardingCookie(SESSION_KEY))
@@ -91,7 +91,7 @@ object Application extends Controller with Helpers {
               else Ok(views.html.index())
 
           } recover {
-            case ex: ScholaException =>
+            case _: Throwable =>
 
               Redirect(routes.LoginPage.index)
                 .discardingCookies(DiscardingCookie(SESSION_KEY))

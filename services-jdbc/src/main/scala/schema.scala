@@ -69,6 +69,46 @@ object `package` {
 
   val OAuthClients = TableQuery[OAuthClients]
 
+  private[this] val user = (
+    primaryEmail: String,
+    password: Option[String],
+    givenName: String,
+    familyName: String,
+    createdAt: Long,
+    createdBy: Option[java.util.UUID],
+    lastLoginTime: Option[Long],
+    lastModifiedAt: Option[Long],
+    lastModifiedBy: Option[java.util.UUID],
+    gender: Gender,
+    homeAddress: Option[AddressInfo],
+    workAddress: Option[AddressInfo],
+    contacts: Contacts,
+    avatar: Option[String],
+    activationKey: Option[String],
+    _deleted: Boolean,
+    suspended: Boolean,
+    changePasswordAtNextLogin: Boolean,
+    id: Option[java.util.UUID]) =>
+    User(primaryEmail,
+      password,
+      givenName,
+      familyName,
+      createdAt,
+      createdBy,
+      lastLoginTime,
+      lastModifiedAt,
+      lastModifiedBy,
+      gender,
+      homeAddress,
+      workAddress,
+      contacts,
+      avatar,
+      activationKey,
+      _deleted,
+      suspended,
+      changePasswordAtNextLogin,
+      id)
+
   class Users(tag: Tag) extends Table[User](tag, "users") {
     def id = column[java.util.UUID]("id", O.DBType("uuid"), O.PrimaryKey)
 
@@ -108,7 +148,7 @@ object `package` {
 
     def changePasswordAtNextLogin = column[Boolean]("change_password_at_next_login", O.NotNull, O.Default(false))
 
-    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <> (User.tupled, User.unapply)
+    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <> (user.tupled, (user: User) => Some(user.primaryEmail, user.password, user.givenName, user.familyName, user.createdAt, user.createdBy, user.lastLoginTime, user.lastModifiedAt, user.lastModifiedBy, user.gender, user.homeAddress, user.workAddress, user.contacts, user.avatar, user.activationKey, user._deleted, user.suspended, user.changePasswordAtNextLogin, user.id))
 
     def idx1 = index("USER_USERNAME_INDEX", primaryEmail, unique = true)
 
@@ -220,4 +260,39 @@ object `package` {
   }
 
   val UsersRoles = TableQuery[UsersRoles]
+
+  class Labels(tag: Tag) extends Table[Label](tag, "labels") {
+    def name = column[String]("name", O.NotNull)
+
+    def color = column[String]("color", O.NotNull)
+
+    def * = (name, color) <> (Label.tupled, Label.unapply)
+
+    def pk = primaryKey("LABEL_PK", name)
+  }
+
+  val Labels = TableQuery[Labels]
+
+  private val labelsInsert =
+    Labels returning Labels.map(_.name) into { case (l, label) => Label(label, l.color) }
+
+  implicit class LabelsExtensions(val labels: Query[Labels, Label]) extends AnyVal {
+    def insert(label: String, color: String)(implicit session: Q.Session): Label = labelsInsert.insert(Label(label, color))
+  }  
+
+  class UsersLabels(tag: Tag) extends Table[UserLabel](tag, "users_labels") {
+    def userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
+
+    def label = column[String]("label", O.NotNull)
+
+    def * = (userId, label) <> (UserLabel.tupled, UserLabel.unapply)
+
+    def pk = primaryKey("USER_LABEL_PK", (userId, label))
+
+    def user = foreignKey("USER_LABEL_USER_FK", userId, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.Cascade)
+
+    def _label = foreignKey("USER_LABEL_LABEL_FK", label, Labels)(_.name, ForeignKeyAction.Cascade, ForeignKeyAction.Cascade)
+  }
+
+  val UsersLabels = TableQuery[UsersLabels]
 }

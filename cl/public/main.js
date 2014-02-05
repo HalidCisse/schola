@@ -13900,6 +13900,8 @@ Released under the MIT License
 
     App.prototype.roles = require('lib/roles');
 
+    App.prototype.labels = require('lib/labels');
+
     App.prototype.mgr = Menu.Mgr;
 
     App.prototype.menu = function(id) {
@@ -14025,6 +14027,95 @@ Released under the MIT License
   })(Spine.Module);
 
   module.exports = App;
+
+}).call(this);
+}, "lib/labels": function(exports, require, module) {(function() {
+  var $, labels;
+
+  $ = require('jqueryify');
+
+  labels = (function() {
+    function labels() {}
+
+    labels.getLabels = function() {
+      return $.getJSON("/api/v1/labels");
+    };
+
+    labels.addLabel = function(label, color) {
+      return $.ajax({
+        type: 'POST',
+        url: "/api/v1/labels",
+        dataType: 'json',
+        data: {
+          label: label,
+          color: color
+        }
+      });
+    };
+
+    labels.updateLabelColor = function(name, color) {
+      return $.ajax({
+        type: 'PUT',
+        url: "/api/v1/label/" + name + "/color",
+        dataType: 'json',
+        data: {
+          color: color
+        }
+      });
+    };
+
+    labels.updateLabelname = function(name, newName) {
+      return $.ajax({
+        type: 'PUT',
+        url: "/api/v1/label/" + name,
+        dataType: 'json',
+        data: {
+          label: newName
+        }
+      });
+    };
+
+    labels.purgeLabels = function(labels) {
+      return $.ajax({
+        type: 'DELETE',
+        url: "/api/v1/labels?" + $.param({
+          labels: labels
+        }, true),
+        dataType: 'json'
+      });
+    };
+
+    labels.labelUser = function(userId, labels) {
+      return $.ajax({
+        type: 'PUT',
+        url: "/api/v1/user/" + userId + "/labels",
+        dataType: 'json',
+        traditional: true,
+        data: {
+          labels: labels
+        }
+      });
+    };
+
+    labels.unLabelUser = function(userId, labels) {
+      return $.ajax({
+        type: 'DELETE',
+        url: ("/api/v1/user/" + userId + "/labels?") + $.param({
+          labels: labels
+        }, true),
+        dataType: 'json'
+      });
+    };
+
+    labels.getUserLabels = function(userId) {
+      return $.getJSON("/api/v1/user/" + userId + "/labels");
+    };
+
+    return labels;
+
+  })();
+
+  module.exports = labels;
 
 }).call(this);
 }, "lib/mac": function(exports, require, module) {(function() {
@@ -14364,7 +14455,7 @@ module.exports = {
         url: "/api/v1/role/_/permissions?" + $.param({
           name: roleName,
           permissions: permissions
-        }),
+        }, true),
         traditional: true,
         dataType: 'json'
       });
@@ -14667,7 +14758,7 @@ module.exports = {
         type: "DELETE",
         url: ("/api/v1/user/" + id + "/roles?") + $.param({
           roles: roles
-        }),
+        }, true),
         traditional: true,
         dataType: 'json'
       });
@@ -15369,7 +15460,7 @@ jade.debug.unshift({ lineno: 6, filename: jade.debug[0].filename });
 buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Refresh\" type=\"button\" class=\"refresh btn btn-default btn-md\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
-buf.push("<span class=\"glyphicon glyphicon-repeat\">");
+buf.push("<span class=\"glyphicon glyphicon-refresh\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.shift();
 buf.push("</span>");
@@ -15490,7 +15581,7 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New Role\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-repeat\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .btn-group.filter.pull-right\r\n    input.form-control.squared.input-md(type='text' placeholder='Search')\r\n    span.glyphicon.glyphicon-search\r\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New Role\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .btn-group.filter.pull-right\r\n    input.form-control.squared.input-md(type='text' placeholder='Search')\r\n    span.glyphicon.glyphicon-search\r\n");
 }
 };}, "views/user/contextmenu": function(exports, require, module) {module.exports = function anonymous(locals) {
 jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\contextmenu.jade" }];
@@ -16707,7 +16798,7 @@ jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
 buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Refresh\" type=\"button\" class=\"refresh btn btn-default btn-md\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.unshift({ lineno: 9, filename: jade.debug[0].filename });
-buf.push("<span class=\"glyphicon glyphicon-repeat\">");
+buf.push("<span class=\"glyphicon glyphicon-refresh\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.shift();
 buf.push("</span>");
@@ -16891,7 +16982,7 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')\r\n      .checker\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New User\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-repeat\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .paging.pull-right\r\n    span.paging-info \r\n      strong.interval \r\n        span.start\r\n        |–\r\n        span.end\r\n      | of \r\n      strong.count\r\n    .btn-group\r\n      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')\r\n        span.glyphicon.glyphicon-chevron-left\r\n      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')\r\n        span.glyphicon.glyphicon-chevron-right\r\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')\r\n      .checker\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New User\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .paging.pull-right\r\n    span.paging-info \r\n      strong.interval \r\n        span.start\r\n        |–\r\n        span.end\r\n      | of \r\n      strong.count\r\n    .btn-group\r\n      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')\r\n        span.glyphicon.glyphicon-chevron-left\r\n      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')\r\n        span.glyphicon.glyphicon-chevron-right\r\n");
 }
 };}, "views/user/row": function(exports, require, module) {module.exports = function anonymous(locals) {
 jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\row.jade" }];
@@ -17016,7 +17107,7 @@ jade.debug.unshift({ lineno: 7, filename: jade.debug[0].filename });
 buf.push("<button data-toggle=\"tooltip\" data-placement=\"bottom\" title=\"Refresh\" type=\"button\" class=\"refresh btn btn-default btn-md\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.unshift({ lineno: 8, filename: jade.debug[0].filename });
-buf.push("<span class=\"glyphicon glyphicon-repeat\">");
+buf.push("<span class=\"glyphicon glyphicon-refresh\">");
 jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
 jade.debug.shift();
 buf.push("</span>");
@@ -17140,7 +17231,7 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span &nbsp; Back\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-repeat\r\n  .btn-group\r\n    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')\r\n      span.glyphicon.glyphicon-edit\r\n    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span &nbsp; Back\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n  .btn-group\r\n    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')\r\n      span.glyphicon.glyphicon-edit\r\n    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export");
 }
 };}
 });

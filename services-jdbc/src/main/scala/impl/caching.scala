@@ -46,7 +46,7 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
 
   trait CachingOAuthServicesImpl extends OAuthServices {
 
-    private[impl] class UserParams private (calcPage: () => Int) extends CacheActor.Params {
+    class UserParams private (calcPage: () => Int) extends CacheActor.Params {
       lazy val cacheKey = s"users_${calcPage()}"
     }
 
@@ -115,10 +115,12 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
 
   class CachingServicesImpl extends CachingServices {
 
+    implicit def asCacheParams(params: Params) = params.asInstanceOf[CacheActor.Params]
+
     def get[T: scala.reflect.ClassTag](params: Params)(default: => T) = {
       implicit val tm = Timeout(60 seconds)
 
-      val q = (cacheActor ? CacheActor.FindValue(params.asInstanceOf[CacheActor.Params], () => default)).mapTo[Option[T]]
+      val q = (cacheActor ? CacheActor.FindValue(params, () => default)).mapTo[Option[T]]
 
       allCatch[Option[T]].opt {
         Await.result(q, tm.duration)
@@ -126,7 +128,7 @@ trait CachingServicesComponentImpl extends CachingServicesComponent {
     }
 
     def evict(params: Params) {
-      cacheActor ! CacheActor.PurgeValue(params.asInstanceOf[CacheActor.Params])
+      cacheActor ! CacheActor.PurgeValue(params)
     }
   }
 }

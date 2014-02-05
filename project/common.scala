@@ -60,7 +60,9 @@ object Common {
     "net.jpountz.lz4" % "lz4" % "1.2.0" :: 
     "com.typesafe" % "config" % "1.0.2" ::    
     "org.bouncycastle" % "bcprov-jdk14" % "1.49" ::
-    "org.clapper" %% "avsl" % "1.0.1" ::  
+    // "org.clapper" %% "avsl" % "1.0.1" ::  
+    "ch.qos.logback" % "logback-classic" % "1.1.0" ::
+    "org.slf4j" % "slf4j-api" % "1.7.5" ::  
     "org.apache.commons" % "commons-email" % "1.3.2" ::
     "io.webcrank" %% "webcrank-password" % "0.3" ::
     "com.sun.mail" % "javax.mail" % "1.5.1" :: Nil    
@@ -71,7 +73,8 @@ object Common {
 
   def integrationTestDeps(sv: String) = (specsDep(sv) :: dispatchDeps) map { _ % "test" }
 
-  val settings: Seq[Setting[_]] = Seq(
+  val settings = Seq(
+
     organization := "schola.oadmin",
 
     version := "0.5.1",

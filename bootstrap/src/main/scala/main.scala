@@ -1,8 +1,6 @@
 package schola
 package oadmin
 
-import org.clapper.avsl.Logger
-
 object main extends App {
 
   import unfiltered.jetty.Http
@@ -13,7 +11,7 @@ object main extends App {
 
   import unfiltered.request.&
 
-  val log = Logger("oadmin.main")
+  private val log = Logger("oadmin.main")
 
   val server = Http(Port, Hostname)
 
@@ -44,7 +42,7 @@ object main extends App {
   /*import façade.simple._
 
   try drop() catch {
-  case ex: Throwable => log.info("DROP failed:"); ex.printStackTrace()
+    case ex: Throwable => log.info("DROP failed:"); ex.printStackTrace()
   }
 
   init(domain.U.SuperUser.id.get)
@@ -52,7 +50,7 @@ object main extends App {
   val cleanUp = genFixtures*/
 
   server.run({ s =>
-    log.info(s"The server is runing . . . at ${s.url}")
+    log.info(s"The server is runing at ${s.url} . . .")
   }, { s =>
 
     Cache.clearAll()

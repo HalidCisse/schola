@@ -6,8 +6,6 @@ import net.spy.memcached.auth.{ PlainCallbackHandler, AuthDescriptor }
 import net.spy.memcached.{ ConnectionFactoryBuilder, MemcachedClient }
 import net.spy.memcached.transcoders.{ Transcoder, SerializingTranscoder }
 
-import org.clapper.avsl.Logger
-
 object `package` {
 
   trait Settings {

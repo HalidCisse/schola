@@ -3,7 +3,6 @@ package oadmin
 package impl
 
 import akka.actor._
-import org.clapper.avsl.Logger
 
 import java.util.concurrent.{ ArrayBlockingQueue, TimeUnit, ThreadPoolExecutor }
 import scala.concurrent.{ Future, ExecutionContext }

@@ -6,7 +6,7 @@ package utils
 
 object Mailer {
 
-  private val log = org.clapper.avsl.Logger("oadmin.mailer")
+  private val log = Logger("oadmin.mailer")
 
   def sendPasswordResetEmail(username: String, key: String)(implicit system: akka.actor.ActorSystem) {
     val subj = "[Schola] Password reset request"
@@ -201,7 +201,17 @@ object `package` {
 
   @inline def If[T](cond: Boolean, t: => T, f: => T) = if (cond) t else f
 
-  @inline def option[T](cond: => Boolean, value: => T): Option[T] = if (cond) Some(value) else None
+  @inline def option[T](cond: => Boolean, value: => T): Option[T] = if (cond) Some(value) else None  
+
+  def copyToClipboard(s: String) {
+    import java.awt.datatransfer.StringSelection
+    import java.awt.Toolkit
+
+    val stringSelection = new StringSelection(s)
+    val clpbrd = Toolkit.getDefaultToolkit.getSystemClipboard
+    
+    clpbrd.setContents(stringSelection, null)
+  }
 
   // ------------------------------------------------------------------------------------
 

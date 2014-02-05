@@ -34,7 +34,7 @@ package object json {
     }
   }
 
-  val userSerializer = FieldSerializer[User](/*FieldSerializer.ignore("_deleted") orElse*/ FieldSerializer.ignore("password"))
+  val userSerializer = FieldSerializer[User]( /*FieldSerializer.ignore("_deleted") orElse*/ FieldSerializer.ignore("password"))
 
   val tokenSerializer = FieldSerializer[OAuthToken](
     FieldSerializer.ignore("macKey") orElse FieldSerializer.ignore("refreshExpiresIn") orElse FieldSerializer.ignore("tokenType"))
@@ -45,7 +45,7 @@ package object json {
     def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, JValue), java.util.UUID] = {
       case (t @ TypeInfo(UUIDClass, _), json) =>
         json match {
-          case JString(s) => java.util.UUID.fromString(s)
+          case JString(s) => uuid(s)
           case value      => throw new MappingException(s"Can't convert $value to $UUIDClass")
         }
     }

@@ -106,7 +106,7 @@ object Profile extends Controller with Helpers {
               else Ok(views.html.editprofile(form.fill(session.user.asInstanceOf[domain.User])))
 
           } recover {
-            case ex: ScholaException =>
+            case _: Throwable =>
 
               Redirect(routes.LoginPage.index)
                 .discardingCookies(DiscardingCookie(SESSION_KEY))

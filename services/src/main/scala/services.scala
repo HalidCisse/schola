@@ -2,7 +2,7 @@ package schola
 package oadmin
 
 trait ServiceComponentFactory {
-  val simple: OAuthServicesComponent with AccessControlServicesComponent
+  val simple: OAuthServicesComponent with AccessControlServicesComponent with LabelServicesComponent
 }
 
 trait OAuthServicesComponent {
@@ -294,6 +294,62 @@ trait AccessControlServicesRepoComponent {
     def roleExists(name: String): Boolean
 
     def updateRole(name: String, newName: String, parent: Option[String]): Boolean
+  }
+}
+
+trait LabelServicesComponent {
+
+  val labelService: LabelServices
+
+  trait LabelServices {
+
+    type LabelLike = {
+      val name: String
+      val color: String
+    }
+
+    type UserLabelLike = {
+      val userId: java.util.UUID
+      val label: String
+    }
+
+    def getLabels: List[LabelLike]
+
+    def updateLabel(label: String, newName: String): Boolean
+
+    def findOrNew(label: String, color: Option[String]): Option[LabelLike]
+
+    def remove(label: Set[String])
+
+    def labelUser(userId: String, labels: Set[String])
+
+    def unLabelUser(userId: String, labels: Set[String])
+
+    def getUserLabels(userId: String): List[UserLabelLike]
+  }
+}
+
+trait LabelServicesRepoComponent {
+  self: LabelServicesComponent =>
+
+  protected val labelServiceRepo: LabelServicesRepo
+
+  trait LabelServicesRepo {
+    import labelService._
+
+    def getLabels: List[LabelLike]
+
+    def updateLabel(label: String, newName: String): Boolean
+
+    def findOrNew(label: String, color: Option[String]): Option[LabelLike]
+
+    def remove(label: Set[String])
+
+    def labelUser(userId: String, labels: Set[String])
+
+    def unLabelUser(userId: String, labels: Set[String])
+
+    def getUserLabels(userId: String): List[UserLabelLike]
   }
 }
 

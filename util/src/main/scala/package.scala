@@ -38,4 +38,8 @@ object `package` {
   val RefreshTokenSessionLifeTime = config.getInt("oauth2.refresh-token-session-lifetime")
 
   val MACAlgorithm = config.getString("oauth2.mac-algorithm")
+
+  @inline def Logger(name: String) = org.slf4j.LoggerFactory.getLogger(name)
+
+  @inline def uuid(s: String) = scala.util.control.Exception.allCatch.opt { java.util.UUID.fromString(s) } getOrElse java.util.UUID.fromString("00000000-0000-0000-0000-000000000000")
 }
