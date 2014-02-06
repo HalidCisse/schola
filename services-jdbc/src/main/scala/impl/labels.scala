@@ -4,7 +4,7 @@ package oadmin
 package impl
 
 trait LabelServicesComponentImpl extends LabelServicesComponent {
-  self: LabelServicesRepoComponent =>
+  this: LabelServicesRepoComponent =>
 
   class LabelServicesImpl extends LabelServices {
 
@@ -31,7 +31,7 @@ trait LabelServicesComponentImpl extends LabelServicesComponent {
 }
 
 trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
-  self: LabelServicesComponent =>
+  this: LabelServicesComponent =>
 
   import schema._
   import domain._

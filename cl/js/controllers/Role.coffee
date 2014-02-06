@@ -74,13 +74,13 @@ class Role.Tree extends Spine.Controller
   topRows: []
 
   add: (row) ->
-    i = @topRows.push(row)
+    index = @topRows.push(row)
 
-    row.release =>
+    row.on 'release', =>
       
-      ch.release() for ch in row.childRows # Only top level rows are removed
+      row.childRows[lastIndex - 1].release() while lastIndex = row.childRows.length        
 
-      delete @topRows[i - 1] if @topRows[i - 1]
+      @topRows.splice(index - 1, 1)
 
     row.on 'contextmenu', (evt, role) =>
       Tree.contextmenu.Show(evt, role)
@@ -88,7 +88,7 @@ class Role.Tree extends Spine.Controller
     row
 
   Refresh: ->
-    row.release() for row in @topRows
+    @topRows[lastIndex - 1].release() while lastIndex = @topRows.length
 
     for role in RoleM.getTopLevel()
 
@@ -235,7 +235,7 @@ class Role.Tree extends Spine.Controller
 
       @selMgr.on 'selectionChanged', @selectionChanged
 
-      @release ->
+      @bind 'release', ->
         @selMgr.off 'selectionChanged', @selectionChanged
 
       @delegateEvents(Toolbar.Events)
@@ -274,7 +274,7 @@ class Role.Tree extends Spine.Controller
       @selMgr.on "selectionChanged_#{@role.cid}", @selectionChanged
       @listenTo @role, 'change', @FillData
 
-      @release -> 
+      @bind 'release', -> 
         @selMgr.off "selectionChanged_#{@role.cid}", @selectionChanged
 
       @FillData()
@@ -304,10 +304,10 @@ class Role.Tree extends Spine.Controller
     childRows: []
 
     add: (row) ->
-      i = @childRows.push(row)
+      index = @childRows.push(row)
 
-      row.release =>
-        delete @childRows[i - 1] if @childRows[i - 1]
+      row.on 'release', =>
+        @childRows.splice(index - 1, 1)
 
       row.on 'contextmenu', (evt, role) =>
         Tree.contextmenu.Show(evt, role)
@@ -324,7 +324,6 @@ class Role.Tree extends Spine.Controller
       @childElements.toggleClass 'expanded', collapse      
 
     Expand: ->
-      @log("Expand Role<#{@role.name}> with parent=#{@parent?.role.name}")
 
       if @parent
         @parent.el.addClass 'expanded'
@@ -409,6 +408,6 @@ class Role.Stack extends Manager.Stack
     @active =>
       @log('active')
 
-    @manager.on 'change', -> app.menu(Menu.ROLES).activate()
+      app.menu(Menu.ROLES)
 
 module.exports = Role

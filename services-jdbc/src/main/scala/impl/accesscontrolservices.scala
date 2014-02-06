@@ -4,7 +4,7 @@ package oadmin
 package impl
 
 trait AccessControlServicesComponentImpl extends AccessControlServicesComponent {
-  self: AccessControlServicesRepoComponent =>
+  this: AccessControlServicesRepoComponent =>
 
   class AccessControlServicesImpl extends AccessControlServices {
 
@@ -45,7 +45,7 @@ trait AccessControlServicesComponentImpl extends AccessControlServicesComponent 
 }
 
 trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoComponent {
-  self: AccessControlServicesComponent =>
+  this: AccessControlServicesComponent =>
 
   import schema._
   import domain._

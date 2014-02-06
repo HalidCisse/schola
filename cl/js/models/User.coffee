@@ -3,7 +3,7 @@ $     = require('jqueryify')
 
 class User extends Spine.Model
 
-  @MaxResults: 25
+  @MaxResults: 50
 
   @configure 'User', 
     'id', 

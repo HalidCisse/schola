@@ -12149,6 +12149,10 @@ Released under the MIT License
       return item;
     };
 
+    Menu.prototype.activate = function(item) {
+      return this.mgmt.activate(item);
+    };
+
     Menu.Mgmt = (function(_super1) {
       __extends(Mgmt, _super1);
 
@@ -12184,8 +12188,9 @@ Released under the MIT License
         return this.items.push(item);
       };
 
-      Mgmt.prototype.deactivate = function() {
-        return this.trigger.apply(this, ['change', false].concat(__slice.call(arguments)));
+      Mgmt.prototype.activate = function(item) {
+        this.trigger.apply(this, ['change', item].concat(__slice.call(arguments)));
+        return item;
       };
 
       Mgmt.prototype.change = function() {
@@ -12238,7 +12243,6 @@ Released under the MIT License
       };
 
       Item.prototype.deactivate = function() {
-        this.doneLoading();
         this.el.removeClass('active');
         return this;
       };
@@ -12291,14 +12295,23 @@ Released under the MIT License
       }
     };
 
-    Mgr.getMenu = function(id) {
+    Mgr.activate = function(id) {
+      var item, menu, _ref;
+      _ref = this._getMenu(id), menu = _ref.menu, item = _ref.item;
+      return menu.activate(item);
+    };
+
+    Mgr._getMenu = function(id) {
       var item, menu, _, _ref;
       _ref = this.menus;
       for (_ in _ref) {
         menu = _ref[_];
         item = menu.getItem(id);
         if (item) {
-          return item;
+          return {
+            menu: menu,
+            item: item
+          };
         }
       }
     };
@@ -12424,19 +12437,15 @@ Released under the MIT License
     Tree.prototype.topRows = [];
 
     Tree.prototype.add = function(row) {
-      var i,
+      var index,
         _this = this;
-      i = this.topRows.push(row);
-      row.release(function() {
-        var ch, _i, _len, _ref;
-        _ref = row.childRows;
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          ch = _ref[_i];
-          ch.release();
+      index = this.topRows.push(row);
+      row.on('release', function() {
+        var lastIndex;
+        while (lastIndex = row.childRows.length) {
+          row.childRows[lastIndex - 1].release();
         }
-        if (_this.topRows[i - 1]) {
-          return delete _this.topRows[i - 1];
-        }
+        return _this.topRows.splice(index - 1, 1);
       });
       row.on('contextmenu', function(evt, role) {
         return Tree.contextmenu.Show(evt, role);
@@ -12445,16 +12454,14 @@ Released under the MIT License
     };
 
     Tree.prototype.Refresh = function() {
-      var delegate, role, row, _i, _j, _len, _len1, _ref, _ref1, _results;
-      _ref = this.topRows;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        row = _ref[_i];
-        row.release();
+      var delegate, lastIndex, role, _i, _len, _ref, _results;
+      while (lastIndex = this.topRows.length) {
+        this.topRows[lastIndex - 1].release();
       }
-      _ref1 = RoleM.getTopLevel();
+      _ref = RoleM.getTopLevel();
       _results = [];
-      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-        role = _ref1[_j];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        role = _ref[_i];
         this.tree.append(this.add(delegate = new Tree.Row({
           role: role,
           selMgr: this.selMgr,
@@ -12685,7 +12692,7 @@ Released under the MIT License
         this.selectionChanged = __bind(this.selectionChanged, this);
         Toolbar.__super__.constructor.apply(this, arguments);
         this.selMgr.on('selectionChanged', this.selectionChanged);
-        this.release(function() {
+        this.bind('release', function() {
           return this.selMgr.off('selectionChanged', this.selectionChanged);
         });
         this.delegateEvents(Toolbar.Events);
@@ -12740,7 +12747,7 @@ Released under the MIT License
         Row.__super__.constructor.apply(this, arguments);
         this.selMgr.on("selectionChanged_" + this.role.cid, this.selectionChanged);
         this.listenTo(this.role, 'change', this.FillData);
-        this.release(function() {
+        this.bind('release', function() {
           return this.selMgr.off("selectionChanged_" + this.role.cid, this.selectionChanged);
         });
         this.FillData();
@@ -12776,13 +12783,11 @@ Released under the MIT License
       Row.prototype.childRows = [];
 
       Row.prototype.add = function(row) {
-        var i,
+        var index,
           _this = this;
-        i = this.childRows.push(row);
-        row.release(function() {
-          if (_this.childRows[i - 1]) {
-            return delete _this.childRows[i - 1];
-          }
+        index = this.childRows.push(row);
+        row.on('release', function() {
+          return _this.childRows.splice(index - 1, 1);
         });
         row.on('contextmenu', function(evt, role) {
           return Tree.contextmenu.Show(evt, role);
@@ -12800,8 +12805,6 @@ Released under the MIT License
       };
 
       Row.prototype.Expand = function() {
-        var _ref;
-        this.log("Expand Role<" + this.role.name + "> with parent=" + ((_ref = this.parent) != null ? _ref.role.name : void 0));
         if (this.parent) {
           this.parent.el.addClass('expanded');
           this.parent.childElements.addClass('expanded');
@@ -12901,10 +12904,8 @@ Released under the MIT License
       };
       Stack.__super__.constructor.apply(this, arguments);
       this.active(function() {
-        return _this.log('active');
-      });
-      this.manager.on('change', function() {
-        return app.menu(Menu.ROLES).activate();
+        _this.log('active');
+        return app.menu(Menu.ROLES);
       });
     }
 
@@ -12917,7 +12918,6 @@ Released under the MIT License
 }).call(this);
 }, "controllers/User": function(exports, require, module) {(function() {
   var Manager, Menu, SelectionMgr, Spine, User, UserM, position,
-    __slice = [].slice,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
@@ -12933,46 +12933,6 @@ Released under the MIT License
   SelectionMgr = require('lib/selection');
 
   position = require('lib/position');
-
-  /* 
-  
-  # Hack to support hierarchy of stacks
-  
-  # Activating a child will activate all its direct parent stacks
-  # and deactivate all siblings (controllers or stacks), their parents and children recursively
-  */
-
-
-  Manager.prototype.change = function() {
-    var args, cont, current, deactivate, parent, _i, _len, _ref, _ref1;
-    current = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
-    deactivate = function(cont) {
-      var child, _i, _len, _ref, _results;
-      cont.deactivate.apply(cont, args);
-      if (cont.controllers) {
-        _ref = cont.controllers;
-        _results = [];
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          child = _ref[_i];
-          _results.push(deactivate(child));
-        }
-        return _results;
-      }
-    };
-    _ref = this.controllers;
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      cont = _ref[_i];
-      if (cont !== current) {
-        deactivate(cont);
-      }
-    }
-    if (current) {
-      if (current.stack && (parent = current.stack.stack)) {
-        (_ref1 = parent.manager).trigger.apply(_ref1, ['change', current.stack].concat(__slice.call(args)));
-      }
-      return current.activate.apply(current, args);
-    }
-  };
 
   User = (function() {
     function User() {}
@@ -13108,7 +13068,7 @@ Released under the MIT License
     Form.It = (function(_super1) {
       __extends(It, _super1);
 
-      It.prototype.className = 'it';
+      It.prototype.className = 'it scrollable';
 
       It.elements = {
         '[name="primaryEmail"]': 'primaryEmail',
@@ -13355,7 +13315,7 @@ Released under the MIT License
     Single.It = (function(_super1) {
       __extends(It, _super1);
 
-      It.prototype.className = 'it';
+      It.prototype.className = 'it scrollable';
 
       function It() {
         It.__super__.constructor.apply(this, arguments);
@@ -13431,6 +13391,10 @@ Released under the MIT License
 
     List.prototype.className = 'users';
 
+    List.prototype.calcHeight = function() {
+      return $(window).height() - this.toolbar.el.outerHeight() - $('.navbar').outerHeight() - 8;
+    };
+
     function List() {
       this.ToggleSelection = __bind(this.ToggleSelection, this);
       this.Prev = __bind(this.Prev, this);
@@ -13456,17 +13420,27 @@ Released under the MIT License
         el: List.toolbarTmpl
       });
       this.list = new Spine.Controller({
-        className: 'list'
+        el: this.$("<div class='scrollable'><div class='list'></div></div>")
       });
       this.contextmenu = new List.ContextMenu({
         el: List.contextmenuTmpl
+      });
+      this.$(window).resize(function() {
+        return _this.list.el.css({
+          height: _this.calcHeight()
+        });
       });
       this.render();
       this.active(function() {
         this.log('active');
         return this.delay(function() {
           app.menu(Menu.USERS).loading();
-          return UserM.Reload();
+          UserM.Reload();
+          return this.delay(function() {
+            return this.list.el.css({
+              height: this.calcHeight()
+            });
+          });
         });
       });
       this.toolbar.on('next', this.Next);
@@ -13512,13 +13486,11 @@ Released under the MIT License
     List.prototype.rows = [];
 
     List.prototype.add = function(row) {
-      var i,
+      var index,
         _this = this;
-      i = this.rows.push(row);
-      row.release(function() {
-        if (_this.rows[i - 1]) {
-          return delete _this.rows[i - 1];
-        }
+      index = this.rows.push(row);
+      row.on('release', function() {
+        return _this.rows.splice(index - 1, 1);
       });
       row.on('contextmenu', function(evt, role) {
         return _this.contextmenu.Show(evt, role);
@@ -13545,14 +13517,15 @@ Released under the MIT License
     };
 
     List.prototype.AppendMany = function(users) {
-      var all, delegate, user, _i, _len, _results;
+      var all, delegate, list, user, _i, _len, _results;
       if (users.length) {
         all = UserM.all();
         this.toolbar.page(List._indexof(users[0], all), List._indexof(users[users.length - 1], all), all.length);
+        list = this.list.$('.list');
         _results = [];
         for (_i = 0, _len = users.length; _i < _len; _i++) {
           user = users[_i];
-          this.list.append(this.add(delegate = new List.Row({
+          list.append(this.add(delegate = new List.Row({
             user: user,
             selMgr: this.selMgr,
             el: List.rowTmpl
@@ -13564,13 +13537,13 @@ Released under the MIT License
     };
 
     List.prototype.Refresh = function(users) {
-      var row, _i, _len, _ref;
-      _ref = this.rows;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        row = _ref[_i];
-        row.release();
+      var lastIndex;
+      while (lastIndex = this.rows.length) {
+        this.rows[lastIndex - 1].release();
       }
-      return this.AppendMany(users);
+      return this.delay(function() {
+        return this.AppendMany(users);
+      });
     };
 
     List.prototype.ToggleSelection = function(isOn) {
@@ -13667,7 +13640,7 @@ Released under the MIT License
         Row.__super__.constructor.apply(this, arguments);
         this.selMgr.on("selectionChanged_" + this.user.cid, this.selectionChanged);
         this.listenTo(this.user, 'change', this.FillData);
-        this.release(function() {
+        this.bind('release', function() {
           return this.selMgr.off("selectionChanged_" + this.user.cid, this.selectionChanged);
         });
         this.FillData();
@@ -13748,7 +13721,7 @@ Released under the MIT License
         this.selectionChanged = __bind(this.selectionChanged, this);
         Toolbar.__super__.constructor.apply(this, arguments);
         this.selMgr.on('selectionChanged', this.selectionChanged);
-        this.release(function() {
+        this.bind('release', function() {
           return this.selMgr.off('selectionChanged', this.selectionChanged);
         });
         this.delegateEvents(Toolbar.Events);
@@ -13848,10 +13821,8 @@ Released under the MIT License
       };
       Stack.__super__.constructor.apply(this, arguments);
       this.active(function() {
-        return _this.log('active');
-      });
-      this.manager.on('change', function() {
-        return app.menu(Menu.USERS).activate();
+        _this.log('active');
+        return app.menu(Menu.USERS);
       });
     }
 
@@ -13863,13 +13834,16 @@ Released under the MIT License
 
 }).call(this);
 }, "index": function(exports, require, module) {(function() {
-  var App, Mac, Menu, Role, Session, Spine, User,
+  var App, Mac, Manager, Menu, Role, Session, Spine, User,
+    __slice = [].slice,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   require('lib/setup');
 
   Spine = require('spine');
+
+  Manager = require('spine/lib/manager');
 
   Mac = require('lib/mac');
 
@@ -13880,6 +13854,46 @@ Released under the MIT License
   Role = require('controllers/Role');
 
   Menu = require('controllers/Menu');
+
+  /* 
+  
+  # Hack to support hierarchy of stacks
+  
+  # Activating a child will activate all its direct parent stacks
+  # and deactivate all siblings (controllers or stacks), their parents and children recursively
+  */
+
+
+  Manager.prototype.change = function() {
+    var args, cont, current, deactivate, parent, _i, _len, _ref, _ref1;
+    current = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+    deactivate = function(cont) {
+      var child, _i, _len, _ref, _results;
+      cont.deactivate.apply(cont, args);
+      if (cont.controllers) {
+        _ref = cont.controllers;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          child = _ref[_i];
+          _results.push(deactivate(child));
+        }
+        return _results;
+      }
+    };
+    _ref = this.controllers;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      cont = _ref[_i];
+      if (cont !== current) {
+        deactivate(cont);
+      }
+    }
+    if (current) {
+      if (current.stack && (parent = current.stack.stack)) {
+        (_ref1 = parent.manager).trigger.apply(_ref1, ['change', current.stack].concat(__slice.call(args)));
+      }
+      return current.activate.apply(current, args);
+    }
+  };
 
   App = (function(_super) {
     __extends(App, _super);
@@ -13905,7 +13919,7 @@ Released under the MIT License
     App.prototype.mgr = Menu.Mgr;
 
     App.prototype.menu = function(id) {
-      return this.mgr.getMenu(id);
+      return this.mgr.activate(id);
     };
 
     App.prototype.redirect = function(path) {
@@ -14014,9 +14028,17 @@ Released under the MIT License
             return this.navigate('/' + this.pdefault);
           });
         }
+        this.delay(function() {
+          return this.$('.scrollable').on('scroll', function() {
+            return $(this).siblings('.shadow').css({
+              top: $(this).siblings('.toolbar').outerHeight(),
+              opacity: this.scrollTop === 0 ? 0 : 0.8
+            });
+          });
+        });
       }
 
-      Stack.prototype.pdefault = 'roles';
+      Stack.prototype.pdefault = 'users';
 
       return Stack;
 
@@ -14951,7 +14973,7 @@ module.exports = {
       return _ref;
     }
 
-    User.MaxResults = 25;
+    User.MaxResults = 50;
 
     User.configure('User', 'id', 'primaryEmail', 'givenName', 'familyName', 'gender', 'homeAddress', 'workAddress', 'contacts', 'avatar', 'lastLoginTime', 'createdAt', 'createdBy', 'lastModifiedAt', 'lastModifiedBy', 'suspended');
 
@@ -15420,9 +15442,15 @@ jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\single.to
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
+buf.push("<div class=\"shadow\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".shadow");
 }
 };}, "views/role/tree.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
 jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\tree.toolbar.jade" }];
@@ -15579,9 +15607,15 @@ jade.debug.shift();
 jade.debug.shift();
 buf.push("</div>");
 jade.debug.shift();
+jade.debug.unshift({ lineno: 25, filename: jade.debug[0].filename });
+buf.push("<div class=\"shadow\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New Role\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .btn-group.filter.pull-right\r\n    input.form-control.squared.input-md(type='text' placeholder='Search')\r\n    span.glyphicon.glyphicon-search\r\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New Role\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .btn-group.filter.pull-right\r\n    input.form-control.squared.input-md(type='text' placeholder='Search')\r\n    span.glyphicon.glyphicon-search\r\n.shadow\r\n");
 }
 };}, "views/user/contextmenu": function(exports, require, module) {module.exports = function anonymous(locals) {
 jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\contextmenu.jade" }];
@@ -16746,9 +16780,15 @@ jade.debug.shift();
 jade.debug.shift();
 buf.push("</div>");
 jade.debug.shift();
+jade.debug.unshift({ lineno: 12, filename: jade.debug[0].filename });
+buf.push("<div class=\"shadow\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-link(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span\r\n  .btn-group.title\r\n    h3.title= title\r\n  .btn-group.pull-right\r\n    button.save.btn.btn-primary.btn-md(data-toggle='tooltip' data-placement='bottom' data-saving-text='Saving...' title='Save' type='button')\r\n      span.spin\r\n      span Save");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-link(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span\r\n  .btn-group.title\r\n    h3.title= title\r\n  .btn-group.pull-right\r\n    button.save.btn.btn-primary.btn-md(data-toggle='tooltip' data-placement='bottom' data-saving-text='Saving...' title='Save' type='button')\r\n      span.spin\r\n      span Save\r\n.shadow");
 }
 };}, "views/user/list.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
 jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\list.toolbar.jade" }];
@@ -16980,9 +17020,15 @@ jade.debug.shift();
 jade.debug.shift();
 buf.push("</div>");
 jade.debug.shift();
+jade.debug.unshift({ lineno: 37, filename: jade.debug[0].filename });
+buf.push("<div class=\"shadow\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')\r\n      .checker\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New User\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .paging.pull-right\r\n    span.paging-info \r\n      strong.interval \r\n        span.start\r\n        |–\r\n        span.end\r\n      | of \r\n      strong.count\r\n    .btn-group\r\n      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')\r\n        span.glyphicon.glyphicon-chevron-left\r\n      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')\r\n        span.glyphicon.glyphicon-chevron-right\r\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')\r\n      .checker\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New User\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .paging.pull-right\r\n    span.paging-info \r\n      strong.interval \r\n        span.start\r\n        |–\r\n        span.end\r\n      | of \r\n      strong.count\r\n    .btn-group\r\n      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')\r\n        span.glyphicon.glyphicon-chevron-left\r\n      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')\r\n        span.glyphicon.glyphicon-chevron-right\r\n.shadow\r\n");
 }
 };}, "views/user/row": function(exports, require, module) {module.exports = function anonymous(locals) {
 jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\row.jade" }];
@@ -17229,9 +17275,15 @@ jade.debug.shift();
 jade.debug.shift();
 buf.push("</div>");
 jade.debug.shift();
+jade.debug.unshift({ lineno: 26, filename: jade.debug[0].filename });
+buf.push("<div class=\"shadow\">");
+jade.debug.unshift({ lineno: undefined, filename: jade.debug[0].filename });
+jade.debug.shift();
+buf.push("</div>");
+jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span &nbsp; Back\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n  .btn-group\r\n    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')\r\n      span.glyphicon.glyphicon-edit\r\n    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span &nbsp; Back\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n  .btn-group\r\n    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')\r\n      span.glyphicon.glyphicon-edit\r\n    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n.shadow");
 }
 };}
 });

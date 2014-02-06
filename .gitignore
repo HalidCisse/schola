@@ -18,4 +18,5 @@ tmp
 .history
 dist/
 oadmin-cl/test
+logs
 Tools

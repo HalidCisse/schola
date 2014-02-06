@@ -4,7 +4,7 @@ package oadmin
 package impl
 
 trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent with AccessControlServicesComponent {
-  self: CacheSystemProvider =>
+  this: CacheSystemProvider =>
 
   trait CachingAccessControlServicesImpl extends AccessControlServices {
 
@@ -42,7 +42,7 @@ trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent
 }
 
 trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OAuthServicesComponent {
-  self: CacheSystemProvider =>
+  this: CacheSystemProvider =>
 
   trait CachingOAuthServicesImpl extends OAuthServices {
 
@@ -101,7 +101,7 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
 }
 
 trait CachingServicesComponentImpl extends CachingServicesComponent {
-  self: CacheSystemProvider =>
+  this: CacheSystemProvider =>
 
   import scala.concurrent.duration._
   import akka.pattern._

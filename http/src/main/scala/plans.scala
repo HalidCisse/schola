@@ -11,7 +11,7 @@ trait Plans {
 
 trait Server {
 
-  self: Plans =>  
+  this: Plans =>  
 
   import scala.util.control.Exception.allCatch
 

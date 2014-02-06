@@ -6,7 +6,7 @@ package impl
 import schola.oadmin.impl.CacheActor.{ FindValue, PurgeValue }
 
 trait OAuthServicesComponentImpl extends OAuthServicesComponent {
-  self: OAuthServicesRepoComponent =>
+  this: OAuthServicesRepoComponent =>
 
   class OAuthServicesImpl extends OAuthServices {
 
@@ -119,7 +119,7 @@ trait OAuthServicesComponentImpl extends OAuthServicesComponent {
 }
 
 trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
-  self: OAuthServicesComponent with AccessControlServicesComponent with LabelServicesComponent =>
+  this: OAuthServicesComponent with AccessControlServicesComponent with LabelServicesComponent =>
 
   import schema._
   import domain._
@@ -152,7 +152,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
         import Convs._
 
-        type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender, Option[domain.AddressInfo], Option[domain.AddressInfo], domain.Contacts, Option[String], Boolean, String)
+        type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender, Option[domain.AddressInfo], Option[domain.AddressInfo], domain.Contacts, Option[String], Boolean, Option[String])
 
         sql""" select
                  x2.x3, x2.x4, x2.x5, x2.x6, x2.x7, x2.x8, x2.x9, x2.x10, x2.x11, x2.x12, x2.x13, x2.x14, x2.x15, x2.x16, x2.x17, x3.label
@@ -172,9 +172,10 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
                          x18."contacts" as x15,
                          x18."avatar" as x16,
                          x18."change_password_at_next_login" as x17
-                  from "users" x18 where not x18."_deleted" and x18."id" <> ${U.SuperUser.id} limit $MaxResults offset ${page * MaxResults}
+                  from "users" x18 where not x18."_deleted" and x18."id" <> ${U.SuperUser.id}
                   order by last_modified_at desc nulls last, created_at desc
-               ) x2 left join users_labels x3 on (x2.x3 = x3.user_id) group by x2.x3""".as[Result]
+                  limit $MaxResults offset ${page * MaxResults}
+               ) x2 left join users_labels x3 on (x2.x3 = x3.user_id)""".as[Result]
       }
 
       val trashedUsers = Compiled(for {
@@ -454,14 +455,14 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
     def getUsers(page: Int) = {
       import Database.dynamicSession
 
-      val users = oq.users(page)
+      val users = oq.users(page)      
 
       val result = db.withDynSession {
         users.list
       }
 
       result.groupBy(_._1).flatMap {
-        case (id, user :: rest) => User(user._2, None, user._3, user._4, user._5, user._6, user._7, user._8, user._9, user._10, user._11, user._12, user._13, user._14, changePasswordAtNextLogin = user._15, id = user._1, labels = user._16 :: rest.map(_._16)) :: Nil
+        case (id, user :: rest) => User(user._2, None, user._3, user._4, user._5, user._6, user._7, user._8, user._9, user._10, user._11, user._12, user._13, user._14, changePasswordAtNextLogin = user._15, id = user._1, labels = if(user._16.isDefined) user._16.get :: rest.filter(_._16.isDefined).map(_._16.get) else rest.filter(_._16.isDefined).map(_._16.get)) :: Nil
       }.toList
     }
 

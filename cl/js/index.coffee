@@ -1,11 +1,39 @@
 require('lib/setup')
 
 Spine   = require('spine')
+Manager = require('spine/lib/manager')
+
 Mac     = require('lib/mac')
 Session = require('lib/session')
 User    = require('controllers/User')
 Role    = require('controllers/Role')
 Menu    = require('controllers/Menu');
+
+### 
+
+# Hack to support hierarchy of stacks
+
+# Activating a child will activate all its direct parent stacks
+# and deactivate all siblings (controllers or stacks), their parents and children recursively
+
+###
+Manager::change = (current, args...) ->
+
+  deactivate = (cont) ->
+    cont.deactivate(args...)
+
+    if cont.controllers
+      deactivate(child) for child in cont.controllers
+
+  for cont in @controllers when cont isnt current
+    deactivate(cont)
+
+  if current
+
+    if current.stack and parent = current.stack.stack # Test `current.stack` to make sure in cases where Manager is used without stacks
+      parent.manager.trigger('change', current.stack, args...)
+
+    current.activate(args...)
 
 class App extends Spine.Module
   @include Spine.Log
@@ -26,7 +54,7 @@ class App extends Spine.Module
 
   mgr: Menu.Mgr
 
-  menu: (id) -> @mgr.getMenu(id)
+  menu: (id) -> @mgr.activate(id)
 
   redirect: (path) ->
     Spine.Route.redirect path
@@ -121,6 +149,14 @@ class App extends Spine.Module
       if Spine.Route.getPath() in [ '/', '' ]
         @delay -> @navigate('/' + @pdefault)
 
-    pdefault: 'roles'
+      @delay -> 
+        @$('.scrollable').on 'scroll', -> 
+          $(this).siblings('.shadow')
+                 .css({
+                    top: $(this).siblings('.toolbar').outerHeight(), 
+                    opacity: if this.scrollTop is 0 then 0 else 0.8
+                  })
+
+    pdefault: 'users'
 
 module.exports = App

@@ -38,6 +38,9 @@ class Menu extends Spine.Controller
     @mgmt.add(item)
     item
 
+  activate: (item) ->
+    @mgmt.activate(item)
+
   class @Mgmt extends Spine.Module
     @include Spine.Events
 
@@ -57,8 +60,9 @@ class Menu extends Spine.Controller
 
       @items.push(item)
 
-    deactivate: ->
-      @trigger('change', false, arguments...)
+    activate: (item) ->
+      @trigger('change', item, arguments...)
+      item
 
     # Private
 
@@ -93,7 +97,6 @@ class Menu extends Spine.Controller
       @
 
     deactivate: ->
-      @doneLoading()
       @el.removeClass('active')
       @
 
@@ -134,9 +137,15 @@ class Menu.Mgr
 
       delete @menus[id]
 
-  @getMenu: (id) ->
+  @activate: (id) ->
+    {menu, item} = @_getMenu(id)
+    menu.activate(item)  
+
+  # private
+
+  @_getMenu: (id) ->
     for _, menu of @menus
       item = menu.getItem(id)
-      return item if item
+      return {menu, item} if item 
 
 module.exports = Menu

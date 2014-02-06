@@ -8,32 +8,6 @@ SelectionMgr = require('lib/selection')
 
 position = require('lib/position')
 
-### 
-
-# Hack to support hierarchy of stacks
-
-# Activating a child will activate all its direct parent stacks
-# and deactivate all siblings (controllers or stacks), their parents and children recursively
-
-###
-Manager::change = (current, args...) ->
-
-  deactivate = (cont) ->
-    cont.deactivate(args...)
-
-    if cont.controllers
-      deactivate(child) for child in cont.controllers
-
-  for cont in @controllers when cont isnt current
-    deactivate(cont)
-
-  if current
-
-    if current.stack and parent = current.stack.stack # Test `current.stack` to make sure in cases where Manager is used without stacks
-      parent.manager.trigger('change', current.stack, args...)
-
-    current.activate(args...)
-
 class User
 
 # For creating and modifying users
@@ -178,7 +152,7 @@ class User.Form extends Spine.Stack
 
   class @It extends Spine.Controller
 
-    className: 'it'    
+    className: 'it scrollable'    
 
     @elements:
       '[name="primaryEmail"]'                       : 'primaryEmail'
@@ -380,7 +354,7 @@ class User.Single extends Spine.Controller
 
   class @It extends Spine.Controller
 
-    className: 'it'
+    className: 'it scrollable'
 
     constructor: ->
       super
@@ -432,6 +406,8 @@ class User.List extends Spine.Controller
   logPrefix: '(User.List)'
 
   className: 'users'
+
+  calcHeight: -> $(window).height() - @toolbar.el.outerHeight() - $('.navbar').outerHeight() - 8
   
   constructor: ->
     super   
@@ -447,10 +423,12 @@ class User.List extends Spine.Controller
     @selMgr.on 'toggle-selection', @ToggleSelection
 
     @toolbar     = new List.Toolbar({@selMgr, el: List.toolbarTmpl})  
-    @list        = new Spine.Controller(className: 'list')
-    @contextmenu = new List.ContextMenu(el: List.contextmenuTmpl)
+    @list        = new Spine.Controller(el: @$("<div class='scrollable'><div class='list'></div></div>"))
+    @contextmenu = new List.ContextMenu(el: List.contextmenuTmpl)    
 
-    @render()
+    @$(window).resize(=> @list.el.css({height: @calcHeight()}))
+
+    @render()    
 
     @active -> 
       @log('active')
@@ -458,6 +436,8 @@ class User.List extends Spine.Controller
       @delay -> 
         app.menu(Menu.USERS).loading()
         UserM.Reload()
+
+        @delay -> @list.el.css({height: @calcHeight()})
 
     @toolbar.on 'next', @Next
     @toolbar.on 'prev', @Prev
@@ -490,10 +470,10 @@ class User.List extends Spine.Controller
   rows: []
 
   add: (row) ->
-    i = @rows.push(row)
+    index = @rows.push(row)
 
-    row.release =>
-      delete @rows[i - 1] if @rows[i - 1] 
+    row.on 'release', =>
+      @rows.splice(index - 1, 1)
 
     row.on 'contextmenu', (evt, role) =>
       @contextmenu.Show(evt, role)             
@@ -515,14 +495,16 @@ class User.List extends Spine.Controller
 
       @toolbar.page List._indexof(users[0], all), List._indexof(users[users.length - 1], all), all.length
 
+      list = @list.$('.list')
+
       for user in users
-        @list.append @add(delegate = new List.Row({user, @selMgr, el: List.rowTmpl})).el
+        list.append @add(delegate = new List.Row({user, @selMgr, el: List.rowTmpl})).el
         delegate.DelegateEvents()
 
   Refresh: (users) ->
-    row.release() for row in @rows     
+    @rows[lastIndex - 1].release() while lastIndex = @rows.length     
 
-    @AppendMany users
+    @delay -> @AppendMany(users)
 
   ToggleSelection: (isOn) =>    
     
@@ -596,7 +578,7 @@ class User.List extends Spine.Controller
       @selMgr.on "selectionChanged_#{@user.cid}", @selectionChanged
       @listenTo @user, 'change', @FillData
 
-      @release -> 
+      @bind 'release', -> 
         @selMgr.off "selectionChanged_#{@user.cid}", @selectionChanged
 
       @FillData()
@@ -667,7 +649,7 @@ class User.List extends Spine.Controller
 
       @selMgr.on 'selectionChanged', @selectionChanged
 
-      @release ->
+      @bind 'release', ->
         @selMgr.off 'selectionChanged', @selectionChanged
 
       @delegateEvents(Toolbar.Events)
@@ -745,6 +727,6 @@ class User.Stack extends Manager.Stack
     @active =>
       @log('active')
 
-    @manager.on 'change', -> app.menu(Menu.USERS).activate()
+      app.menu(Menu.USERS)
 
 module.exports = User
