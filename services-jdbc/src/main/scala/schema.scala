@@ -278,7 +278,7 @@ object `package` {
 
   implicit class LabelsExtensions(val labels: Query[Labels, Label]) extends AnyVal {
     def insert(label: String, color: String)(implicit session: Q.Session): Label = labelsInsert.insert(Label(label, color))
-  }  
+  }
 
   class UsersLabels(tag: Tag) extends Table[UserLabel](tag, "users_labels") {
     def userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))

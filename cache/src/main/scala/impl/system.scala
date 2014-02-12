@@ -17,7 +17,7 @@ class CacheSystem(val TTL: Int, updateIntervalMin: Int = 30)(implicit system: Ac
   import CacheActor._
   import scala.concurrent.duration._
 
-  val log = Logger("oadmin.cacheSystem")
+  private[this] val log = Logger("oadmin.cacheSystem")
 
   system.registerOnTermination {
     log.info("Terminating cacheSystem execution context...")
@@ -100,9 +100,7 @@ object CacheActor {
 class OAdminCacheActor(cacheSystem: CacheSystem)
     extends CacheActor(cacheSystem) {
 
-  override def receive = busy
-
-  private[this] val busy = findValueReceive orElse purgeValueReceive
+  override def receive = findValueReceive orElse purgeValueReceive
 }
 
 case class Params(cacheKey: String)

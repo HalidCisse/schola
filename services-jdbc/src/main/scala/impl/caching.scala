@@ -41,10 +41,10 @@ trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent
   }
 }
 
-trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OAuthServicesComponent {
+trait CachingUserServicesComponentImpl extends CachingServicesComponent with UserServicesComponent {
   this: CacheSystemProvider =>
 
-  trait CachingOAuthServicesImpl extends OAuthServices {
+  trait CachingUserServicesImpl extends UserServices {
 
     class UserParams private (calcPage: () => Int) extends CacheActor.Params {
       lazy val cacheKey = s"users_${calcPage()}"
@@ -56,7 +56,7 @@ trait CachingOAuthServicesComponentImpl extends CachingServicesComponent with OA
     }
 
     private def pageOf(userId: String) =
-      () => oauthService.getPage(userId)
+      () => userService.getPage(userId)
 
     abstract override def getUsers(page: Int) =
       cachingServices.get[List[UserLike]](UserParams(page)) { super.getUsers(page) } getOrElse Nil

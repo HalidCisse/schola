@@ -5,8 +5,7 @@ object ApplicationBuild extends Build {
   import Common._
   import java.lang.{ Boolean => JBoolean }
 
-  val appName         = id("cl")
-  val appVersion      = "0.5.1"
+  val appVersion      = "0.6.0"
 
   val appDependencies = Seq()  
 
@@ -50,7 +49,7 @@ object ApplicationBuild extends Build {
             settings = Defaults.defaultSettings ++ Common.settings
     ).aggregate(
             domain, services, servicesJdbc, cache, 
-            oauth2, http, util, cl, bootstrap)
+            oauth2Server/*, http, httpPlay2*/, util, cli)
 
   lazy val domain: Project =
     module("domain")(
@@ -67,19 +66,14 @@ object ApplicationBuild extends Build {
 
   lazy val util = module("util")()
 
-  lazy val oauth2 = 
-    module("oauth2")().dependsOn(domain, services, util)
+  lazy val oauth2Server = 
+    module("oauth2-server")().dependsOn(domain, servicesJdbc, util)
 
-  lazy val http = 
-    module("http")().dependsOn(oauth2, domain, services, util)
+  lazy val httpPlay2 = 
+    module("http-play2")().dependsOn(domain, servicesJdbc, util)    
 
-  val bootstrap =
-    module("bootstrap")(
-    ).dependsOn(
-        domain, servicesJdbc, cache, oauth2, http, util)
-
-  val cl = 
-    module("cl")(
+  val cli = 
+    module("cli")(
       ).dependsOn(domain, util)
        .settings(
           libraryDependencies := libraryDependencies.value map(_ excludeAll(ExclusionRule(name = "avsl"))))

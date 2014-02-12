@@ -126,9 +126,9 @@ object `package` {
   }
 
   object R {
-    val SuperUserR = Role(config.getString("oauth2.super-user-role-name"), None, createdAt = 0L, createdBy = None, publiq = false)
+    val SuperUserR = Role(config.getString("oauth2.super-user-role-name"), publiq = false)
 
-    val AdministratorR = Role(config.getString("oauth2.administrator-role-name"), None, createdAt = 0L, createdBy = None, publiq = false)
+    val AdministratorR = Role(config.getString("oauth2.administrator-role-name"), publiq = false)
 
     val all = Set(SuperUserR, AdministratorR)
   }
@@ -143,45 +143,6 @@ object `package` {
         id = Some(java.util.UUID.fromString(config.getString("root.id"))))
 
     val all = Set(SuperUser)
-
-    val Params = new {
-      val DParams = List(
-        "primaryEmail",
-        "givenName",
-        "familyName",
-        "gender",
-        "password",
-        "new_password",
-        "password_confirmation")
-
-      val HomeAddressParams = List(
-        "homeAddress[country]" -> "country",
-        "homeAddress[city]" -> "city",
-        "homeAddress[postalCode]" -> "postalCode",
-        "homeAddress[streetAddress]" -> "streetAddress")
-
-      val WorkAddressParams = List(
-        "workAddress[country]" -> "country",
-        "workAddress[city]" -> "city",
-        "workAddress[postalCode]" -> "postalCode",
-        "workAddress[streetAddress]" -> "streetAddress")
-
-      val WorkContactParams = List(
-        "contacts[work][phoneNumber]" -> "phoneNumber",
-        "contacts[work][fax]" -> "fax",
-        "contacts[work][email]" -> "email")
-
-      val HomeContactParams = List(
-        "contacts[home][phoneNumber]" -> "phoneNumber",
-        "contacts[home][fax]" -> "fax",
-        "contacts[home][email]" -> "email")
-
-      val Mobile1ContactParams = List(
-        "contacts[mobiles][mobile1]" -> "phoneNumber")
-
-      val Mobile2ContactParams = List(
-        "contacts[mobiles][mobile2]" -> "phoneNumber")
-    }
   }
 
   case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None)

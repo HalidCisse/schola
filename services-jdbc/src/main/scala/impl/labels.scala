@@ -58,10 +58,10 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
 
       val forUpdate = {
         def getLabelName(label: Column[String]) =
-          Labels where (_.name is label) map(_.name)
+          Labels where (_.name is label) map (_.name)
 
         Compiled(getLabelName _)
-      }      
+      }
 
       val forUser = {
         def getUserLabels(userId: Column[java.util.UUID]) =
@@ -108,7 +108,7 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
       } {
         case Label(name, colorInDB) =>
 
-          for (c <- color if c ne colorInDB) 
+          for (c <- color if c ne colorInDB)
             db.withTransaction { implicit session =>
               labelInDB.update(Label(label, c))
             }
@@ -133,7 +133,7 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
           val result = findOrNew(label)
 
           result match {
-            case Some(Label(name, _)) => db.withTransaction{ implicit s => UsersLabels += UserLabel(id, name) }
+            case Some(Label(name, _)) => db.withTransaction { implicit s => UsersLabels += UserLabel(id, name) }
             case _                    => {}
           }
       }

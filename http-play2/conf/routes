@@ -1,0 +1,70 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Users
+
+GET     /users                              controllers.Users.getUsers(page: Int ?= 0)
+
+POST    /users                              controllers.Users.addUser
+DELETE  /users                              controllers.Users.deleteUsers(users: List[String])
+DELETE  /users/_purge                       controllers.Users.purgeUsers(users: List[String])
+
+GET     /users/stats                        controllers.Users.getUsersStats
+GET     /users/_trash                       controllers.Users.getPurgedUsers
+PUT     /users/_undelete                    controllers.Users.undeleteUsers(users: List[String])
+
+GET     /users/userexists                   controllers.Users.userExists(username: String)
+
+GET     /user/labels                        controllers.Users.getUserTags
+PUT     /user/labels                        controllers.Users.addUserTags(labels: List[String])
+DELETE  /user/labels                        controllers.Users.purgeUserTags(labels: List[String])
+
+GET     /user/:id                           controllers.Users.getUser(id: String)
+PUT     /user/:id                           controllers.Users.updateUser(id: String)
+
+GET     /user/:id/roles                     controllers.Users.getUserRoles(id: String)
+PUT     /user/:id/roles                     controllers.Users.grantUserRoles(id: String, roles: List[String])
+DELETE  /user/:id/roles                     controllers.Users.revokeUserRoles(id: String, roles: List[String])
+
+GET     /avatar/:avatarId                   controllers.Users.downloadAvatar(avatarId: String)
+PUT     /user/:id/avatar                    controllers.Users.uploadAvatar(id: String, name: String)
+DELETE  /user/:id/avatar/:avatarId          controllers.Users.purgeAvatar(id: String, avatarId: String)
+
+GET     /users/check_activation_req         controllers.Users.checkActivationReq(username: String, key: String)
+POST    /users/lostpassword                 controllers.Users.lostPasswd(username: String)
+POST    /users/resetpassword                controllers.Users.resetPasswd(username: String, key: String, newPassword: String)
+
+# Labels
+
+GET     /labels                             controllers.Tags.getTags
+POST    /labels                             controllers.Tags.addTag(name: String, color: Option[String])
+PUT     /labels/:name                       controllers.Tags.updateTag(name: String, newName: String)
+PUT     /labels/:name/color                 controllers.Tags.updateTagColor(name: String, color: String)
+DELETE  /labels                             controllers.Tags.purgeTags(labels: List[String])
+
+# Roles
+
+GET     /roles                              controllers.Roles.getRoles
+GET     /role/:name                         controllers.Roles.getRole(name: String)
+POST    /roles                              controllers.Roles.addRole(name: String, parent: Option[String])
+PUT     /role/:name                         controllers.Roles.updateRole(name: String, newName: String, parent: Option[String])
+DELETE  /roles                              controllers.Roles.purgeRoles(roles: List[String])
+
+GET     /permissions                        controllers.Roles.getPermissions
+GET     /role/:name/permissions             controllers.Roles.getRolePermissions(name: String)
+PUT     /role/:name/permissions             controllers.Roles.grantPermissions(name: String, permissions: List[String])
+DELETE  /role/:name/permissions             controllers.Roles.revokePermissions(name: String, permissions: List[String])
+
+GET     /roles/roleexists                   controllers.Roles.roleExists(name: String)
+
+# Utils
+
+GET     /session                            controllers.Utils.getSessionInfo(token: String)
+
+GET     /logout                             controllers.Users.logout(token: String)
+
+GET     /javascriptRoutes                   controllers.Utils.javascriptRoutes
+
+# Map static resources from the /public folder to the /assets URL path
+## GET     /assets/*file          controllers.Assets.at(path="/public", file)

@@ -168,6 +168,12 @@ object Crypto {
 
 object `package` {
 
+  @inline def tryo[T](thunk: => T) = try {
+    thunk; true
+  } catch {
+    case e: Exception => false
+  }
+
   @inline def genPasswd(key: String) = passwords.crypt(key)
 
   private[utils] val random = java.security.SecureRandom.getInstance("SHA1PRNG")
@@ -201,7 +207,7 @@ object `package` {
 
   @inline def If[T](cond: Boolean, t: => T, f: => T) = if (cond) t else f
 
-  @inline def option[T](cond: => Boolean, value: => T): Option[T] = if (cond) Some(value) else None  
+  @inline def option[T](cond: => Boolean, value: => T): Option[T] = if (cond) Some(value) else None
 
   def copyToClipboard(s: String) {
     import java.awt.datatransfer.StringSelection
@@ -209,33 +215,7 @@ object `package` {
 
     val stringSelection = new StringSelection(s)
     val clpbrd = Toolkit.getDefaultToolkit.getSystemClipboard
-    
+
     clpbrd.setContents(stringSelection, null)
   }
-
-  // ------------------------------------------------------------------------------------
-
-  def findFieldStr(json: org.json4s.JValue)(field: String) =
-    json findField {
-      case org.json4s.JField(`field`, _) => true
-      case _                             => false
-    } collect {
-      case org.json4s.JField(_, org.json4s.JString(s)) => s
-    }
-
-  def findFieldJArr(json: org.json4s.JValue)(field: String) =
-    json findField {
-      case org.json4s.JField(`field`, _) => true
-      case _                             => false
-    } collect {
-      case org.json4s.JField(_, a @ org.json4s.JArray(_)) => a
-    }
-
-  def findFieldJObj(json: org.json4s.JValue)(field: String) =
-    json findField {
-      case org.json4s.JField(`field`, _) => true
-      case _                             => false
-    } collect {
-      case org.json4s.JField(_, o @ org.json4s.JObject(_)) => o
-    }
 }

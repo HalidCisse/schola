@@ -2,13 +2,115 @@ package schola
 package oadmin
 
 trait ServiceComponentFactory {
-  val simple: OAuthServicesComponent with AccessControlServicesComponent with LabelServicesComponent
+  val simple: OAuthServicesComponent with UserServicesComponent with AccessControlServicesComponent with LabelServicesComponent with AvatarServicesComponent
+}
+
+trait UserServicesComponent {
+
+  val userService: UserServices
+
+  trait UserServices {
+
+    type UserLike = {
+      val id: Option[java.util.UUID]
+      val primaryEmail: String
+      val password: Option[String]
+      val givenName: String
+      val familyName: String
+      val createdAt: Long
+      val createdBy: Option[java.util.UUID]
+      val lastModifiedAt: Option[Long]
+      val lastModifiedBy: Option[java.util.UUID]
+      val gender: domain.Gender
+      val homeAddress: Option[domain.AddressInfo]
+      val workAddress: Option[domain.AddressInfo]
+      val contacts: domain.Contacts
+      val avatar: Option[String]
+      val _deleted: Boolean
+      val suspended: Boolean
+      val changePasswordAtNextLogin: Boolean
+    }
+
+    type StatsLike = {
+      val count: Int
+    }
+
+    def getUsersStats: StatsLike
+
+    def getUsers(page: Int): List[UserLike]
+
+    def getUser(id: String): Option[UserLike]
+
+    def removeUser(id: String): Boolean
+
+    def removeUsers(users: Set[String])
+
+    def getPurgedUsers: List[UserLike]
+
+    def purgeUsers(users: Set[String])
+
+    def undeleteUsers(users: Set[String])
+
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem): Option[UserLike]
+
+    def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem): Boolean
+
+    def primaryEmailExists(email: String): Boolean
+
+    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem): Unit
+
+    def checkActivationReq(username: String, ky: String): Boolean
+
+    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem): Boolean
+
+    def getPage(userId: String): Int
+  }
+}
+
+trait UserServicesRepoComponent {
+  this: UserServicesComponent =>
+
+  protected val userServiceRepo: UserServicesRepo
+
+  trait UserServicesRepo {
+    import userService._
+
+    def getUsersStats: StatsLike
+
+    def getUsers(page: Int): List[UserLike]
+
+    def getUser(id: String): Option[UserLike]
+
+    def removeUser(id: String): Boolean
+
+    def removeUsers(users: Set[String])
+
+    def getPurgedUsers: List[UserLike]
+
+    def purgeUsers(users: Set[String])
+
+    def undeleteUsers(users: Set[String])
+
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem): Option[UserLike]
+
+    def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem): Boolean
+
+    def primaryEmailExists(email: String): Boolean
+
+    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem): Unit
+
+    def checkActivationReq(username: String, ky: String): Boolean
+
+    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem): Boolean
+
+    def getPage(userId: String): Int
+  }
 }
 
 trait OAuthServicesComponent {
-  val oauthService: OAuthServices
+  this: UserServicesComponent =>
 
-  val avatarService: akka.actor.ActorRef
+  val oauthService: OAuthServices
 
   trait OAuthServices {
 
@@ -34,26 +136,6 @@ trait OAuthServicesComponent {
       val redirectUri: String
     }
 
-    type UserLike = {
-      val id: Option[java.util.UUID]
-      val primaryEmail: String
-      val password: Option[String]
-      val givenName: String
-      val familyName: String
-      val createdAt: Long
-      val createdBy: Option[java.util.UUID]
-      val lastModifiedAt: Option[Long]
-      val lastModifiedBy: Option[java.util.UUID]
-      val gender: domain.Gender
-      val homeAddress: Option[domain.AddressInfo]
-      val workAddress: Option[domain.AddressInfo]
-      val contacts: domain.Contacts
-      val avatar: Option[String]
-      val _deleted: Boolean
-      val suspended: Boolean
-      val changePasswordAtNextLogin: Boolean
-    }
-
     type SessionLike = {
       val key: String
       val secret: String
@@ -63,31 +145,13 @@ trait OAuthServicesComponent {
       val refreshExpiresIn: Option[Long]
       val refresh: Option[String]
       val lastAccessTime: Long
-      val user: UserLike
+      val user: userService.UserLike
       val userAgent: String
       val hasRole: Map[String, Boolean]
       val hasPermission: Map[String, Boolean]
       val scopes: Set[String]
     }
 
-    type StatsLike = {
-      val count: Int
-    }
-
-    def getUsersStats: StatsLike
-
-    def getUsers(page: Int): List[UserLike]
-
-    def getUser(id: String): Option[UserLike]
-
-    def removeUser(id: String): Boolean
-
-    def getPurgedUsers: List[UserLike]
-
-    def purgeUsers(users: Set[String])
-
-    def undeleteUsers(users: Set[String])
-
     def getTokenSecret(accessToken: String): Option[String]
 
     def getRefreshToken(refreshToken: String): Option[TokenLike]
@@ -105,52 +169,17 @@ trait OAuthServicesComponent {
     def authUser(username: String, password: String): Option[String]
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
-
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem): Option[UserLike]
-
-    def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem): Boolean
-
-    def getAvatar(id: String): scala.concurrent.Future[(String, Option[String], Array[Byte])]
-
-    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte])(implicit system: akka.actor.ActorSystem): scala.concurrent.Future[Boolean]
-
-    def purgeAvatar(userId: String, avatarId: String)(implicit system: akka.actor.ActorSystem): scala.concurrent.Future[Boolean]
-
-    def purgeAvatarForUser(userId: String): Unit
-
-    def primaryEmailExists(email: String): Boolean
-
-    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem): Unit
-
-    def checkActivationReq(username: String, ky: String): Boolean
-
-    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem): Boolean
-
-    def getPage(userId: String): Int
   }
 }
 
 trait OAuthServicesRepoComponent {
-  self: OAuthServicesComponent =>
+  this: OAuthServicesComponent =>
+
   protected val oauthServiceRepo: OAuthServicesRepo
 
   trait OAuthServicesRepo {
     import oauthService._
 
-    def getUsersStats: StatsLike
-
-    def getUsers(page: Int): List[UserLike]
-
-    def getUser(id: String): Option[UserLike]
-
-    def removeUser(id: String): Boolean
-
-    def getPurgedUsers: List[UserLike]
-
-    def purgeUsers(users: Set[String])
-
-    def undeleteUsers(users: Set[String])
-
     def getTokenSecret(accessToken: String): Option[String]
 
     def getRefreshToken(refreshToken: String): Option[TokenLike]
@@ -168,24 +197,43 @@ trait OAuthServicesRepoComponent {
     def authUser(username: String, password: String): Option[String]
 
     def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
+  }
+}
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem): Option[UserLike]
+trait AvatarServicesComponent {
 
-    def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem): Boolean
+  val avatarServices: AvatarServices
 
-    def primaryEmailExists(email: String): Boolean
+  trait AvatarServices {
 
-    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem): Unit
+    def getAvatar(id: String): scala.concurrent.Future[(String, Option[String], Array[Byte])]
 
-    def checkActivationReq(username: String, ky: String): Boolean
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
 
-    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem): Boolean
+    def purgeAvatar(userId: String, avatarId: String): scala.concurrent.Future[Boolean]
 
-    def getPage(userId: String): Int
+    def purgeAvatarForUser(userId: String): Unit
+  }
+}
+
+trait AvatarServicesRepoComponent {
+
+  protected val avatarServicesRepo: AvatarServicesRepo
+
+  trait AvatarServicesRepo {
+
+    def getAvatar(id: String): scala.concurrent.Future[(String, Option[String], Array[Byte])]
+
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
+
+    def purgeAvatar(userId: String, avatarId: String): scala.concurrent.Future[Boolean]
+
+    def purgeAvatarForUser(userId: String): Unit
   }
 }
 
 trait AccessControlServicesComponent {
+
   val accessControlService: AccessControlServices
 
   trait AccessControlServices {
@@ -254,7 +302,7 @@ trait AccessControlServicesComponent {
 }
 
 trait AccessControlServicesRepoComponent {
-  self: AccessControlServicesComponent =>
+  this: AccessControlServicesComponent =>
 
   protected val accessControlServiceRepo: AccessControlServiceRepo
 
@@ -330,7 +378,7 @@ trait LabelServicesComponent {
 }
 
 trait LabelServicesRepoComponent {
-  self: LabelServicesComponent =>
+  this: LabelServicesComponent =>
 
   protected val labelServiceRepo: LabelServicesRepo
 

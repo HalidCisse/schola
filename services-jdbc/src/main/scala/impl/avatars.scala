@@ -83,7 +83,7 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
   }
 }
 
-class Avatars(config: MongoDBSettings)(implicit system: akka.actor.ActorSystem) extends akka.actor.Actor with akka.actor.ActorLogging {
+class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.ActorLogging {
 
   import akka.actor._
   import akka.routing._
@@ -93,6 +93,8 @@ class Avatars(config: MongoDBSettings)(implicit system: akka.actor.ActorSystem) 
   private val helper: ReactiveMongoHelper = {
 
     log.info("ReactiveMongo starting...")
+
+    implicit val system = context.system
 
     val _helper = try {
       Some(ReactiveMongoHelper(Database, Seq(Host), Nil, None))
@@ -135,7 +137,7 @@ class Avatars(config: MongoDBSettings)(implicit system: akka.actor.ActorSystem) 
   }
 
   val workerPool = context.actorOf(
-    props = Props(new AvatarWorkers(helper)).withRouter(RandomRouter(4)).withDeploy(Deploy.local), // TODO: change when you upgrade to 2.3
+    props = Props(classOf[AvatarWorkers], helper).withRouter(RandomRouter(4)).withDeploy(Deploy.local), // TODO: change when you upgrade to 2.3
     name = "Avatars_upload-workers")
 
   def receive = {
@@ -169,4 +171,89 @@ private[impl] case class ReactiveMongoHelper(dbName: String, servers: Seq[String
   }
 
   def db = DB(dbName, connection)
+}
+
+trait AvatarServicesComponentImpl extends AvatarServicesComponent {
+  this: AvatarServicesRepoComponent =>
+
+  class AvatarServicesImpl extends AvatarServices {
+
+    def getAvatar(id: String) = avatarServicesRepo.getAvatar(id)
+
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
+      avatarServicesRepo.uploadAvatar(userId, filename, contentType, bytes)
+
+    def purgeAvatar(userId: String, avatarId: String) =
+      avatarServicesRepo.purgeAvatar(userId, avatarId)
+
+    def purgeAvatarForUser(userId: String) = avatarServicesRepo.purgeAvatarForUser(userId)
+  }
+}
+
+trait AvatarServicesRepoComponentImpl extends AvatarServicesRepoComponent {
+  this: UserServicesComponent =>
+
+  class AvatarServicesRepoImpl(implicit system: akka.actor.ActorSystem) extends AvatarServicesRepo {
+
+    val avatarService = system.actorOf(akka.actor.Props(classOf[Avatars], new MongoDBSettings(config getConfig "mongodb")), name = "avatars")
+
+    def getAvatar(id: String) = {
+      import scala.concurrent.duration._
+      import akka.pattern._
+      import scala.util.control.Exception.allCatch
+      import scala.concurrent.Await
+
+      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+
+      (avatarService ? Avatars.Get(id)).mapTo[(String, Option[String], Array[Byte])]
+    }
+
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]) = {
+      import scala.concurrent.duration._
+      import akka.pattern._
+
+      import system.dispatcher
+
+      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+
+      val q = (avatarService ? Avatars.Save(userId, filename, contentType, bytes)).mapTo[String]
+
+      q map {
+        avatarId =>
+
+          userService.updateUser(userId, new domain.DefaultUserSpec {
+            override lazy val avatar = UpdateSpecImpl[String](set = Some(Some(avatarId)))
+          })
+
+      } recover {
+        case _: Throwable => false
+      }
+    }
+
+    def purgeAvatar(userId: String, avatarId: String) = {
+      import scala.concurrent.duration._
+      import akka.pattern._
+
+      import system.dispatcher
+
+      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+
+      val ok = (avatarService ? Avatars.Purge(avatarId)).mapTo[Boolean]
+
+      ok map {
+        k =>
+
+          k && userService.updateUser(userId, new domain.DefaultUserSpec {
+            override lazy val avatar = UpdateSpecImpl[String](set = Some(None))
+          })
+
+      } recover {
+        case _: Throwable => false
+      }
+    }
+
+    def purgeAvatarForUser(userId: String) {
+      avatarService ! Avatars.PurgeForUser(userId)
+    }
+  }
 }

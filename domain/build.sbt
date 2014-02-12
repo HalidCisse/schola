@@ -1,4 +1,4 @@
 
 description := "Domain objects"
 
-libraryDependencies += Common.json4s
+libraryDependencies += "com.typesafe.play" %% "play-json" % "2.2.1"

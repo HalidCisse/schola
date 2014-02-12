@@ -1,4 +1,5 @@
 import sbt._
+import org.sbtidea.SbtIdeaPlugin._
 
 object Common {
   import Keys._
@@ -22,23 +23,18 @@ object Common {
   private def withExclusions(items: Seq[ModuleID]) = 
     items.map(_.excludeAll(ExclusionRule(organization = "javax.mail"), ExclusionRule(organization = "jline", name = "jline")))
 
-  val json4s = "org.json4s" %% "json4s-native" % "3.2.6"
+  // val json4s = "org.json4s" %% "json4s-native" % "3.2.6"
 
   val dispatchVersion = "0.11.0"  
   def dispatchDeps =
-    "net.databinder.dispatch" %% "dispatch-json4s-native" % dispatchVersion ::
     "net.databinder.dispatch" %% "dispatch-core" % dispatchVersion :: Nil
+    // "net.databinder.dispatch" %% "dispatch-json4s-native" % dispatchVersion ::
 
   val unfilteredVersion = "0.7.1"
   val oauth2Dep = "net.databinder" %% "unfiltered-oauth2" % unfilteredVersion
   val unfilteredMac = "net.databinder" %% "unfiltered-mac" % unfilteredVersion
   val unfilteredSpec = "net.databinder" %% "unfiltered-spec" % unfilteredVersion % "test"
   val unfilteredSpec2 = "net.databinder" %% "unfiltered-spec2" % unfilteredVersion % "test"
-  def unfilteredDeps =    
-    //"net.databinder" %% "unfiltered-directives" % unfilteredVersion  ::
-    "net.databinder" %% "unfiltered-filter-async" % unfilteredVersion  ::
-    "net.databinder" %% "unfiltered-filter-uploads" % unfilteredVersion  ::
-    "net.databinder" %% "unfiltered-json4s" % unfilteredVersion  :: Nil
 
   val akkaVersion = "2.2.1"
   def akkaDeps =
@@ -54,14 +50,13 @@ object Common {
   val slick = "com.typesafe.slick" %% "slick" % "2.0.0"
 
   val utilDeps = withExclusions {   
-    json4s ::
     // "commons-validator" % "commons-validator" % "1.4.0" ::
     "org.apache.commons" % "commons-lang3" % "3.1" ::    
     "net.jpountz.lz4" % "lz4" % "1.2.0" :: 
     "com.typesafe" % "config" % "1.0.2" ::    
-    "org.bouncycastle" % "bcprov-jdk14" % "1.49" ::
+    "org.bouncycastle" % "bcprov-jdk15on" % "1.50" ::
     // "org.clapper" %% "avsl" % "1.0.1" ::  
-    "ch.qos.logback" % "logback-classic" % "1.1.0" ::
+    "ch.qos.logback" % "logback-classic" % "1.1.1" ::
     "org.slf4j" % "slf4j-api" % "1.7.5" ::  
     "org.apache.commons" % "commons-email" % "1.3.2" ::
     "io.webcrank" %% "webcrank-password" % "0.3" ::
@@ -97,6 +92,8 @@ object Common {
     // publishTo := Some("releases" at
               // "https://oss.sonatype.org/service/local/staging/deploy/maven2"),
 
+  ideaExcludeFolders := Seq(".idea", ".idea_modules"),
+
     publishArtifact in Test := false/*,
 
     licenses := Seq("MIT" -> url("http://www.opensource.org/licenses/MIT"))*/,
@@ -114,7 +111,7 @@ object Common {
         </developer>
       </developers>
     )
-  ) // ++ Format.settings
+  ) ++ Format.settings
 
   val buildShellPrompt = 
     (state: State) => "[%s] ".format(Project.extract(state).currentProject.id)
