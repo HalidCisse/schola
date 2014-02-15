@@ -7,16 +7,12 @@ import com.mchange.v2.c3p0.ComboPooledDataSource
 
 object main extends App
     with OAuth2Component
-    with impl.AccessControlServicesRepoComponentImpl
-    with impl.AccessControlServicesComponentImpl
-    with impl.UserServicesComponentImpl
-    with impl.UserServicesRepoComponentImpl
     with impl.OAuthServicesRepoComponentImpl
     with impl.OAuthServicesComponentImpl
-    with impl.LabelServicesRepoComponentImpl
-    with impl.LabelServicesComponentImpl
-    with impl.AvatarServicesRepoComponentImpl
-    with impl.AvatarServicesComponentImpl {
+    with impl.AccessControlServicesRepoComponentImpl
+    with impl.AccessControlServicesComponentImpl {
+
+  /* UNUSED */ lazy val accessControlService = null
 
   import unfiltered.jetty.Http
   import unfiltered.response.Pass
@@ -29,14 +25,7 @@ object main extends App
 
   private val log = Logger("oauth2.main")
 
-  /* UNUSED */ lazy val avatarServices = ??? // new AvatarServicesImpl
-  /* UNUSED */ protected lazy val avatarServicesRepo = ??? // new AvatarServicesRepoImpl
-  /* UNUSED */ lazy val labelService = ??? // new LabelServicesImpl 
-  /* UNUSED */ lazy val accessControlService = ??? // new AccessControlServicesImpl
-
   val oauthService = new OAuthServicesImpl
-
-  val userService = new UserServicesImpl
 
   protected val db = Database.forDataSource(new ComboPooledDataSource)
 
@@ -53,7 +42,6 @@ object main extends App
     }
 
   server.run({ s =>
-    log.info(s"users in db ${userService.getUsersStats}")
     log.info(s"oauth2-server is runing at ${s.url} . . . ")
 
   }, { s =>

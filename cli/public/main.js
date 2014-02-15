@@ -14098,85 +14098,57 @@ Released under the MIT License
 
 }).call(this);
 }, "lib/labels": function(exports, require, module) {(function() {
-  var $, labels;
+  var $, R, labels;
 
   $ = require('jqueryify');
+
+  R = jsRoutes.controllers;
 
   labels = (function() {
     function labels() {}
 
     labels.getLabels = function() {
-      return $.getJSON("/api/v1/labels");
+      return $.getJSON(R.Tags.getTags().url);
     };
 
     labels.addLabel = function(label, color) {
+      var route;
+      route = R.Roles.addTag(label, color);
       return $.ajax({
-        type: 'POST',
-        url: "/api/v1/labels",
-        dataType: 'json',
-        data: {
-          label: label,
-          color: color
-        }
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
     labels.updateLabelColor = function(name, color) {
+      var route;
+      route = R.Roles.updateTagColor(name, color);
       return $.ajax({
-        type: 'PUT',
-        url: "/api/v1/label/" + name + "/color",
-        dataType: 'json',
-        data: {
-          color: color
-        }
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
-    labels.updateLabelname = function(name, newName) {
+    labels.updateLabel = function(name, newName) {
+      var route;
+      route = R.Roles.updateTag(name, newName);
       return $.ajax({
-        type: 'PUT',
-        url: "/api/v1/label/" + name,
-        dataType: 'json',
-        data: {
-          label: newName
-        }
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
     labels.purgeLabels = function(labels) {
+      var route;
+      route = R.Roles.purgeTags(labels);
       return $.ajax({
-        type: 'DELETE',
-        url: "/api/v1/labels?" + $.param({
-          labels: labels
-        }, true),
+        type: route.type,
+        url: route.url,
         dataType: 'json'
       });
-    };
-
-    labels.labelUser = function(userId, labels) {
-      return $.ajax({
-        type: 'PUT',
-        url: "/api/v1/user/" + userId + "/labels",
-        dataType: 'json',
-        traditional: true,
-        data: {
-          labels: labels
-        }
-      });
-    };
-
-    labels.unLabelUser = function(userId, labels) {
-      return $.ajax({
-        type: 'DELETE',
-        url: ("/api/v1/user/" + userId + "/labels?") + $.param({
-          labels: labels
-        }, true),
-        dataType: 'json'
-      });
-    };
-
-    labels.getUserLabels = function(userId) {
-      return $.getJSON("/api/v1/user/" + userId + "/labels");
     };
 
     return labels;
@@ -14462,77 +14434,83 @@ module.exports = {
   positionPopupAroundElement: positionPopupAroundElement,
   positionPopupAtPoint: positionPopupAtPoint
 };}, "lib/roles": function(exports, require, module) {(function() {
-  var $, roles;
+  var $, R, roles;
 
   $ = require('jqueryify');
+
+  R = jsRoutes.controllers;
 
   roles = (function() {
     function roles() {}
 
     roles.getRoles = function() {
-      return $.getJSON("/api/v1/roles");
+      return $.getJSON(R.Roles.getRoles().url);
+    };
+
+    roles.getRole = function(name) {
+      return $.getJSON(R.Roles.getRole(name).url);
+    };
+
+    roles.getPermissions = function() {
+      return $.getJSON(R.Roles.getPermissions().url);
+    };
+
+    roles.getRolePermissions = function(name) {
+      return $.getJSON(R.Roles.getRolePermissions(name).url);
     };
 
     roles.addRole = function(spec) {
+      var route;
+      route = R.Roles.addRole(spec);
       return $.ajax({
-        type: 'POST',
-        url: "/api/v1/roles",
-        dataType: 'json',
-        contentType: 'application/json; charset=UTF-8',
-        data: JSON.stringify(spec)
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
     roles.updateRole = function(name, newName, parent) {
+      var route;
+      route = R.Roles.updateRole(name, newName, parent);
       return $.ajax({
-        type: 'PUT',
-        url: "/api/v1/roles/" + name,
-        dataType: 'json',
-        contentType: 'application/json; charset=UTF-8',
-        data: JSON.stringify({
-          name: newName,
-          parent: parent
-        })
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
-    roles.purgeRole = function(roleName) {
+    roles.purgeRoles = function(roles) {
+      var route;
+      route = R.Roles.purgeRoles(roles);
       return $.ajax({
-        type: 'DELETE',
-        url: "/api/v1/role/" + roleName,
+        type: route.type,
+        url: route.url,
         dataType: 'json'
       });
     };
 
     roles.grantPermissions = function(roleName, permissions) {
+      var route;
+      route = R.Roles.grantRolePermissions(roleName, permissions);
       return $.ajax({
-        type: 'PUT',
-        url: "/api/v1/role/_/permissions",
-        dataType: 'json',
-        traditional: true,
-        data: {
-          name: roleName,
-          permissions: permissions
-        }
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
     roles.revokePermissions = function(roleName, permissions) {
+      var route;
+      route = R.Roles.revokeRolePermissions(roleName, permissions);
       return $.ajax({
-        type: 'DELETE',
-        url: "/api/v1/role/_/permissions?" + $.param({
-          name: roleName,
-          permissions: permissions
-        }, true),
-        traditional: true,
+        type: route.type,
+        url: route.url,
         dataType: 'json'
       });
     };
 
     roles.roleExists = function(roleName) {
-      return $.getJSON("/api/v1/roleexists", {
-        name: roleName
-      });
+      return $.getJSON(R.Roles.roleExists(roleName).url);
     };
 
     return roles;
@@ -14724,6 +14702,10 @@ module.exports = {
       return $.getJSON(R.Users.getUsers(page).url);
     };
 
+    users.getUserRoles = function(id) {
+      return $.getJSON(R.Users.getUserRoles(id).url);
+    };
+
     users.upsertUser = function(spec) {
       var route;
       route = spec.id ? R.Users.addUser() : R.Users.updateUser(spec.id);
@@ -14756,6 +14738,16 @@ module.exports = {
       });
     };
 
+    users.undeleteUsers = function(users) {
+      var route;
+      route = R.Users.undeleteUsers(users);
+      return $.ajax({
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
+      });
+    };
+
     users.changePasswd = function(id, newPasswd, oldPassword) {
       var route;
       route = R.Users.changePasswd(id);
@@ -14772,9 +14764,11 @@ module.exports = {
     };
 
     users.setAddress = function(id, spec) {
+      var route;
+      route = R.Users.updateUser(id);
       return $.ajax({
-        type: "PUT",
-        url: "/api/v1/user/" + id,
+        type: route.type,
+        url: route.url,
         dataType: 'json',
         contentType: 'application/json; charset=UTF-8',
         data: JSON.stringify(spec)
@@ -14782,9 +14776,11 @@ module.exports = {
     };
 
     users.remHomeAddress = function(id) {
+      var route;
+      route = R.Users.updateUser(id);
       return $.ajax({
-        type: "PUT",
-        url: "/api/v1/user/" + id,
+        type: route.type,
+        url: route.url,
         dataType: 'json',
         contentType: 'application/json; charset=UTF-8',
         data: JSON.stringify({
@@ -14794,9 +14790,11 @@ module.exports = {
     };
 
     users.remWorkAddress = function(id) {
+      var route;
+      route = R.Users.updateUser(id);
       return $.ajax({
-        type: "PUT",
-        url: "/api/v1/user/" + id,
+        type: route.type,
+        url: route.url,
         dataType: 'json',
         contentType: 'application/json; charset=UTF-8',
         data: JSON.stringify({
@@ -14806,9 +14804,11 @@ module.exports = {
     };
 
     users.updateContacts = function(id, contacts) {
+      var route;
+      route = R.Users.updateUser(id);
       return $.ajax({
-        type: "PUT",
-        url: "/api/v1/user/" + id,
+        type: route.type,
+        url: route.url,
         contentType: 'application/json; charset=UTF-8',
         dataType: 'json',
         data: JSON.stringify({
@@ -14818,48 +14818,47 @@ module.exports = {
     };
 
     users.grantRoles = function(id, roles) {
+      var route;
+      route = R.Users.grantUserRoles(id, roles);
       return $.ajax({
-        type: "PUT",
-        url: "/api/v1/user/" + id + "/roles",
-        dataType: 'json',
-        traditional: true,
-        data: {
-          roles: roles
-        }
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
     users.revokeRoles = function(id, roles) {
+      var route;
+      route = R.Users.revokeUserRoles(id, roles);
       return $.ajax({
-        type: "DELETE",
-        url: ("/api/v1/user/" + id + "/roles?") + $.param({
-          roles: roles
-        }, true),
-        traditional: true,
+        type: route.type,
+        url: route.url,
         dataType: 'json'
       });
     };
 
     users.remAvatar = function(id, avatarId) {
+      var route;
+      route = R.Users.purgeAvatar(id, avatarId);
       return $.ajax({
-        type: "DELETE",
-        url: "/api/v1/user/" + id + "/avatars/" + avatarId,
+        type: route.type,
+        url: route.url,
         dataType: 'json'
       });
     };
 
-    users.getAvatar = function(userId) {
-      return $.getJSON("/api/v1/avatar/" + userId);
+    users.getAvatar = function(avatarId) {
+      return $.getJSON(R.Users.downloadAvatar(avatarId).url);
     };
 
     users.setAvatar = function(id, file) {
-      var data, sendFile;
-      data = new FormData;
-      data.append("f", file);
+      var sendFile;
       sendFile = function(file) {
+        var route;
+        route = R.Users.uploadAvatar(id, file.name);
         return $.ajax({
-          type: 'POST',
-          url: '/Avatar?name=' + file.name,
+          type: route.type,
+          url: route.url,
           data: file,
           success: function() {
             return console.log("success");
@@ -14876,24 +14875,47 @@ module.exports = {
           },
           processData: false,
           contentType: file.type,
-          mimeType: file.type
+          mimeType: file.type,
+          dataType: 'json'
         });
       };
-      return $.upload("/api/v1/user/" + id + "/avatars", data, 'json');
+      return sendFile(file);
     };
 
     users.getUserRoles = function(id) {
-      return $.getJSON("/api/v1/user/" + id + "/roles");
+      return $.getJSON(R.Users.getUserRoles(id).url);
     };
 
     users.userExists = function(username) {
-      return $.getJSON("/api/v1/userexists", {
-        username: username
+      return $.getJSON(R.Users.primaryEmailExists(username).url);
+    };
+
+    users.getTrash = function() {
+      return $.getJSON(R.Users.getPurgedUsers().url);
+    };
+
+    users.labelUser = function(id, labels) {
+      var route;
+      route = R.Users.addUserTags(id, labels);
+      return $.ajax({
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
       });
     };
 
-    users.getTrashed = function() {
-      return $.getJSON("/api/v1/users/_trash");
+    users.unLabelUser = function(id, labels) {
+      var route;
+      route = R.Users.purgeUserTags(id, labels);
+      return $.ajax({
+        type: route.type,
+        url: route.url,
+        dataType: 'json'
+      });
+    };
+
+    users.getUserLabels = function(id) {
+      return $.getJSON(R.Users.getUserTags(id).url);
     };
 
     return users;
@@ -15161,7 +15183,7 @@ module.exports = {
 
 }).call(this);
 }, "views/menu/item": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\menu\\item.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/menu/item.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15188,10 +15210,10 @@ buf.push("</a>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"a(href=)\r\n  .glyphicon      \r\n    span.title\r\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"a(href=)\n  .glyphicon      \n    span.title\n");
 }
 };}, "views/menu/single": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\menu\\single.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/menu/single.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15215,10 +15237,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"h4.menuHeader\r\ndiv\r\n  ul.menuItems");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"h4.menuHeader\ndiv\n  ul.menuItems");
 }
 };}, "views/role/contextmenu": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\contextmenu.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/role/contextmenu.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15329,10 +15351,10 @@ buf.push("</ul>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul.dropdown-menu.squared.fixed(role='menu')\r\n  li\r\n    a.view(href='#') \r\n      span.no-icon View Permissions\r\n  li.divider  \r\n  li\r\n    a.edit(href='#') \r\n      span.glyphicon.glyphicon-edit \r\n      span Edit Role\r\n  li\r\n    a.purge(href='#') \r\n      span.glyphicon.glyphicon-trash \r\n      span Delete Role  ");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul.dropdown-menu.squared.fixed(role='menu')\n  li\n    a.view(href='#') \n      span.no-icon View Permissions\n  li.divider  \n  li\n    a.edit(href='#') \n      span.glyphicon.glyphicon-edit \n      span Edit Role\n  li\n    a.purge(href='#') \n      span.glyphicon.glyphicon-trash \n      span Delete Role  ");
 }
 };}, "views/role/form": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\form.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/role/form.jade" }];
 try {
 var buf = [];
 var locals_ = (locals || {}),form = locals_.form;jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15470,10 +15492,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".modal\r\n  .modal-dialog\r\n    form.modal-content(role=form)\r\n      .modal-header\r\n        p\r\n          button.close.pull-right(type='button' data-dismiss='modal' aria-hidden='true') ×\r\n        .modal-title New Role\r\n      .modal-body\r\n        fieleset\r\n          .form-group\r\n            label.control-label(for='name') Please enter a new role name:\r\n            input.form-control(type='text' name='name' autofocus required)\r\n          .form-group\r\n            label.control-label(for='parent') Nest role under:\r\n            select.form-control(name='parent')                \r\n      .modal-footer\r\n        .btns.pull-left\r\n          button.btn.btn-primary(type='button') Create\r\n          button.btn.btn-default(type='button' data-dismiss='modal') Cancel");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".modal\n  .modal-dialog\n    form.modal-content(role=form)\n      .modal-header\n        p\n          button.close.pull-right(type='button' data-dismiss='modal' aria-hidden='true') ×\n        .modal-title New Role\n      .modal-body\n        fieleset\n          .form-group\n            label.control-label(for='name') Please enter a new role name:\n            input.form-control(type='text' name='name' autofocus required)\n          .form-group\n            label.control-label(for='parent') Nest role under:\n            select.form-control(name='parent')                \n      .modal-footer\n        .btns.pull-left\n          button.btn.btn-primary(type='button') Create\n          button.btn.btn-default(type='button' data-dismiss='modal') Cancel");
 }
 };}, "views/role/row": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\row.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/role/row.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15509,10 +15531,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".tree-item\r\n  .tree-row\r\n    span.expand-icon\r\n    span.tree-label\r\n  .tree-children");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".tree-item\n  .tree-row\n    span.expand-icon\n    span.tree-label\n  .tree-children");
 }
 };}, "views/role/single": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\single.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/role/single.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15521,7 +15543,7 @@ jade.debug.shift();;return buf.join("");
   jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"");
 }
 };}, "views/role/single.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\single.toolbar.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/role/single.toolbar.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15536,7 +15558,7 @@ jade.debug.shift();;return buf.join("");
   jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".shadow");
 }
 };}, "views/role/tree.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\role\\tree.toolbar.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/role/tree.toolbar.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15698,10 +15720,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New Role\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .btn-group.filter.pull-right\r\n    input.form-control.squared.input-md(type='text' placeholder='Search')\r\n    span.glyphicon.glyphicon-search\r\n.shadow\r\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\n  .btn-group\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\n      span New Role\n  .btn-group\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\n      span.glyphicon.glyphicon-refresh\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\n      span.glyphicon.glyphicon-trash\n  .more.btn-group\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\n      | More &nbsp;\n      span.caret\n    ul.dropdown-menu.squared\n      li\n        a(href='#') Suspend\n      li\n        a(href='#') Import\n      li.divider\n      li\n        a(href='#') Export\n  .btn-group.filter.pull-right\n    input.form-control.squared.input-md(type='text' placeholder='Search')\n    span.glyphicon.glyphicon-search\n.shadow\n");
 }
 };}, "views/user/contextmenu": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\contextmenu.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/contextmenu.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -15845,10 +15867,10 @@ buf.push("</ul>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul.dropdown-menu.squared.fixed(role='menu')\r\n  li\r\n    a.view(href='#') \r\n      span.no-icon View User Info\r\n  li.divider  \r\n  li\r\n    a.edit(href='#') \r\n      span.glyphicon.glyphicon-edit \r\n      span Edit User\r\n  li\r\n    a.purge(href='#') \r\n      span.glyphicon.glyphicon-trash \r\n      span Delete User  \r\n  li\r\n    a.purge(href='#') \r\n      span.glyphicon.glyphicon-remove \r\n      span Suspend User        ");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul.dropdown-menu.squared.fixed(role='menu')\n  li\n    a.view(href='#') \n      span.no-icon View User Info\n  li.divider  \n  li\n    a.edit(href='#') \n      span.glyphicon.glyphicon-edit \n      span Edit User\n  li\n    a.purge(href='#') \n      span.glyphicon.glyphicon-trash \n      span Delete User  \n  li\n    a.purge(href='#') \n      span.glyphicon.glyphicon-remove \n      span Suspend User        ");
 }
 };}, "views/user/form.edit": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\form.edit.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/form.edit.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -16316,10 +16338,10 @@ buf.push("</fieldset>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul#profiles.nav.nav-tabs\r\n  li.active\r\n    a(data-toggle='tab' data-target='#basic_edit' href=\"#\") Basic\r\n  li\r\n    a(data-toggle='tab' data-target='#addresses_edit' href=\"#\") Addresses\r\n  li\r\n    a(data-toggle='tab' data-target='#contacts_edit' href=\"#\") Contacts\r\nfieldset\r\n  #profiles_content.tab-content\r\n    #basic_edit.tab-pane.fade.in.active\r\n      .row\r\n        .col-xs-6.col-md-3.avatar_fm_wrapper\r\n          .avatar_fm\r\n            a.edit Change Picture\r\n            a.purge Delete Picture\r\n          img#avatar.img-thumbnail(src=\"http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195\" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              \r\n        .col-xs-12.col-md-6\r\n          #name\r\n            .form-group                    \r\n              input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus)\r\n            .form-group                    \r\n              input.form-control(type='text' name='familyName' placeholder='Last name' required)\r\n          .form-group\r\n            input.form-control(type='email' name='primaryEmail' placeholder='Enter email' required)\r\n          #gender.form-group\r\n            label.radio-inline\r\n              input(type='radio' name='gender' value='Male' checked)\r\n              | Male\r\n            label.radio-inline\r\n              input(type='radio' name='gender' value='Female')\r\n              | Female                                    \r\n    #addresses_edit.tab-pane.fade\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Work\r\n        .form-group\r\n          select#work-country.form-control(name='workAddress[country]' data-placeholder=\"Your work country\"  placeholder='Select country' autofocus)\r\n        .form-group\r\n          input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City')\r\n        .form-group\r\n          input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code')\r\n        .form-group\r\n          textarea.form-control(name='workAddress[streetAddress]' placeholder='Address')\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Home\r\n        .form-group\r\n          select#home-country.form-control(name='homeAddress[country]' data-placeholder=\"Your home country\"  placeholder='Select country')\r\n        .form-group\r\n          input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City')\r\n        .form-group\r\n          input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')\r\n        .form-group\r\n          textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address') \r\n    #contacts_edit.tab-pane.fade\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Mobile\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1' autofocus)\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')\r\n      .container    \r\n        .page-header\r\n          h4\r\n            | Work\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[work][phoneNumber]' placeholder='Enter phone number')\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[work][fax]' placeholder='Fax')\r\n        .form-group\r\n          input.form-control(type='email' name='contacts[work][email]' placeholder='Email')             \r\n      .container\r\n        .page-header\r\n          h4\r\n            | Home\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[home][phoneNumber]' placeholder='Enter phone number')\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[home][fax]' placeholder='Fax')\r\n        .form-group\r\n          input.form-control(type='email' name='contacts[home][email]' placeholder='Email')");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul#profiles.nav.nav-tabs\n  li.active\n    a(data-toggle='tab' data-target='#basic_edit' href=\"#\") Basic\n  li\n    a(data-toggle='tab' data-target='#addresses_edit' href=\"#\") Addresses\n  li\n    a(data-toggle='tab' data-target='#contacts_edit' href=\"#\") Contacts\nfieldset\n  #profiles_content.tab-content\n    #basic_edit.tab-pane.fade.in.active\n      .row\n        .col-xs-6.col-md-3.avatar_fm_wrapper\n          .avatar_fm\n            a.edit Change Picture\n            a.purge Delete Picture\n          img#avatar.img-thumbnail(src=\"http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195\" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              \n        .col-xs-12.col-md-6\n          #name\n            .form-group                    \n              input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus)\n            .form-group                    \n              input.form-control(type='text' name='familyName' placeholder='Last name' required)\n          .form-group\n            input.form-control(type='email' name='primaryEmail' placeholder='Enter email' required)\n          #gender.form-group\n            label.radio-inline\n              input(type='radio' name='gender' value='Male' checked)\n              | Male\n            label.radio-inline\n              input(type='radio' name='gender' value='Female')\n              | Female                                    \n    #addresses_edit.tab-pane.fade\n      .container\n        .page-header\n          h4\n            | Work\n        .form-group\n          select#work-country.form-control(name='workAddress[country]' data-placeholder=\"Your work country\"  placeholder='Select country' autofocus)\n        .form-group\n          input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City')\n        .form-group\n          input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code')\n        .form-group\n          textarea.form-control(name='workAddress[streetAddress]' placeholder='Address')\n      .container\n        .page-header\n          h4\n            | Home\n        .form-group\n          select#home-country.form-control(name='homeAddress[country]' data-placeholder=\"Your home country\"  placeholder='Select country')\n        .form-group\n          input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City')\n        .form-group\n          input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')\n        .form-group\n          textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address') \n    #contacts_edit.tab-pane.fade\n      .container\n        .page-header\n          h4\n            | Mobile\n        .form-group\n          input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1' autofocus)\n        .form-group\n          input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')\n      .container    \n        .page-header\n          h4\n            | Work\n        .form-group\n          input.form-control(type='text' name='contacts[work][phoneNumber]' placeholder='Enter phone number')\n        .form-group\n          input.form-control(type='text' name='contacts[work][fax]' placeholder='Fax')\n        .form-group\n          input.form-control(type='email' name='contacts[work][email]' placeholder='Email')             \n      .container\n        .page-header\n          h4\n            | Home\n        .form-group\n          input.form-control(type='text' name='contacts[home][phoneNumber]' placeholder='Enter phone number')\n        .form-group\n          input.form-control(type='text' name='contacts[home][fax]' placeholder='Fax')\n        .form-group\n          input.form-control(type='email' name='contacts[home][email]' placeholder='Email')");
 }
 };}, "views/user/form.new": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\form.new.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/form.new.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -16787,10 +16809,10 @@ buf.push("</fieldset>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul#profiles.nav.nav-tabs\r\n  li.active\r\n    a(data-toggle='tab' data-target='#basic_new' href=\"#\") Basic\r\n  li\r\n    a(data-toggle='tab' data-target='#addresses_new' href=\"#\") Addresses\r\n  li\r\n    a(data-toggle='tab' data-target='#contacts_new' href=\"#\") Contacts\r\nfieldset\r\n  #profiles_content.tab-content\r\n    #basic_new.tab-pane.fade.in.active\r\n      .row\r\n        .col-xs-6.col-md-3.avatar_fm_wrapper\r\n          .avatar_fm\r\n            a.edit Change Picture\r\n            a.purge Delete Picture\r\n          img#avatar.img-thumbnail(src=\"http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195\" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              \r\n        .col-xs-12.col-md-6\r\n          #name\r\n            .form-group                    \r\n              input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus)\r\n            .form-group                    \r\n              input.form-control(type='text' name='familyName' placeholder='Last name' required)\r\n          .form-group\r\n            input.form-control(type='email' name='primaryEmail' placeholder='Enter email' required)\r\n          #gender.form-group\r\n            label.radio-inline\r\n              input(type='radio' name='gender' value='Male' checked)\r\n              | Male\r\n            label.radio-inline\r\n              input(type='radio' name='gender' value='Female')\r\n              | Female                                    \r\n    #addresses_new.tab-pane.fade\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Work\r\n        .form-group\r\n          select#work-country.form-control(name='workAddress[country]' data-placeholder=\"Your work country\"  placeholder='Select country' autofocus)\r\n        .form-group\r\n          input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City')\r\n        .form-group\r\n          input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code')\r\n        .form-group\r\n          textarea.form-control(name='workAddress[streetAddress]' placeholder='Address')\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Home\r\n        .form-group\r\n          select#home-country.form-control(name='homeAddress[country]' data-placeholder=\"Your home country\"  placeholder='Select country')\r\n        .form-group\r\n          input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City')\r\n        .form-group\r\n          input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')\r\n        .form-group\r\n          textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address') \r\n    #contacts_new.tab-pane.fade\r\n      .container\r\n        .page-header\r\n          h4\r\n            | Mobile\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1' autofocus)\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')\r\n      .container    \r\n        .page-header\r\n          h4\r\n            | Work\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[work][phoneNumber]' placeholder='Enter phone number')\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[work][fax]' placeholder='Fax')\r\n        .form-group\r\n          input.form-control(type='email' name='contacts[work][email]' placeholder='Email')             \r\n      .container\r\n        .page-header\r\n          h4\r\n            | Home\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[home][phoneNumber]' placeholder='Enter phone number')\r\n        .form-group\r\n          input.form-control(type='text' name='contacts[home][fax]' placeholder='Fax')\r\n        .form-group\r\n          input.form-control(type='email' name='contacts[home][email]' placeholder='Email')");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,"ul#profiles.nav.nav-tabs\n  li.active\n    a(data-toggle='tab' data-target='#basic_new' href=\"#\") Basic\n  li\n    a(data-toggle='tab' data-target='#addresses_new' href=\"#\") Addresses\n  li\n    a(data-toggle='tab' data-target='#contacts_new' href=\"#\") Contacts\nfieldset\n  #profiles_content.tab-content\n    #basic_new.tab-pane.fade.in.active\n      .row\n        .col-xs-6.col-md-3.avatar_fm_wrapper\n          .avatar_fm\n            a.edit Change Picture\n            a.purge Delete Picture\n          img#avatar.img-thumbnail(src=\"http://www.gravatar.com/avatar/00000000000000000000000000000000?d=mm&f=y&s=195\" style='height: 180px; width: 100%; display: block; max-width: 195px;' title='Click to change your profile picture')              \n        .col-xs-12.col-md-6\n          #name\n            .form-group                    \n              input.form-control(type='text' name='givenName'  placeholder='First name' required autofocus)\n            .form-group                    \n              input.form-control(type='text' name='familyName' placeholder='Last name' required)\n          .form-group\n            input.form-control(type='email' name='primaryEmail' placeholder='Enter email' required)\n          #gender.form-group\n            label.radio-inline\n              input(type='radio' name='gender' value='Male' checked)\n              | Male\n            label.radio-inline\n              input(type='radio' name='gender' value='Female')\n              | Female                                    \n    #addresses_new.tab-pane.fade\n      .container\n        .page-header\n          h4\n            | Work\n        .form-group\n          select#work-country.form-control(name='workAddress[country]' data-placeholder=\"Your work country\"  placeholder='Select country' autofocus)\n        .form-group\n          input#work-city.form-control(type='text' name='workAddress[city]' placeholder='City')\n        .form-group\n          input.form-control(type='text' name='workAddress[postalCode]' placeholder='Postal Code')\n        .form-group\n          textarea.form-control(name='workAddress[streetAddress]' placeholder='Address')\n      .container\n        .page-header\n          h4\n            | Home\n        .form-group\n          select#home-country.form-control(name='homeAddress[country]' data-placeholder=\"Your home country\"  placeholder='Select country')\n        .form-group\n          input#home-city.form-control(type='text' name='homeAddress[city]' placeholder='City')\n        .form-group\n          input.form-control(type='text' name='homeAddress[postalCode]' placeholder='Postal Code')\n        .form-group\n          textarea.form-control(name='homeAddress[streetAddress]' placeholder='Address') \n    #contacts_new.tab-pane.fade\n      .container\n        .page-header\n          h4\n            | Mobile\n        .form-group\n          input.form-control(type='text' name='contacts[mobiles][mobile1]' placeholder='Enter mobile number 1' autofocus)\n        .form-group\n          input.form-control(type='text' name='contacts[mobiles][mobile2]' placeholder='Enter mobile number 2')\n      .container    \n        .page-header\n          h4\n            | Work\n        .form-group\n          input.form-control(type='text' name='contacts[work][phoneNumber]' placeholder='Enter phone number')\n        .form-group\n          input.form-control(type='text' name='contacts[work][fax]' placeholder='Fax')\n        .form-group\n          input.form-control(type='email' name='contacts[work][email]' placeholder='Email')             \n      .container\n        .page-header\n          h4\n            | Home\n        .form-group\n          input.form-control(type='text' name='contacts[home][phoneNumber]' placeholder='Enter phone number')\n        .form-group\n          input.form-control(type='text' name='contacts[home][fax]' placeholder='Fax')\n        .form-group\n          input.form-control(type='email' name='contacts[home][email]' placeholder='Email')");
 }
 };}, "views/user/form.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\form.toolbar.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/form.toolbar.jade" }];
 try {
 var buf = [];
 var locals_ = (locals || {}),title = locals_.title;jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -16871,10 +16893,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-link(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span\r\n  .btn-group.title\r\n    h3.title= title\r\n  .btn-group.pull-right\r\n    button.save.btn.btn-primary.btn-md(data-toggle='tooltip' data-placement='bottom' data-saving-text='Saving...' title='Save' type='button')\r\n      span.spin\r\n      span Save\r\n.shadow");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\n  .btn-group\n    button.btn.back.btn-md.btn-link(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\n      span.glyphicon.glyphicon-chevron-left\n      span\n  .btn-group.title\n    h3.title= title\n  .btn-group.pull-right\n    button.save.btn.btn-primary.btn-md(data-toggle='tooltip' data-placement='bottom' data-saving-text='Saving...' title='Save' type='button')\n      span.spin\n      span Save\n.shadow");
 }
 };}, "views/user/list.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\list.toolbar.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/list.toolbar.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -17111,10 +17133,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')\r\n      .checker\r\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\r\n      span New User\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n  .paging.pull-right\r\n    span.paging-info \r\n      strong.interval \r\n        span.start\r\n        |–\r\n        span.end\r\n      | of \r\n      strong.count\r\n    .btn-group\r\n      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')\r\n        span.glyphicon.glyphicon-chevron-left\r\n      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')\r\n        span.glyphicon.glyphicon-chevron-right\r\n.shadow\r\n");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\n  .btn-group\n    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')\n      .checker\n    button.new.btn.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Create new user' type='button')\n      span New User\n  .btn-group\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\n      span.glyphicon.glyphicon-refresh\n    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\n      span.glyphicon.glyphicon-trash\n  .more.btn-group\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\n      | More &nbsp;\n      span.caret\n    ul.dropdown-menu.squared\n      li\n        a(href='#') Suspend\n      li\n        a(href='#') Import\n      li.divider\n      li\n        a(href='#') Export\n  .paging.pull-right\n    span.paging-info \n      strong.interval \n        span.start\n        |–\n        span.end\n      | of \n      strong.count\n    .btn-group\n      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')\n        span.glyphicon.glyphicon-chevron-left\n      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')\n        span.glyphicon.glyphicon-chevron-right\n.shadow\n");
 }
 };}, "views/user/row": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\row.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/row.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -17177,10 +17199,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".user.tr  \r\n  .td.select\r\n    .checker\r\n  .td\r\n    span\r\n      b.fullName\r\n  .td\r\n    span\r\n      b.primaryEmail");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".user.tr  \n  .td.select\n    .checker\n  .td\n    span\n      b.fullName\n  .td\n    span\n      b.primaryEmail");
 }
 };}, "views/user/single": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\single.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/single.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -17192,10 +17214,10 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".user\r\n  ");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".user\n  ");
 }
 };}, "views/user/single.toolbar": function(exports, require, module) {module.exports = function anonymous(locals) {
-jade.debug = [{ lineno: 1, filename: "c:\\schola\\cl\\js\\views\\user\\single.toolbar.jade" }];
+jade.debug = [{ lineno: 1, filename: "/home/amadou/schola/cli/js/views/user/single.toolbar.jade" }];
 try {
 var buf = [];
 jade.debug.unshift({ lineno: 1, filename: jade.debug[0].filename });
@@ -17366,7 +17388,7 @@ buf.push("</div>");
 jade.debug.shift();
 jade.debug.shift();;return buf.join("");
 } catch (err) {
-  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\r\n  .btn-group\r\n    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\r\n      span.glyphicon.glyphicon-chevron-left\r\n      span &nbsp; Back\r\n  .btn-group\r\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\r\n      span.glyphicon.glyphicon-refresh\r\n  .btn-group\r\n    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')\r\n      span.glyphicon.glyphicon-edit\r\n    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\r\n      span.glyphicon.glyphicon-trash\r\n  .more.btn-group\r\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\r\n      | More &nbsp;\r\n      span.caret\r\n    ul.dropdown-menu.squared\r\n      li\r\n        a(href='#') Suspend\r\n      li\r\n        a(href='#') Import\r\n      li.divider\r\n      li\r\n        a(href='#') Export\r\n.shadow");
+  jade.rethrow(err, jade.debug[0].filename, jade.debug[0].lineno,".toolbar.btn-toolbar\n  .btn-group\n    button.btn.back.btn-md.btn-primary(data-toggle='tooltip' data-placement='bottom' title='Back' type='button')\n      span.glyphicon.glyphicon-chevron-left\n      span &nbsp; Back\n  .btn-group\n    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')\n      span.glyphicon.glyphicon-refresh\n  .btn-group\n    button.edit.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Edit' type='button')\n      span.glyphicon.glyphicon-edit\n    button.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')\n      span.glyphicon.glyphicon-trash\n  .more.btn-group\n    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')\n      | More &nbsp;\n      span.caret\n    ul.dropdown-menu.squared\n      li\n        a(href='#') Suspend\n      li\n        a(href='#') Import\n      li.divider\n      li\n        a(href='#') Export\n.shadow");
 }
 };}
 });

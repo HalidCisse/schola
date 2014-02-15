@@ -1,7 +1,9 @@
 package controllers
 
 import play.api.mvc._
-import schola.oadmin._, cl.SessionSupport, conversions.json._
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+
+import schola.oadmin._, cli.SessionSupport, conversions.json._
 
 import com.typesafe.plugin._
 
@@ -10,14 +12,7 @@ import scala.concurrent.Future
 import play.api.Play.current
 import play.api.libs.json.{ Json, Writes }
 
-trait ExecutionSystem {
-
-  implicit def system = play.libs.Akka.system
-
-  implicit def dispatcher = system.dispatcher
-}
-
-trait Helpers extends ExecutionSystem {
+trait Helpers {
   this: Controller =>
 
   @inline def json[C: Writes](content: Any) = Ok(Json.toJson(content.asInstanceOf[C]))

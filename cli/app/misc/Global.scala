@@ -2,9 +2,10 @@ package misc
 
 import play.api._
 import play.api.mvc._
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.mvc.Results._
 
-object Global extends GlobalSettings with controllers.ExecutionSystem {
+object Global extends GlobalSettings {
 
   override def onStart(app: Application) {
   }

@@ -14,7 +14,6 @@ object `package` {
     val Passwd: Option[String]
     val Namespace: String
     val Timeout: scala.concurrent.duration.Duration
-    val Hash: Boolean
   }
 
   class Memcached(settings: Settings) {
@@ -22,7 +21,6 @@ object `package` {
     import settings._
 
     /*system.registerOnTermination {
-      log.info("shutting down memcached client...")
       client.shutdown()
       Thread.interrupted()
     }*/
@@ -31,6 +29,12 @@ object `package` {
 
     lazy val client = {
       log.info("Starting Memcached client....")
+
+      val cf = new ConnectionFactoryBuilder()
+        .setProtocol(ConnectionFactoryBuilder.Protocol.BINARY)
+        .setHashAlg(new net.spy.memcached.HashAlgorithm {
+        override def hash(key: String) = utils.xxHash(key.getBytes)
+      })
 
       User map {
         memcacheUser =>
@@ -41,13 +45,12 @@ object `package` {
           // Use plain SASL to connect to memcached
           val ad = new AuthDescriptor(Array("PLAIN"),
             new PlainCallbackHandler(memcacheUser, memcachePassword))
-          val cf = new ConnectionFactoryBuilder()
-            .setProtocol(ConnectionFactoryBuilder.Protocol.BINARY)
-            .setAuthDescriptor(ad)
-            .build()
 
-          new MemcachedClient(cf, Hosts)
-      } getOrElse new MemcachedClient(Hosts)
+
+          new MemcachedClient(cf.setAuthDescriptor(ad)
+            .build(), Hosts)
+
+      } getOrElse new MemcachedClient(cf.build(), Hosts)
     }
 
     import java.io._
@@ -80,7 +83,7 @@ object `package` {
 
       def get(key: String) = {
         log.debug("Getting the cached for key " + Namespace + "." + key)
-        val future = client.asyncGet(hashKey(key), tc)
+        val future = client.asyncGet(Key(key), tc)
         try {
           val any = future.get(Timeout.length, Timeout.unit)
           if (any != null)
@@ -107,11 +110,11 @@ object `package` {
       }
 
       def set(key: String, value: Any, expiration: Int) {
-        client.set(hashKey(key), expiration, value, tc)
+        client.set(Key(key), expiration, value, tc)
       }
 
       def remove(key: String) {
-        client.delete(hashKey(key))
+        client.delete(Key(key))
       }
 
       def clearAll() {
@@ -119,8 +122,7 @@ object `package` {
       }
     }
 
-    protected def hashKey(key: String): String =
-      s"${Namespace}.${if (Hash) utils.xxHash(key.getBytes) else key}"
+    private def Key(key: String) = s"$Namespace.$key"
   }
 }
 

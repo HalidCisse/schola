@@ -1,53 +1,62 @@
 $ = require('jqueryify')
 
+R = jsRoutes.controllers
+
 class roles
 
   @getRoles: ->
-    $.getJSON "/api/v1/roles"
+    $.getJSON R.Roles.getRoles().url
+
+  @getRole: (name) ->
+    $.getJSON R.Roles.getRole(name).url
+
+  @getPermissions: ->
+    $.getJSON R.Roles.getPermissions().url
+
+  @getRolePermissions: (name) ->
+    $.getJSON R.Roles.getRolePermissions(name).url
 
   @addRole: (spec) ->
+    route = R.Roles.addRole(spec)
     $.ajax(
-      type: 'POST',
-      url: "/api/v1/roles",
-      dataType: 'json',
-      contentType: 'application/json; charset=UTF-8',
-      data: JSON.stringify(spec)
+      type: route.type
+      url: route.url
+      dataType: 'json'
     )
 
   @updateRole: (name, newName, parent) ->
+    route = R.Roles.updateRole(name, newName, parent)
     $.ajax(
-      type: 'PUT',
-      url: "/api/v1/roles/#{name}",
-      dataType: 'json',
-      contentType: 'application/json; charset=UTF-8',
-      data: JSON.stringify({name: newName, parent: parent})
+      type: route.type
+      url: route.url
+      dataType: 'json'
     )
 
-  @purgeRole: (roleName) ->
+  @purgeRoles: (roles) ->
+    route = R.Roles.purgeRoles(roles)
     $.ajax(
-      type: 'DELETE',
-      url: "/api/v1/role/#{roleName}",
+      type: route.type
+      url: route.url
       dataType: 'json'
     )        
 
   @grantPermissions: (roleName, permissions) ->
+    route = R.Roles.grantRolePermissions(roleName, permissions)
     $.ajax(
-      type: 'PUT',
-      url: "/api/v1/role/_/permissions",
-      dataType: 'json',
-      traditional: true,
-      data: {name: roleName, permissions: permissions}
+      type: route.type
+      url: route.url
+      dataType: 'json'
     )
 
   @revokePermissions: (roleName, permissions) ->
+    route = R.Roles.revokeRolePermissions(roleName, permissions)
     $.ajax(
-      type: 'DELETE',
-      url: "/api/v1/role/_/permissions?" + $.param({name: roleName, permissions: permissions}, true),
-      traditional: true,
+      type: route.type
+      url: route.url
       dataType: 'json'
     )
 
   @roleExists: (roleName) ->
-    $.getJSON "/api/v1/roleexists", {name: roleName}
+    $.getJSON R.Roles.roleExists(roleName).url
 
 module.exports = roles

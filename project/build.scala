@@ -1,5 +1,6 @@
 import sbt._
 import Keys._
+// import com.typesafe.sbt.SbtAtmosPlay.atmosPlaySettings
 
 object ApplicationBuild extends Build {
   import Common._
@@ -67,14 +68,19 @@ object ApplicationBuild extends Build {
   lazy val util = module("util")()
 
   lazy val oauth2Server = 
-    module("oauth2-server")().dependsOn(domain, servicesJdbc, util)
+    module("oauth2-server")(
+      ).dependsOn(domain, servicesJdbc, util)
+       // .settings(atmosPlaySettings: _*)
 
   lazy val httpPlay2 = 
-    module("http-play2")().dependsOn(domain, servicesJdbc, util)    
+    module("http-play2")(
+      ).dependsOn(domain, servicesJdbc, util)
+       // .settings(atmosPlaySettings: _*)   
 
   val cli = 
     module("cli")(
       ).dependsOn(domain, util)
+       // .settings(atmosPlaySettings: _*)
        .settings(
           libraryDependencies := libraryDependencies.value map(_ excludeAll(ExclusionRule(name = "avsl"))))
 }

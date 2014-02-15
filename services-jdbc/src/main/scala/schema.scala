@@ -3,7 +3,11 @@ package oadmin
 package schema
 
 object `package` {
-  val Q = scala.slick.driver.PostgresDriver.simple
+
+  val Q = {
+    Class.forName("org.postgresql.Driver")
+    scala.slick.driver.PostgresDriver.simple
+  }
 
   import Q._
 
@@ -13,6 +17,7 @@ object `package` {
   import scala.slick.model.ForeignKeyAction
 
   class OAuthTokens(tag: Tag) extends Table[OAuthToken](tag, "oauth_tokens") {
+
     def accessToken = column[String]("access_token", O.PrimaryKey)
 
     def clientId = column[String]("client_id", O.NotNull)
@@ -54,6 +59,7 @@ object `package` {
   }
 
   class OAuthClients(tag: Tag) extends Table[OAuthClient](tag, "oauth_clients") {
+
     def id = column[String]("client_id")
 
     def secret = column[String]("client_secret")
@@ -82,7 +88,7 @@ object `package` {
     gender: Gender,
     homeAddress: Option[AddressInfo],
     workAddress: Option[AddressInfo],
-    contacts: Contacts,
+    contacts: Option[Contacts],
     avatar: Option[String],
     activationKey: Option[String],
     _deleted: Boolean,
@@ -110,6 +116,7 @@ object `package` {
       id)
 
   class Users(tag: Tag) extends Table[User](tag, "users") {
+
     def id = column[java.util.UUID]("id", O.DBType("uuid"), O.PrimaryKey)
 
     def primaryEmail = column[String]("primary_email", O.NotNull)
@@ -130,13 +137,13 @@ object `package` {
 
     def lastModifiedBy = column[Option[java.util.UUID]]("last_modified_by", O.DBType("uuid"))
 
-    def gender = column[Gender.Value]("gender", O.NotNull, O.Default(Gender.Male))
+    def gender = column[Gender]("gender", O.NotNull, O.Default(Gender.Male))
 
     def homeAddress = column[Option[AddressInfo]]("home_address", O.DBType("text"))
 
     def workAddress = column[Option[AddressInfo]]("work_address", O.DBType("text"))
 
-    def contacts = column[Contacts]("contacts", O.DBType("text"))
+    def contacts = column[Option[Contacts]]("contacts", O.DBType("text"))
 
     def avatar = column[Option[String]]("avatar")
 
@@ -173,13 +180,14 @@ object `package` {
 
   implicit class UsersExtensions(val users: Query[Users, User]) extends AnyVal {
 
-    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: domain.Contacts = domain.Contacts(MobileNumbers(None, None), None, None), changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
+    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: Option[domain.Contacts] = None, changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
       usersAutoGenId.insert(email, password, givenName, familyName, createdAt, createdBy, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
 
     def forDeletion = cForDeletion
   }
 
   class Roles(tag: Tag) extends Table[Role](tag, "roles") {
+
     def name = column[String]("name", O.PrimaryKey)
 
     def parent = column[Option[String]]("parent")
@@ -202,6 +210,7 @@ object `package` {
   val Roles = TableQuery[Roles]
 
   class Permissions(tag: Tag) extends Table[Permission](tag, "permissions") {
+
     def name = column[String]("name", O.PrimaryKey)
 
     def clientId = column[String]("client_id", O.NotNull)
@@ -216,6 +225,7 @@ object `package` {
   val Permissions = TableQuery[Permissions]
 
   class RolesPermissions(tag: Tag) extends Table[RolePermission](tag, "roles_permissions") {
+
     def role = column[String]("role", O.NotNull)
 
     def permission = column[String]("permission", O.NotNull)
@@ -240,6 +250,7 @@ object `package` {
   private[this] val userRole = (userId: java.util.UUID, role: String, grantedAt: Long, grantedBy: Option[java.util.UUID]) => UserRole(userId, role, grantedAt, grantedBy)
 
   class UsersRoles(tag: Tag) extends Table[UserRole](tag, "users_roles") {
+
     def userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
 
     def role = column[String]("role", O.NotNull)
@@ -262,6 +273,7 @@ object `package` {
   val UsersRoles = TableQuery[UsersRoles]
 
   class Labels(tag: Tag) extends Table[Label](tag, "labels") {
+
     def name = column[String]("name", O.NotNull)
 
     def color = column[String]("color", O.NotNull)
@@ -281,6 +293,7 @@ object `package` {
   }
 
   class UsersLabels(tag: Tag) extends Table[UserLabel](tag, "users_labels") {
+
     def userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
 
     def label = column[String]("label", O.NotNull)

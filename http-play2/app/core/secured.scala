@@ -2,7 +2,7 @@ package schola
 package oadmin
 package http
 
-import play.api.{Plugin, Application}
+import play.api.{ Plugin, Application }
 import play.api.Play.current
 import play.api.mvc._
 import Results._
@@ -16,10 +16,12 @@ import unfiltered.request.QParams
 trait Secured {
 
   def errorString(status: String, description: String) =
-    """error="%s" error_description="%s" """.trim format(status, description)
+    """error="%s" error_description="%s" """.trim format (status, description)
 
-  /** The WWW-Authenticate challege returned to the clien tin a 401 response
-    * for invalid requests */
+  /**
+   * The WWW-Authenticate challege returned to the clien tin a 401 response
+   * for invalid requests
+   */
   val challenge: String = "Mac"
 
   /**
@@ -33,10 +35,9 @@ trait Secured {
     attrs.tail.foldLeft(
       attrs.headOption.foldLeft(challenge) {
         case (current, (key, value)) => s"""$current $key="$value" """
+      }) {
+        case (current, (key, value)) => current + s""",\n$key="$value" """
       }
-    ) {
-      case (current, (key, value)) => current + s""",\n$key="$value" """
-    }
   }
 
   /**
@@ -55,13 +56,12 @@ trait Secured {
 
       (status, description) match {
         case (Unauthorized, "") => Unauthorized(challenge) withHeaders ("WWW-Authenticate" -> challenge)
-        case (Unauthorized, _) => failedAuthenticationResponse(description)
-        case (BadRequest, _) => status(errorString("invalid_request", description))
-        case (Forbidden, _) => status(errorString("insufficient_scope", description))
-        case _ => status(errorString("Unknown error", description))
+        case (Unauthorized, _)  => failedAuthenticationResponse(description)
+        case (BadRequest, _)    => status(errorString("invalid_request", description))
+        case (Forbidden, _)     => status(errorString("insufficient_scope", description))
+        case _                  => status(errorString("Unknown error", description))
       }
     }
-
 
   def tokenSecret(key: String): Option[String] = use[Façade].oauthService.getTokenSecret(key)
 
@@ -70,7 +70,7 @@ trait Secured {
     Future.successful {
 
       use[AuthSource].authenticateToken(token, request) match {
-        case Left(msg) => errorResp(msg)
+        case Left(msg)                                       => errorResp(msg)
         case Right((userId, _ /*clientId*/ , _ /*scopes*/ )) => next(userId)
       }
     }
@@ -121,8 +121,10 @@ trait Secured {
 
 object Mac extends utils.Signing
 
-/** MAC Authorization extractor
-  * See also http://tools.ietf.org/html/draft-ietf-oauth-v2-http-mac-00 */
+/**
+ * MAC Authorization extractor
+ * See also http://tools.ietf.org/html/draft-ietf-oauth-v2-http-mac-00
+ */
 object MacAuthorization {
   val Id = "id"
   val Nonce = "nonce"
@@ -193,20 +195,21 @@ object MacAuthorization {
 case class ResourceOwner(id: String)
 
 case class MacAuthToken(
-                         id: String,
-                         secret: String,
-                         nonce: String,
-                         bodyhash: Option[String],
-                         ext: Option[String])
-
+  id: String,
+  secret: String,
+  nonce: String,
+  bodyhash: Option[String],
+  ext: Option[String])
 
 trait AuthSource extends Plugin {
-  /** Given an deserialized access token and request, extract the resource owner, client id, and list of scopes
-    * associated with the request, if there is an error return it represented as a string message
-    * to return the the oauth client */
+  /**
+   * Given an deserialized access token and request, extract the resource owner, client id, and list of scopes
+   * associated with the request, if there is an error return it represented as a string message
+   * to return the the oauth client
+   */
   def authenticateToken(
-                         token: MacAuthToken,
-                         request: RequestHeader): Either[String, (ResourceOwner, String, Seq[String])]
+    token: MacAuthToken,
+    request: RequestHeader): Either[String, (ResourceOwner, String, Seq[String])]
 
   /**
    * Auth sources which
@@ -233,9 +236,9 @@ class DefaultAuthSource(app: Application) extends AuthSource {
         use[Façade].oauthService.getUserSession(params) match {
 
           case Some(
-          domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
-          domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId), _), userAgent, _, _, scopes)
-          ) if userAgent == uA =>
+            domain.Session(_, _, clientId, issuedTime, expiresIn, _, _, _,
+              domain.User(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(userId), _), userAgent, _, _, scopes)
+            ) if userAgent == uA =>
 
             expiresIn match {
               case Some(expiry) =>

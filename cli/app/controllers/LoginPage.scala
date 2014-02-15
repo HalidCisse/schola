@@ -2,10 +2,11 @@ package controllers
 
 import play.api.mvc.{ DiscardingCookie, Action, Controller, Cookie }
 import play.api.Play.current
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import com.typesafe.plugin._
 
-import schola.oadmin._, cl.SessionSupport
+import schola.oadmin._, cli.SessionSupport
 
 import play.api.data.Form
 import play.api.data.Forms._

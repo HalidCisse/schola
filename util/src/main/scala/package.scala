@@ -43,3 +43,19 @@ object `package` {
 
   @inline def uuid(s: String) = scala.util.control.Exception.allCatch.opt { java.util.UUID.fromString(s) } getOrElse java.util.UUID.fromString("00000000-0000-0000-0000-000000000000")
 }
+
+// ------------------------------------------------------------------------------------------------------------
+
+trait MailingComponent {
+
+  val mailer: Mailer
+
+  trait Mailer {
+
+    def sendPasswordResetEmail(username: String, key: String)
+
+    def sendPasswordChangedNotice(username: String)
+
+    def sendWelcomeEmail(username: String, password: String)
+  }
+}

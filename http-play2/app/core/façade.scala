@@ -2,47 +2,76 @@ package schola
 package oadmin
 package http
 
-import play.api.{Plugin, Application}
-
-import com.mchange.v2.c3p0.ComboPooledDataSource
+import play.api.{ Plugin, Application }
 
 import com.typesafe.plugin._
 
 import play.api.Play.current
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
-trait ExecutionSystem {
+import com.mchange.v2.c3p0.ComboPooledDataSource
+import com.jolbox.bonecp.BoneCPDataSource
 
-  implicit def system = play.libs.Akka.system
-
-  implicit def dispatcher = system.dispatcher
+trait DB extends Plugin {
+  def db: schema.Q.Database
 }
 
-class DB(app: Application) extends Plugin {
+class C3P0(app: Application) extends DB {
   val db = schema.Q.Database.forDataSource(new ComboPooledDataSource)
 }
 
+class BoneCP(app: Application) extends DB {
+  val db = schema.Q.Database.forDataSource(new BoneCPDataSource)
+}
+
 trait Façade extends impl.AccessControlServicesRepoComponentImpl
-with impl.AccessControlServicesComponentImpl
-with impl.OAuthServicesRepoComponentImpl
-with impl.OAuthServicesComponentImpl
-with impl.UserServicesComponentImpl
-with impl.UserServicesRepoComponentImpl
-with impl.LabelServicesRepoComponentImpl
-with impl.LabelServicesComponentImpl
-with impl.AvatarServicesRepoComponentImpl
-with impl.AvatarServicesComponentImpl
-with CachingServicesComponent
-with impl.CachingAccessControlServicesComponentImpl
-with impl.CachingUserServicesComponentImpl
-with impl.CachingServicesComponentImpl
-with impl.CacheSystemProvider
-with Plugin {
+  with impl.AccessControlServicesComponentImpl
+  with impl.OAuthServicesRepoComponentImpl
+  with impl.OAuthServicesComponentImpl
+  with impl.UserServicesComponentImpl
+  with impl.UserServicesRepoComponentImpl
+  with impl.LabelServicesRepoComponentImpl
+  with impl.LabelServicesComponentImpl
+  with impl.AvatarServicesRepoComponentImpl
+  with impl.AvatarServicesComponentImpl
+  with CachingServicesComponent
+  with impl.CachingAccessControlServicesComponentImpl
+  with impl.CachingUserServicesComponentImpl
+  with impl.CachingServicesComponentImpl
+  with impl.CacheSystemProvider
+  with MailingComponent
+  with MailingComponentImpl
+  with Plugin
+
+class DefaultFaçade(app: Application) extends Façade {
+
+  implicit lazy val system = play.libs.Akka.system
+
+  lazy val cacheSystem = new impl.CacheSystem(config.getInt("cache.ttl"))
+
+  lazy val accessControlService = new AccessControlServicesImpl with CachingAccessControlServicesImpl {}
+
+  lazy val avatarServices = new AvatarServicesImpl
+
+  lazy val oauthService = new OAuthServicesImpl
+
+  lazy val userService = new UserServicesImpl with CachingUserServicesImpl {}
+
+  lazy protected val avatarServicesRepo = new AvatarServicesRepoImpl
+
+  lazy val labelService = new LabelServicesImpl
+
+  protected lazy val db = use[DB].db
+
+  lazy val mailer = new MailerImpl
+
+  // ----------------------------------------------------------------------------------------------------------
 
   import schema._
   import domain._
   import Q._
 
-  private[this] val log = Logger("oadmin.Façade")
+  private val log = Logger("oadmin.Façade")
 
   def withTransaction[T](f: Q.Session => T) =
     db.withTransaction {
@@ -117,7 +146,7 @@ with Plugin {
             | create table "oauth_clients" ("client_id" VARCHAR(254) NOT NULL,"client_secret" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL);
             | alter table "oauth_clients" add constraint "CLIENT_PK" primary key("client_id","client_secret");
             | create unique index "CLIENT_CLIENT_ID_INDEX" on "oauth_clients" ("client_id");
-            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text NOT NULL,"avatar" VARCHAR(254),"user_activation_key" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY);
+            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text,"avatar" VARCHAR(254),"user_activation_key" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY);
             | create unique index "USER_USERNAME_INDEX" on "users" ("primary_email");
             | create index "USER_USERNAME_PASSWORD_INDEX" on "users" ("primary_email","password");
             | create table "roles" ("name" VARCHAR(254) NOT NULL PRIMARY KEY,"parent" VARCHAR(254),"created_at" BIGINT NOT NULL,"created_by" uuid,"public" BOOLEAN DEFAULT true NOT NULL);
@@ -270,7 +299,7 @@ with Plugin {
         homeAddress = Some(AddressInfo(rndString(10), rndString(10), rndPostalCode, rndStreetAddress)),
         workAddress = Some(AddressInfo(rndString(10), rndString(10), rndPostalCode, rndStreetAddress)),
 
-        contacts = Contacts(MobileNumbers(Some(rndPhone), None), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone))), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone)))),
+        contacts = Some(Contacts(Some(MobileNumbers(Some(rndPhone), None)), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone))), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone))))),
 
         changePasswordAtNextLogin = false,
         id = Some(java.util.UUID.randomUUID))
@@ -338,7 +367,7 @@ with Plugin {
 
     () => withTransaction { implicit s =>
 
-      users foreach { u => accessControlService.revokeUserRole(u.id.get.toString, roles.seq.map(_.name).toSet) }
+      users foreach { u => accessControlService.revokeUserRoles(u.id.get.toString, roles.seq.map(_.name).toSet) }
       roles foreach { r => accessControlService.revokeRolePermission(r.name, permissions.seq.map(_.name).toSet) }
 
       users foreach (u => userService.purgeUsers(Set(u.id.get.toString)))
@@ -346,24 +375,93 @@ with Plugin {
 
       Permissions where (_.name inSet permissions.seq.map(_.name)) delete
     }
-  }  
+  }
 }
 
-class DefaultFaçade(app: Application) extends Façade with ExecutionSystem {
+trait MailingComponentImpl extends MailingComponent {
+  
+  class MailerImpl extends Mailer {
 
-  lazy val cacheSystem = new impl.CacheSystem(config.getInt("cache.ttl"))
+    private[this] val log = Logger("http.MailerImpl")
 
-  lazy val accessControlService = new AccessControlServicesImpl with CachingAccessControlServicesImpl {}
+    def sendPasswordResetEmail(username: String, key: String) {
+      val subj = "[Schola] Password reset request"
 
-  lazy val avatarServices = new AvatarServicesImpl
+      val msg = s"""
+        | Someone requested that the password be reset for the following account:\r\n\r\n
+        | Username: $username \r\n\r\n
+        | If this was a mistake, just ignore this email and nothing will happen. \r\n\r\n
+        | To reset your password, visit the following address:\r\n\r\n
+        | < http://$Hostname${if (Port == 80) "" else ":" + Port}/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
 
-  lazy val oauthService = new OAuthServicesImpl
+      sendEmail(subj, username, (Some(msg), None))
+    }
 
-  lazy val userService = new UserServicesImpl with CachingUserServicesImpl {}
+    def sendPasswordChangedNotice(username: String) {
+      val subj = "[Schola] Password change notice"
 
-  lazy protected val avatarServicesRepo = new AvatarServicesRepoImpl
+      val msg = s"""
+        | Someone just changed the password for the following account:\r\n\r\n
+        | Username: $username \r\n\r\n
+        | If this was you, congratulation! the change was successfull. \r\n\r\n
+        | Otherwise, contact your administrator immediately.\r\n""".stripMargin
 
-  lazy val labelService = new LabelServicesImpl
+      sendEmail(subj, username, (Some(msg), None))
+    }
 
-  protected lazy val db = use[DB].db  
+    def sendWelcomeEmail(username: String, password: String) {
+      val subj = "[Schola] Welcome to Schola!"
+
+      val msg = s"""
+        | Congratulation, your account was successfully created.\r\n\r\n
+        | Here are the details:\r\n\r\n
+        | Username: $username \r\n\r\n
+        | Password: $password \r\n\r\n
+        | Sign in immediately at < http://$Hostname${if (Port == 80) "" else ":" + Port}/Login > to reset your password and start using the service.\r\n\r\n
+        | Thank you.\r\n""".stripMargin
+
+      sendEmail(subj, username, (Some(msg), None))
+    }
+
+    lazy val fromAddress = implicitly[Application].configuration.getString("smtp.from").getOrElse(throw new RuntimeException("From addres is required."))
+
+    private lazy val mailerRepo = use[com.typesafe.plugin.MailerPlugin].email
+
+    private def sendEmail(subject: String, recipient: String, body: (Option[String], Option[String])){
+      import scala.concurrent.duration._
+
+      if (log.isDebugEnabled) {
+        log.debug("[oadmin] sending email to %s".format(recipient))
+        log.debug("[oadmin] mail = [%s]".format(body))
+      }
+
+      play.libs.Akka.system.scheduler.scheduleOnce(1 second) {
+
+        mailerRepo.setSubject(subject)
+        mailerRepo.setRecipient(recipient)
+        mailerRepo.setFrom(fromAddress)
+
+        mailerRepo.setReplyTo(fromAddress)
+
+        // the mailer plugin handles null / empty string gracefully
+        mailerRepo.send(body._1 getOrElse "", body._2 getOrElse "")
+      }
+    }
+  }
 }
+
+/*
+
+import schola.oadmin._, schema._, domain._, http._
+
+//import com.mchange.v2.c3p0.ComboPooledDataSource
+import com.jolbox.bonecp.BoneCPDataSource
+
+//object d extends DefaultFaçade(null) { override lazy val db = schema.Q.Database.forDataSource(new ComboPooledDataSource); override implicit val system =akka.actor.ActorSystem()  }
+object d extends DefaultFaçade(null) { override lazy val db = schema.Q.Database.forDataSource(new BoneCPDataSource { setDriverClass("org.postgresql.Driver") }); override implicit val system =akka.actor.ActorSystem()  }
+
+d.drop()
+d.init(U.SuperUser.id.get)
+d.genFixtures(d.system)
+
+*/ 

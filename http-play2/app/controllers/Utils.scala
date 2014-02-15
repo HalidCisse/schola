@@ -2,10 +2,11 @@ package controllers
 
 import play.api.mvc._
 import play.api.Play.current
-import play.api.libs.json.{Json, Writes}
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import play.api.libs.json.{ Json, Writes }
 import play.api.Routes
 
-import schola.oadmin._, schola.oadmin.http.{ExecutionSystem, Façade}, conversions.json._
+import schola.oadmin._, http.Façade, conversions.json._
 
 import com.typesafe.plugin._
 
@@ -17,7 +18,7 @@ trait Helpers {
   @inline implicit def set[X](list: List[X]) = list.toSet
 }
 
-object Utils extends Controller with Helpers with ExecutionSystem {
+object Utils extends Controller with Helpers {
 
   def getSessionInfo(token: String) =
     Action.async {
@@ -35,7 +36,7 @@ object Utils extends Controller with Helpers with ExecutionSystem {
 
               use[Façade].oauthService.getUserSession(params) match {
                 case Some(session) => json[domain.Session](session)
-                case _ => NotFound
+                case _             => NotFound
               }
           }
         }
@@ -85,8 +86,6 @@ object Utils extends Controller with Helpers with ExecutionSystem {
           routes.javascript.Tags.addTag,
           routes.javascript.Tags.updateTag,
           routes.javascript.Tags.updateTagColor,
-          routes.javascript.Tags.purgeTags
-        )
-      ).as(JAVASCRIPT)
+          routes.javascript.Tags.purgeTags)).as(JAVASCRIPT)
   }
 }

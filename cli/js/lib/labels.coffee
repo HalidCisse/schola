@@ -1,58 +1,42 @@
 $ = require('jqueryify')
 
+R = jsRoutes.controllers
+
 class labels
 
   @getLabels: ->
-    $.getJSON "/api/v1/labels"
+    $.getJSON R.Tags.getTags().url
 
   @addLabel: (label, color) ->
+    route = R.Roles.addTag(label, color)
     $.ajax(
-      type: 'POST',
-      url: "/api/v1/labels",
-      dataType: 'json',
-      data: {label, color}
-    )
-
-  @updateLabelColor: (name, color) ->
-    $.ajax(
-      type: 'PUT',
-      url: "/api/v1/label/#{name}/color",
-      dataType: 'json',
-      data: {color: color}
-    )
-
-  @updateLabelname: (name, newName) ->
-    $.ajax(
-      type: 'PUT',
-      url: "/api/v1/label/#{name}",
-      dataType: 'json',
-      data: {label: newName}
-    )    
-
-  @purgeLabels: (labels) ->
-    $.ajax(
-      type: 'DELETE',
-      url: "/api/v1/labels?" + $.param({labels}, true),
+      type: route.type
+      url: route.url
       dataType: 'json'
     )
 
-  @labelUser: (userId, labels) ->
+  @updateLabelColor: (name, color) ->
+    route = R.Roles.updateTagColor(name, color)
     $.ajax(
-      type: 'PUT',
-      url: "/api/v1/user/#{userId}/labels",
-      dataType: 'json',
-      traditional: true,
-      data: {labels}
+      type: route.type
+      url: route.url
+      dataType: 'json'
     )
 
-  @unLabelUser: (userId, labels) ->
+  @updateLabel: (name, newName) ->
+    route = R.Roles.updateTag(name, newName)
     $.ajax(
-      type: 'DELETE',
-      url: "/api/v1/user/#{userId}/labels?" + $.param({labels}, true),
-      dataType: 'json'    
-    )
+      type: route.type
+      url: route.url
+      dataType: 'json'
+    )    
 
-  @getUserLabels: (userId) ->
-    $.getJSON "/api/v1/user/#{userId}/labels"
+  @purgeLabels: (labels) ->
+    route = R.Roles.purgeTags(labels)
+    $.ajax(
+      type: route.type
+      url: route.url
+      dataType: 'json'
+    )
 
 module.exports = labels

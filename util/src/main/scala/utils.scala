@@ -2,95 +2,6 @@ package schola
 package oadmin
 package utils
 
-// ------------------------------------------------------------------------------------------------------------
-
-object Mailer {
-
-  private val log = Logger("oadmin.mailer")
-
-  def sendPasswordResetEmail(username: String, key: String)(implicit system: akka.actor.ActorSystem) {
-    val subj = "[Schola] Password reset request"
-
-    val msg = s"""
-      | Someone requested that the password be reset for the following account:\r\n\r\n
-      | Username: $username \r\n\r\n
-      | If this was a mistake, just ignore this email and nothing will happen. \r\n\r\n
-      | To reset your password, visit the following address:\r\n\r\n
-      | < http://$Hostname${if (Port == 80) "" else ":" + Port}/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
-
-    sendEmail(subj, username, (Some(msg), None))
-  }
-
-  def sendPasswordChangedNotice(username: String)(implicit system: akka.actor.ActorSystem) {
-    val subj = "[Schola] Password change notice"
-
-    val msg = s"""
-      | Someone just changed the password for the following account:\r\n\r\n
-      | Username: $username \r\n\r\n
-      | If this was you, congratulation! the change was successfull. \r\n\r\n
-      | Otherwise, contact your administrator immediately.\r\n""".stripMargin
-
-    sendEmail(subj, username, (Some(msg), None))
-  }
-
-  def sendWelcomeEmail(username: String, password: String)(implicit system: akka.actor.ActorSystem) {
-    val subj = "[Schola] Welcome to Schola!"
-
-    val msg = s"""
-      | Congratulation, your account was successfully created.\r\n\r\n
-      | Here are the details:\r\n\r\n
-      | Username: $username \r\n\r\n
-      | Password: $password \r\n\r\n
-      | Sign in immediately at < http://$Hostname${if (Port == 80) "" else ":" + Port}/Login > to reset your password and start using the service.\r\n\r\n
-      | Thank you.\r\n""".stripMargin
-
-    sendEmail(subj, username, (Some(msg), None))
-  }
-
-  val fromAddress = config.getString("smtp.from")
-
-  private lazy val mock = config.getBoolean("smtp.mock")
-
-  private lazy val mailer: MailerAPI = if (mock) {
-    MockMailer
-  } else {
-
-    import scala.util.control.Exception.allCatch
-
-    val smtpHost = config.getString("smtp.mailhub")
-    val smtpPort = config.getInt("smtp.port")
-    val smtpSsl = config.getBoolean("smtp.ssl")
-    val smtpTls = config.getBoolean("smtp.tls")
-
-    val smtpUser = allCatch.opt { config.getString("smtp.user") }
-    val smtpPassword = allCatch.opt { config.getString("smtp.password") }
-
-    new CommonsMailer(smtpHost, smtpPort, smtpSsl, smtpTls, smtpUser, smtpPassword)
-  }
-
-  private def sendEmail(subject: String, recipient: String, body: (Option[String], Option[String]))(implicit system: akka.actor.ActorSystem) {
-    import scala.concurrent.duration._
-    import system.dispatcher
-
-    if (log.isDebugEnabled) {
-      log.debug("[oadmin] sending email to %s".format(recipient))
-      log.debug("[oadmin] mail = [%s]".format(body))
-    }
-
-    system.scheduler.scheduleOnce(1 second) {
-
-      mailer.setSubject(subject)
-      mailer.setRecipient(recipient)
-      mailer.setFrom(fromAddress)
-
-      mailer.setReplyTo(fromAddress)
-
-      // the mailer plugin handles null / empty string gracefully
-      mailer.send(body._1 getOrElse "", body._2 getOrElse "")
-    }
-  }
-}
-
 // -------------------------------------------------------------------------------------------------------------------------
 
 object Crypto {
@@ -193,10 +104,7 @@ object `package` {
 
     val f = XXHashFactory.fastestInstance().hash32
 
-    (bytes: Array[Byte]) => {
-      val x = f.hash(bytes, 0, bytes.length, 0xCAFEBABE)
-      Integer.toHexString(x)
-    }
+    (bytes: Array[Byte]) => f.hash(bytes, 0, bytes.length, 0xCAFEBABE)
   }
 
   @inline def timeF(thunk: => Any) = {

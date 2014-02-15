@@ -17,21 +17,10 @@ trait LabelServicesComponentImpl extends LabelServicesComponent {
     def remove(labels: Set[String]) {
       labelServiceRepo.remove(labels)
     }
-
-    def labelUser(userId: String, labels: Set[String]) {
-      labelServiceRepo.labelUser(userId, labels)
-    }
-
-    def unLabelUser(userId: String, labels: Set[String]) {
-      labelServiceRepo.unLabelUser(userId, labels)
-    }
-
-    def getUserLabels(userId: String) = labelServiceRepo.getUserLabels(userId)
   }
 }
 
 trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
-  this: LabelServicesComponent =>
 
   import schema._
   import domain._
@@ -61,13 +50,6 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
           Labels where (_.name is label) map (_.name)
 
         Compiled(getLabelName _)
-      }
-
-      val forUser = {
-        def getUserLabels(userId: Column[java.util.UUID]) =
-          UsersLabels where (_.userId is userId)
-
-        Compiled(getUserLabels _)
       }
     }
 
@@ -108,7 +90,7 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
       } {
         case Label(name, colorInDB) =>
 
-          for (c <- color if c ne colorInDB)
+          for (c <- color if c != colorInDB)
             db.withTransaction { implicit session =>
               labelInDB.update(Label(label, c))
             }
@@ -123,37 +105,5 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
 
         labelsInDB.delete
       }
-
-    def labelUser(userId: String, labels: Set[String]) = {
-      val id = uuid(userId)
-
-      labels foreach {
-        label =>
-
-          val result = findOrNew(label)
-
-          result match {
-            case Some(Label(name, _)) => db.withTransaction { implicit s => UsersLabels += UserLabel(id, name) }
-            case _                    => {}
-          }
-      }
-    }
-
-    def unLabelUser(userId: String, labels: Set[String]) =
-      db.withTransaction { implicit session =>
-        val userLabel = UsersLabels where (uL => (uL.userId is uuid(userId)) && (uL.label inSet labels))
-
-        userLabel.delete
-      }
-
-    def getUserLabels(userId: String) = {
-      import Database.dynamicSession
-
-      val userLabels = oq.forUser(uuid(userId))
-
-      db.withDynSession {
-        userLabels.list
-      }
-    }
   }
 }

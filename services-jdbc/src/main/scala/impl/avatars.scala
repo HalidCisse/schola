@@ -65,9 +65,9 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
   }
 
   def receive = {
-    case Avatars.Save(userId, filename, contentType, fdata) =>
+    case Avatars.Save(userId, filename, contentType, bytes) =>
 
-      uploadAvatar(userId, filename, contentType, fdata, sender)
+      uploadAvatar(userId, filename, contentType, bytes, sender)
 
     case Avatars.Get(id) =>
 

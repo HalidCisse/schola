@@ -6,10 +6,11 @@ import play.api.data.Form
 import play.api.data.Forms._
 
 import play.api.Play.current
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import com.typesafe.plugin._
 
-import schola.oadmin._, domain._, cl.SessionSupport, conversions.json._
+import schola.oadmin._, domain._, cli.SessionSupport, conversions.json._
 import play.api.libs.iteratee.{ Iteratee, Enumerator }
 
 /**
@@ -49,7 +50,7 @@ object Profile extends Controller with Helpers {
     gender: Gender,
     homeAddress: Option[AddressInfo],
     workAddress: Option[AddressInfo],
-    contacts: Contacts)
+    contacts: Option[Contacts])
 
   implicit def UserToInfo(user: domain.User) = UserInfo(user.primaryEmail, None, user.givenName, user.familyName, user.gender, user.homeAddress, user.workAddress, user.contacts)
 
@@ -72,10 +73,10 @@ object Profile extends Controller with Helpers {
         Country -> text,
         PostalCode -> text,
         StreetAddress -> text)(AddressInfo)(AddressInfo.unapply)),
-      Contacts -> mapping(
-        Mobiles -> mapping(
+      Contacts -> optional(mapping(
+        Mobiles -> optional(mapping(
           Mobile1 -> optional(text),
-          Mobile2 -> optional(text))(MobileNumbers)(MobileNumbers.unapply),
+          Mobile2 -> optional(text))(MobileNumbers)(MobileNumbers.unapply)),
         Home -> optional(mapping(
           Email -> optional(email),
           PhoneNumber -> optional(text),
@@ -83,7 +84,7 @@ object Profile extends Controller with Helpers {
         Work -> optional(mapping(
           Email -> optional(email),
           PhoneNumber -> optional(text),
-          Fax -> optional(text))(ContactInfo)(ContactInfo.unapply)))(domain.Contacts)(domain.Contacts.unapply)) {
+          Fax -> optional(text))(ContactInfo)(ContactInfo.unapply)))(domain.Contacts)(domain.Contacts.unapply))) {
 
         (primaryEmail, passwords, givenName, familyName, gender, homeAddress, workAddress, contacts) => UserInfo(primaryEmail, passwords map (_._1), givenName, familyName, gender, homeAddress, workAddress, contacts)
 

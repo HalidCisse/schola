@@ -24,24 +24,34 @@ trait UserServicesComponentImpl extends UserServicesComponent {
 
     def undeleteUsers(users: Set[String]) = userServiceRepo.undeleteUsers(users)
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem) = userServiceRepo.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean) = userServiceRepo.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin)
 
-    def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem) = userServiceRepo.updateUser(id, spec)
+    def updateUser(id: String, spec: domain.UserSpec) = userServiceRepo.updateUser(id, spec)
 
     def primaryEmailExists(primaryEmail: String) = userServiceRepo.primaryEmailExists(primaryEmail)
 
-    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem) = userServiceRepo.createPasswdResetReq(username)
+    def labelUser(userId: String, labels: Set[String]) {
+      userServiceRepo.labelUser(userId, labels)
+    }
+
+    def unLabelUser(userId: String, labels: Set[String]) {
+      userServiceRepo.unLabelUser(userId, labels)
+    }
+
+    def getUserLabels(userId: String) = userServiceRepo.getUserLabels(userId)
+
+    def createPasswdResetReq(username: String) = userServiceRepo.createPasswdResetReq(username)
 
     def checkActivationReq(username: String, ky: String) = userServiceRepo.checkActivationReq(username, ky)
 
-    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem) = userServiceRepo.resetPasswd(username, ky, newPasswd)
+    def resetPasswd(username: String, ky: String, newPasswd: String) = userServiceRepo.resetPasswd(username, ky, newPasswd)
 
     def getPage(userId: String) = userServiceRepo.getPage(userId)
   }
 }
 
 trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
-  this: UserServicesComponent with LabelServicesComponent with AvatarServicesComponent =>
+  this: AvatarServicesComponent with MailingComponent =>
 
   import schema._
   import domain._
@@ -65,7 +75,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
         implicit object GetUUIDOption extends GetResult[Option[java.util.UUID]] { def apply(rs: PositionedResult) = rs.nextStringOption map (uuid) }
         implicit object GetGender extends GetResult[domain.Gender] { def apply(rs: PositionedResult) = domain.Gender.withName(rs.nextString()) }
         implicit object GetAddressOption extends GetResult[Option[domain.AddressInfo]] { def apply(rs: PositionedResult) = conversions.jdbc.addressInfoTypeMapper.nextOption(rs) }
-        implicit object GetContacts extends GetResult[domain.Contacts] { def apply(rs: PositionedResult) = conversions.jdbc.contactsTypeMapper.nextValue(rs) }
+        implicit object GetContacts extends GetResult[Option[domain.Contacts]] { def apply(rs: PositionedResult) = conversions.jdbc.contactsTypeMapper.nextOption(rs) }
       }
 
       def users(page: Int) = {
@@ -74,7 +84,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
         import Convs._
 
-        type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender, Option[domain.AddressInfo], Option[domain.AddressInfo], domain.Contacts, Option[String], Boolean, Option[String])
+        type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender, Option[domain.AddressInfo], Option[domain.AddressInfo], Option[domain.Contacts], Option[String], Boolean, Option[String])
 
         sql""" select
                  x2.x3, x2.x4, x2.x5, x2.x6, x2.x7, x2.x8, x2.x9, x2.x10, x2.x11, x2.x12, x2.x13, x2.x14, x2.x15, x2.x16, x2.x17, x3.label
@@ -149,6 +159,20 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
           Query(Users where (_.primaryEmail.toLowerCase is primaryEmail) exists)
 
         Compiled(getPrimaryEmail _)
+      }
+
+      val userLabel = {
+        def getUserLabels(userId: Column[java.util.UUID]) =
+          UsersLabels where (_.userId is userId)
+
+        Compiled(getUserLabels _)
+      }
+
+      val labelled = {
+        def getLabel(label: Column[String]) =
+          Labels where (_.name is label)
+
+        Compiled(getLabel _)
       }
 
       val forActivationKey = {
@@ -249,7 +273,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
       result map {
         case (sId, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin) =>
-          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(sId), labels = labelService.getUserLabels(sId.toString) map (_.label))
+          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(sId), labels = getUserLabels(sId.toString) map (_.label))
       }
     }
 
@@ -308,7 +332,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
       }
     }
 
-    def saveUser(primaryEmail: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem) =
+    def saveUser(primaryEmail: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean) =
       db.withTransaction { implicit session =>
         import scala.util.control.Exception.allCatch
 
@@ -339,12 +363,12 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
               log.info(s"[saveUser failed with $ex]")
               throw ex
           } finally {
-            utils.Mailer.sendWelcomeEmail(primaryEmail, password)
+            mailer.sendWelcomeEmail(primaryEmail, password)
           }
         }
       }
 
-    def updateUser(id: String, spec: UserSpec)(implicit system: akka.actor.ActorSystem) = {
+    def updateUser(id: String, spec: UserSpec) = {
       val uid = uuid(id)
       val username_passwd_contacts = oq.userUpdates.username_passwd_contacts(uid)
 
@@ -368,7 +392,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
                   spec.oldPassword.nonEmpty &&
                     (passwords verify (spec.oldPassword.get, sPassword)) &&
                     (oq.userUpdates.password(uid).update(passwords crypt password, false, currentTimestamp, Some(uid)) == 1) &&
-                    { utils.Mailer.sendPasswordChangedNotice(sUsername); true }
+                    { mailer.sendPasswordChangedNotice(sUsername); true }
               } getOrElse true)
 
               val _3 = _2 && (spec.givenName map {
@@ -404,46 +428,200 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
               _8 && {
 
-                spec.contacts map {
-                  case s =>
-
-                    import utils.If
-
-                    val Contacts(MobileNumbers(curMobile1, curMobile2), curHome, curWork) = sContacts
-
-                    val newHome = if (s.home eq None) curHome else Some {
-                      val tmp = s.home.get
-                      val empt = curHome.nonEmpty
-
-                      ContactInfo(
-                        email = If(tmp.email.set eq None, If(empt, curHome.get.email, None), tmp.email.set.get),
-                        fax = If(tmp.fax.set eq None, If(empt, curHome.get.fax, None), tmp.fax.set.get),
-                        phoneNumber = If(tmp.phoneNumber.set eq None, If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get))
-                    }
-
-                    val newWork = if (s.work eq None) curWork else Some {
-                      val tmp = s.work.get
-                      val empt = curWork.nonEmpty
-
-                      ContactInfo(
-                        email = If(tmp.email.set eq None, If(empt, curHome.get.email, None), tmp.email.set.get),
-                        fax = If(tmp.fax.set eq None, If(empt, curHome.get.fax, None), tmp.fax.set.get),
-                        phoneNumber = If(tmp.phoneNumber.set eq None, If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get))
-                    }
+                spec.contacts foreach {
+                  case o =>
 
                     val qContacts = oq.userUpdates.contacts(uid)
 
-                    (qContacts update ((
-                      Contacts(
-                        mobiles = MobileNumbers(If(s.mobiles.mobile1.set eq None, curMobile1, s.mobiles.mobile1.set.get), If(s.mobiles.mobile2.set eq None, curMobile2, s.mobiles.mobile2.set.get)),
-                        home = newHome,
-                        work = newWork),
-                        currentTimestamp,
-                        Some(uid)))) == 1
+                    o match {
 
-                } getOrElse true
+                      case Some(s) =>
+
+                        sContacts match {
+
+                          case Some(Contacts(curMobiles, curHome, curWork)) =>
+
+                            import utils.If
+
+                            val newHome = if (s.home.isEmpty) curHome else if (s.home.set.get eq None) None else Some {
+                              val tmp = s.home.set.get.get
+                              val empt = curHome.nonEmpty
+
+                              ContactInfo(
+                                email = If(tmp.email.set eq None, If(empt, curHome.get.email, None), tmp.email.set.get),
+                                fax = If(tmp.fax.set eq None, If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                                phoneNumber = If(tmp.phoneNumber.set eq None, If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get))
+                            }
+
+                            val newWork = if (s.work.isEmpty) curWork else if (s.work.set.get eq None) None else Some {
+                              val tmp = s.work.set.get.get
+                              val empt = curWork.nonEmpty
+
+                              ContactInfo(
+                                email = If(tmp.email.set eq None, If(empt, curHome.get.email, None), tmp.email.set.get),
+                                fax = If(tmp.fax.set eq None, If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                                phoneNumber = If(tmp.phoneNumber.set eq None, If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get))
+                            }
+
+                            val newMobiles = if (s.mobiles.isEmpty) curMobiles else if (s.mobiles.set.get eq None) None else Some {
+                              val tmp = s.mobiles.set.get.get
+                              val empt = curMobiles.nonEmpty
+
+                              MobileNumbers(
+                                mobile1 = If(tmp.mobile1.set eq None, If(empt, curMobiles.get.mobile1, None), tmp.mobile1.set.get),
+                                mobile2 = If(tmp.mobile2.set eq None, If(empt, curMobiles.get.mobile2, None), tmp.mobile2.set.get))
+                            }
+
+                            (qContacts update ((
+                              Some(Contacts(
+                                mobiles = newMobiles,
+                                home = newHome,
+                                work = newWork)),
+                              currentTimestamp,
+                              Some(uid)))) == 1
+
+                          case _ =>
+
+                            (s.mobiles foreach {
+                              m =>
+                                m match {
+                                  case Some(mobiles) =>
+                                    (mobiles.mobile1 foreach {
+                                      mobile1 =>
+                                        mobile1 match {
+                                          case m1 @ Some(_) =>
+                                            (qContacts update ((
+                                              Some(Contacts(
+                                                mobiles = Some(MobileNumbers(mobile1 = m1)))),
+                                              currentTimestamp,
+                                              Some(uid)))) == 1
+                                          case _ =>
+                                            (qContacts update ((
+                                              Some(Contacts(
+                                                mobiles = Some(MobileNumbers(mobile1 = None)))),
+                                              currentTimestamp,
+                                              Some(uid)))) == 1
+                                        }
+
+                                    }) && (mobiles.mobile2 foreach {
+                                      mobile2 =>
+                                        mobile2 match {
+                                          case m2 @ Some(_) =>
+                                            (qContacts update ((
+                                              Some(Contacts(
+                                                mobiles = Some(MobileNumbers(mobile2 = m2)))),
+                                              currentTimestamp,
+                                              Some(uid)))) == 1
+                                          case _ =>
+
+                                            (qContacts update ((
+                                              Some(Contacts(
+                                                mobiles = Some(MobileNumbers(mobile2 = None)))),
+                                              currentTimestamp,
+                                              Some(uid)))) == 1
+                                        }
+                                    })
+                                  case _ =>
+
+                                    (qContacts update ((
+                                      Some(Contacts(
+                                        mobiles = None)),
+                                      currentTimestamp,
+                                      Some(uid)))) == 1
+                                }
+
+                            }) && (s.home foreach {
+                              h =>
+                                h match {
+                                  case Some(home) =>
+
+                                    (home.email foreach {
+                                      email =>
+
+                                        (qContacts update ((
+                                          Some(Contacts(
+                                            home = Some(ContactInfo(email = email)))),
+                                          currentTimestamp,
+                                          Some(uid)))) == 1
+
+                                    }) && (home.phoneNumber foreach {
+                                      phoneNumber =>
+
+                                        (qContacts update ((
+                                          Some(Contacts(
+                                            home = Some(ContactInfo(phoneNumber = phoneNumber)))),
+                                          currentTimestamp,
+                                          Some(uid)))) == 1
+
+                                    }) && (home.fax foreach {
+                                      fax =>
+
+                                        (qContacts update ((
+                                          Some(Contacts(
+                                            home = Some(ContactInfo(fax = fax)))),
+                                          currentTimestamp,
+                                          Some(uid)))) == 1
+
+                                    })
+
+                                  case _ =>
+
+                                    (qContacts update ((
+                                      Some(Contacts(
+                                        home = None)),
+                                      currentTimestamp,
+                                      Some(uid)))) == 1
+                                }
+
+                            }) && (s.work foreach {
+                              w =>
+                                w match {
+                                  case Some(work) =>
+                                    (work.email foreach {
+                                      email =>
+
+                                        (qContacts update ((
+                                          Some(Contacts(
+                                            work = Some(ContactInfo(email = email)))),
+                                          currentTimestamp,
+                                          Some(uid)))) == 1
+
+                                    }) && (work.phoneNumber foreach {
+                                      phoneNumber =>
+
+                                        (qContacts update ((
+                                          Some(Contacts(
+                                            work = Some(ContactInfo(phoneNumber = phoneNumber)))),
+                                          currentTimestamp,
+                                          Some(uid)))) == 1
+
+                                    }) && (work.fax foreach {
+                                      fax =>
+
+                                        (qContacts update ((
+                                          Some(Contacts(
+                                            work = Some(ContactInfo(fax = fax)))),
+                                          currentTimestamp,
+                                          Some(uid)))) == 1
+
+                                    })
+                                  case _ =>
+
+                                    (qContacts update ((
+                                      Some(Contacts(
+                                        work = None)),
+                                      currentTimestamp,
+                                      Some(uid)))) == 1
+                                }
+                            })
+                        }
+
+                      case _ =>
+
+                        (qContacts update ((None, currentTimestamp, Some(uid)))) == 1
+                    }
+                }
               }
-
           }
 
         case _ => false
@@ -460,12 +638,48 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
       } getOrElse false
     }
 
-    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem) = db.withTransaction { implicit session =>
+    def labelUser(userId: String, labels: Set[String]) = {
+      val id = uuid(userId)
+
+      labels.par foreach {
+        label =>
+
+          val labelInDB = oq.labelled(label)
+
+          val result = db.withSession { implicit session =>
+            labelInDB.firstOption
+          }
+
+          result match {
+            case Some(Label(name, _)) => db.withTransaction { implicit s => UsersLabels += UserLabel(id, name) }
+            case _                    => {}
+          }
+      }
+    }
+
+    def unLabelUser(userId: String, labels: Set[String]) =
+      db.withTransaction { implicit session =>
+        val userLabel = UsersLabels where (uL => (uL.userId is uuid(userId)) && (uL.label inSet labels))
+
+        userLabel.delete
+      }
+
+    def getUserLabels(userId: String) = {
+      import Database.dynamicSession
+
+      val userLabels = oq.userLabel(uuid(userId))
+
+      db.withDynSession {
+        userLabels.list
+      }
+    }
+
+    def createPasswdResetReq(username: String) = db.withTransaction { implicit session =>
       val key = utils.Crypto.generateSecureToken
 
       val user = oq.forActivationKey(username)
 
-      if (user.update(Some(utils.genPasswd(key)), true /* Suspend account */ ) == 1) utils.Mailer.sendPasswordResetEmail(username, key)
+      if (user.update(Some(utils.genPasswd(key)), true /* Suspend account */ ) == 1) mailer.sendPasswordResetEmail(username, key)
       else throw new Exception("createPasswdResetReq: can not update user_activation_key")
     }
 
@@ -482,7 +696,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
       }
     }
 
-    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem) = db.withTransaction { implicit session =>
+    def resetPasswd(username: String, ky: String, newPasswd: String) = db.withTransaction { implicit session =>
       val user = oq.forActivation(username)
 
       val result = db.withSession { implicit session =>
@@ -494,7 +708,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
           utils.If(
             user.update(None, passwords crypt newPasswd, false /* Enable account */ ) == 1,
-            { utils.Mailer.sendPasswordChangedNotice(username); true },
+            { mailer.sendPasswordChangedNotice(username); true },
             false)
 
         case _ => false

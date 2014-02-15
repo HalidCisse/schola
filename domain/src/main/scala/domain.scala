@@ -47,11 +47,11 @@ object `package` {
 
   type Gender = Gender.Value
 
-  case class ContactInfo(email: Option[String], phoneNumber: Option[String], fax: Option[String])
+  case class ContactInfo(email: Option[String] = None, phoneNumber: Option[String] = None, fax: Option[String] = None)
 
-  case class MobileNumbers(mobile1: Option[String], mobile2: Option[String])
+  case class MobileNumbers(mobile1: Option[String] = None, mobile2: Option[String] = None)
 
-  case class Contacts(mobiles: MobileNumbers, home: Option[ContactInfo], work: Option[ContactInfo])
+  case class Contacts(mobiles: Option[MobileNumbers] = None, home: Option[ContactInfo] = None, work: Option[ContactInfo] = None)
 
   case class AddressInfo(city: String, country: String, postalCode: String, streetAddress: String)
 
@@ -72,7 +72,7 @@ object `package` {
       gender: Gender = Gender.Male,
       homeAddress: Option[AddressInfo] = None,
       workAddress: Option[AddressInfo] = None,
-      contacts: Contacts = Contacts(MobileNumbers(None, None), None, None),
+      contacts: Option[Contacts] = None,
       avatar: Option[String] = None,
       activationKey: Option[String] = None,
       _deleted: Boolean = false,

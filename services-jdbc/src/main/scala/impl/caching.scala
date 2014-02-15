@@ -3,6 +3,8 @@ package oadmin
 
 package impl
 
+import Types._
+
 trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent with AccessControlServicesComponent {
   this: CacheSystemProvider =>
 
@@ -64,7 +66,7 @@ trait CachingUserServicesComponentImpl extends CachingServicesComponent with Use
     abstract override def getUser(id: String) =
       cachingServices.get[Option[UserLike]](Params(id)) { super.getUser(id) } flatten
 
-    abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem) =
+    abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean) =
       super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) collect {
         case my =>
           cachingServices.evict(Params(my.id.get.toString))
@@ -74,7 +76,7 @@ trait CachingUserServicesComponentImpl extends CachingServicesComponent with Use
           my
       }
 
-    abstract override def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem) =
+    abstract override def updateUser(id: String, spec: domain.UserSpec) =
       super.updateUser(id, spec) && {
 
         cachingServices.evict(Params(id))

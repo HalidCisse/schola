@@ -71,8 +71,6 @@ object Cache {
     val Namespace = config.getString("namespace")
 
     val Timeout = Duration(config.getString("timeout"))
-
-    val Hash = config.getBoolean("hashkeys")
   }
 
   private object NullApi extends CacheAPI {

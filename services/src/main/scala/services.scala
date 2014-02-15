@@ -1,9 +1,7 @@
 package schola
 package oadmin
 
-trait ServiceComponentFactory {
-  val simple: OAuthServicesComponent with UserServicesComponent with AccessControlServicesComponent with LabelServicesComponent with AvatarServicesComponent
-}
+import Types._
 
 trait UserServicesComponent {
 
@@ -11,30 +9,6 @@ trait UserServicesComponent {
 
   trait UserServices {
 
-    type UserLike = {
-      val id: Option[java.util.UUID]
-      val primaryEmail: String
-      val password: Option[String]
-      val givenName: String
-      val familyName: String
-      val createdAt: Long
-      val createdBy: Option[java.util.UUID]
-      val lastModifiedAt: Option[Long]
-      val lastModifiedBy: Option[java.util.UUID]
-      val gender: domain.Gender
-      val homeAddress: Option[domain.AddressInfo]
-      val workAddress: Option[domain.AddressInfo]
-      val contacts: domain.Contacts
-      val avatar: Option[String]
-      val _deleted: Boolean
-      val suspended: Boolean
-      val changePasswordAtNextLogin: Boolean
-    }
-
-    type StatsLike = {
-      val count: Int
-    }
-
     def getUsersStats: StatsLike
 
     def getUsers(page: Int): List[UserLike]
@@ -51,29 +25,33 @@ trait UserServicesComponent {
 
     def undeleteUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem): Option[UserLike]
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean): Option[UserLike]
 
-    def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem): Boolean
+    def updateUser(id: String, spec: domain.UserSpec): Boolean
 
     def primaryEmailExists(email: String): Boolean
 
-    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem): Unit
+    def labelUser(userId: String, labels: Set[String])
+
+    def unLabelUser(userId: String, labels: Set[String])
+
+    def getUserLabels(userId: String): List[UserLabelLike]
+
+    def createPasswdResetReq(username: String): Unit
 
     def checkActivationReq(username: String, ky: String): Boolean
 
-    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem): Boolean
+    def resetPasswd(username: String, ky: String, newPasswd: String): Boolean
 
     def getPage(userId: String): Int
   }
 }
 
 trait UserServicesRepoComponent {
-  this: UserServicesComponent =>
 
   protected val userServiceRepo: UserServicesRepo
 
   trait UserServicesRepo {
-    import userService._
 
     def getUsersStats: StatsLike
 
@@ -91,66 +69,33 @@ trait UserServicesRepoComponent {
 
     def undeleteUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: domain.Contacts, changePasswordAtNextLogin: Boolean)(implicit system: akka.actor.ActorSystem): Option[UserLike]
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean): Option[UserLike]
 
-    def updateUser(id: String, spec: domain.UserSpec)(implicit system: akka.actor.ActorSystem): Boolean
+    def updateUser(id: String, spec: domain.UserSpec): Boolean
 
     def primaryEmailExists(email: String): Boolean
 
-    def createPasswdResetReq(username: String)(implicit system: akka.actor.ActorSystem): Unit
+    def labelUser(userId: String, labels: Set[String])
+
+    def unLabelUser(userId: String, labels: Set[String])
+
+    def getUserLabels(userId: String): List[UserLabelLike]
+
+    def createPasswdResetReq(username: String): Unit
 
     def checkActivationReq(username: String, ky: String): Boolean
 
-    def resetPasswd(username: String, ky: String, newPasswd: String)(implicit system: akka.actor.ActorSystem): Boolean
+    def resetPasswd(username: String, ky: String, newPasswd: String): Boolean
 
     def getPage(userId: String): Int
   }
 }
 
 trait OAuthServicesComponent {
-  this: UserServicesComponent =>
 
   val oauthService: OAuthServices
 
   trait OAuthServices {
-
-    type TokenLike = {
-      val accessToken: String
-      val clientId: String
-      val redirectUri: String
-      val userId: java.util.UUID
-      val refreshToken: Option[String]
-      val macKey: String
-      val uA: String
-      val expiresIn: Option[Long]
-      val refreshExpiresIn: Option[Long]
-      val createdAt: Long
-      val lastAccessTime: Long
-      val tokenType: String
-      val scopes: Set[String]
-    }
-
-    type ClientLike = {
-      val id: String
-      val secret: String
-      val redirectUri: String
-    }
-
-    type SessionLike = {
-      val key: String
-      val secret: String
-      val clientId: String
-      val issuedTime: Long
-      val expiresIn: Option[Long]
-      val refreshExpiresIn: Option[Long]
-      val refresh: Option[String]
-      val lastAccessTime: Long
-      val user: userService.UserLike
-      val userAgent: String
-      val hasRole: Map[String, Boolean]
-      val hasPermission: Map[String, Boolean]
-      val scopes: Set[String]
-    }
 
     def getTokenSecret(accessToken: String): Option[String]
 
@@ -173,12 +118,10 @@ trait OAuthServicesComponent {
 }
 
 trait OAuthServicesRepoComponent {
-  this: OAuthServicesComponent =>
 
   protected val oauthServiceRepo: OAuthServicesRepo
 
   trait OAuthServicesRepo {
-    import oauthService._
 
     def getTokenSecret(accessToken: String): Option[String]
 
@@ -238,60 +181,33 @@ trait AccessControlServicesComponent {
 
   trait AccessControlServices {
 
-    type RoleLike = {
-      val name: String
-      val parent: Option[String]
-      val createdAt: Long
-      val createdBy: Option[java.util.UUID]
-      val publiq: Boolean
-    }
-
-    type PermissionLike = {
-      val name: String
-      val clientId: String
-    }
-
-    type RolePermissionLike = {
-      val role: String
-      val permission: String
-      val grantedAt: Long
-      val grantedBy: Option[java.util.UUID]
-    }
-
-    type UserRoleLike = {
-      val userId: java.util.UUID
-      val role: String
-      val grantedAt: Long
-      val grantedBy: Option[java.util.UUID]
-    }
-
     def getRoles: List[RoleLike]
 
     def getRole(name: String): Option[RoleLike]
-
-    def getUserRoles(userId: String): List[UserRoleLike]
 
     def getPermissions: List[PermissionLike]
 
     def getRolePermissions(role: String): List[RolePermissionLike]
 
+    def getClientPermissions(clientId: String): List[PermissionLike]
+
+    def getUserRoles(userId: String): List[UserRoleLike]
+
     def getUserPermissions(userId: String): Set[String]
 
-    def getClientPermissions(clientId: String): List[PermissionLike]
+    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String])
+
+    def revokeUserRoles(userId: String, roles: Set[String])
+
+    def userHasRole(userId: String, role: String): Boolean
 
     def saveRole(name: String, parent: Option[String], createdBy: Option[String]): Option[RoleLike]
 
     def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String])
 
-    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String])
-
-    def revokeUserRole(userId: String, roles: Set[String])
-
     def revokeRolePermission(role: String, permissions: Set[String])
 
     def purgeRoles(roles: Set[String])
-
-    def userHasRole(userId: String, role: String): Boolean
 
     def roleHasPermission(role: String, permissions: Set[String]): Boolean
 
@@ -302,40 +218,38 @@ trait AccessControlServicesComponent {
 }
 
 trait AccessControlServicesRepoComponent {
-  this: AccessControlServicesComponent =>
 
   protected val accessControlServiceRepo: AccessControlServiceRepo
 
   trait AccessControlServiceRepo {
-    import accessControlService._
 
     def getRoles: List[RoleLike]
 
     def getRole(name: String): Option[RoleLike]
 
-    def getUserRoles(userId: String): List[UserRoleLike]
-
     def getPermissions: List[PermissionLike]
 
     def getRolePermissions(role: String): List[RolePermissionLike]
 
+    def getClientPermissions(clientId: String): List[PermissionLike]
+
+    def getUserRoles(userId: String): List[UserRoleLike]
+
     def getUserPermissions(userId: String): Set[String]
 
-    def getClientPermissions(clientId: String): List[PermissionLike]
+    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String])
+
+    def revokeUserRoles(userId: String, roles: Set[String])
+
+    def userHasRole(userId: String, role: String): Boolean
 
     def saveRole(name: String, parent: Option[String], createdBy: Option[String]): Option[RoleLike]
 
     def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String])
 
-    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String])
-
-    def revokeUserRole(userId: String, roles: Set[String])
-
     def revokeRolePermission(role: String, permissions: Set[String])
 
     def purgeRoles(roles: Set[String])
-
-    def userHasRole(userId: String, role: String): Boolean
 
     def roleHasPermission(role: String, permissions: Set[String]): Boolean
 
@@ -351,16 +265,6 @@ trait LabelServicesComponent {
 
   trait LabelServices {
 
-    type LabelLike = {
-      val name: String
-      val color: String
-    }
-
-    type UserLabelLike = {
-      val userId: java.util.UUID
-      val label: String
-    }
-
     def getLabels: List[LabelLike]
 
     def updateLabel(label: String, newName: String): Boolean
@@ -368,22 +272,14 @@ trait LabelServicesComponent {
     def findOrNew(label: String, color: Option[String]): Option[LabelLike]
 
     def remove(label: Set[String])
-
-    def labelUser(userId: String, labels: Set[String])
-
-    def unLabelUser(userId: String, labels: Set[String])
-
-    def getUserLabels(userId: String): List[UserLabelLike]
   }
 }
 
 trait LabelServicesRepoComponent {
-  this: LabelServicesComponent =>
 
   protected val labelServiceRepo: LabelServicesRepo
 
   trait LabelServicesRepo {
-    import labelService._
 
     def getLabels: List[LabelLike]
 
@@ -392,12 +288,6 @@ trait LabelServicesRepoComponent {
     def findOrNew(label: String, color: Option[String]): Option[LabelLike]
 
     def remove(label: Set[String])
-
-    def labelUser(userId: String, labels: Set[String])
-
-    def unLabelUser(userId: String, labels: Set[String])
-
-    def getUserLabels(userId: String): List[UserLabelLike]
   }
 }
 

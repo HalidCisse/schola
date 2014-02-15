@@ -4,7 +4,7 @@ package oadmin
 package impl
 
 trait OAuthServicesComponentImpl extends OAuthServicesComponent {
-  this: OAuthServicesRepoComponent with UserServicesComponent =>
+  this: OAuthServicesRepoComponent =>
 
   class OAuthServicesImpl extends OAuthServices {
 
@@ -30,7 +30,7 @@ trait OAuthServicesComponentImpl extends OAuthServicesComponent {
 }
 
 trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
-  this: OAuthServicesComponent with AccessControlServicesComponent with LabelServicesComponent with AvatarServicesComponent =>
+  this: AccessControlServicesComponent =>
 
   import schema._
   import domain._
@@ -299,7 +299,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
 
             import scala.util.control.Exception.allCatch
 
-            allCatch.opt {
+            utils.tryo {
               oq.lastAccessTime update (System.currentTimeMillis)
             } // Touch session
 

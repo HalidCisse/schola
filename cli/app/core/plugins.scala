@@ -1,16 +1,62 @@
 package schola
 package oadmin
-package cl
+package cli
 
 import play.api.{ Plugin, Logger, Application }
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import play.api.libs.json.{ JsValue, Json => PlayJson }
 
-class SessionSupport(app: Application) extends Plugin with controllers.ExecutionSystem {
+import domain._
 
-  import scala.concurrent.Future
+trait SessionSupport extends Plugin {
 
-  import conversions.json._, domain._
+  def session(sessionKey: String, userAgent: String): scala.concurrent.Future[Session]
+
+  def login(username: String, passwd: String, userAgent: String): scala.concurrent.Future[Session]
+
+  def logout(sessionKey: String): scala.concurrent.Future[Boolean]
+
+  def mac(session: Session, method: String, uri: String, userAgent: String): scala.concurrent.Future[Map[String, String]]
+
+  // Profile management
+
+  def getAvatar(sessionKey: String, userAgent: String): scala.concurrent.Future[AvatarInfo]
+
+  def purgeAvatar(sessionKey: String, userAgent: String): scala.concurrent.Future[Boolean]
+
+  def setAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
+
+  def updateAccount(
+    sessionKey: String,
+    userAgent: String,
+    primaryEmail: String,
+    password: Option[String],
+    givenName: String,
+    familyName: String,
+    gender: Gender,
+    homeAddress: Option[AddressInfo],
+    workAddress: Option[AddressInfo],
+    contacts: Option[Contacts]): scala.concurrent.Future[Boolean]
+
+  def changePasswd(sessionKey: String, userAgent: String, passwd: String, newPasswd: String): scala.concurrent.Future[Boolean]
+
+  def checkActivationReq(username: String, ky: String): scala.concurrent.Future[Boolean]
+
+  def createPasswdResetReq(username: String): scala.concurrent.Future[Boolean]
+
+  def resetPasswd(username: String, key: String, newPasswd: String): scala.concurrent.Future[Boolean]
+
+  def PublicKey: String
+
+  def PrivateKey: String
+
+  def reCaptchaVerify(challenge: String, response: String, remoteAddr: String): scala.concurrent.Future[Boolean]
+}
+
+class DefaultSessionSupport(app: Application) extends SessionSupport {
+
+  import conversions.json._
 
   import dispatch._
 
@@ -20,7 +66,7 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
   }
 
   override def onStart() {
-    Logger.info("[oadmin-cl] loaded session plugin: %s".format(getClass.getName))
+    Logger.info("[oadmin-cli] loaded session plugin: %s".format(getClass.getName))
   }
 
   val hostname = "localhost"
@@ -35,11 +81,11 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
   private val api = apiHost / "api" / API_VERSION
   private val session = api / "session"
 
-  def session(sessionKey: String, userAgent: String): Future[Session] =
+  def session(sessionKey: String, userAgent: String): scala.concurrent.Future[Session] =
     Http(session <<? Map("token" -> sessionKey) <:< Map("User-Agent" -> userAgent) OK Json) flatMap {
       json =>
 
-        json.asOpt[Session].fold[Future[Session]](Future.failed(new ScholaException(s"Invalid session [$sessionKey]"))) {
+        json.asOpt[Session].fold[scala.concurrent.Future[Session]](scala.concurrent.Future.failed(new ScholaException(s"Invalid session [$sessionKey]"))) {
           s =>
 
             def isExpired(s: Session) = s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
@@ -56,15 +102,15 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
 
                   (info \ "access_token")
                     .asOpt[String]
-                    .fold[Future[String]](Future.failed(new ScholaException(s"Could not refresh token [$sessionKey]"))) { accessToken => Future.successful(accessToken) }
+                    .fold[scala.concurrent.Future[String]](scala.concurrent.Future.failed(new ScholaException(s"Could not refresh token [$sessionKey]"))) { accessToken => scala.concurrent.Future.successful(accessToken) }
 
                 } flatMap { accessToken =>
                   session(accessToken, userAgent)
                 }
 
-              } else Future.failed(new ScholaException(s"No refresh token for expired session [$sessionKey]"))
+              } else scala.concurrent.Future.failed(new ScholaException(s"No refresh token for expired session [$sessionKey]"))
 
-            } else Future.successful(s)
+            } else scala.concurrent.Future.successful(s)
         }
 
     }
@@ -79,7 +125,7 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
 
       (info \ "access_token")
         .asOpt[String]
-        .fold[Future[String]](Future.failed(new ScholaException("Login failed"))) { sessionKey => Future.successful(sessionKey) }
+        .fold[scala.concurrent.Future[String]](scala.concurrent.Future.failed(new ScholaException("Login failed"))) { sessionKey => scala.concurrent.Future.successful(sessionKey) }
 
     } flatMap { accessToken =>
       session(accessToken, userAgent)
@@ -103,7 +149,7 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
 
     val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, Hostname, Port, "", "")
     unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
-      errMsg => Future.failed(new ScholaException(s"Invalid request: $errMsg"))
+      errMsg => scala.concurrent.Future.failed(new ScholaException(s"Invalid request: $errMsg"))
     }, {
       mac =>
 
@@ -111,7 +157,7 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
           "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
           "User-Agent" -> userAgent)
 
-        Future.successful(auth)
+        scala.concurrent.Future.successful(auth)
     })
   }
 
@@ -127,11 +173,11 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
           Http(api / "avatar" / session.user.avatar.get <:< auth + ("Accept" -> "application/json") OK Json) flatMap { json =>
 
             json.asOpt[AvatarInfo]
-              .fold[Future[AvatarInfo]](Future.failed(new ScholaException("Avatar not found."))) { avatarInfo => Future.successful(avatarInfo) }
+              .fold[scala.concurrent.Future[AvatarInfo]](scala.concurrent.Future.failed(new ScholaException("Avatar not found."))) { avatarInfo => scala.concurrent.Future.successful(avatarInfo) }
           }
         }
 
-      else Future.failed(new ScholaException("Avatar not found."))
+      else scala.concurrent.Future.failed(new ScholaException("Avatar not found."))
     }
 
   def purgeAvatar(sessionKey: String, userAgent: String) =
@@ -144,13 +190,13 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
           Http(api.DELETE / "user" / session.user.id.get.toString / "avatars" / session.user.avatar.get <:< auth OK Json) flatMap { json =>
 
             json.asOpt[Response]
-              .fold[Future[Boolean]](Future.successful(false)) { response => Future.successful(response.success) }
+              .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
           }
         }
       }
 
     catch {
-      case ex: Throwable => Future.failed(ex)
+      case ex: Throwable => scala.concurrent.Future.failed(ex)
     }
 
   def setAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
@@ -165,7 +211,7 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
         Http(api.POST / "user" / session.user.id.get.toString / "avatars" <:< auth addBodyPart new com.ning.http.multipart.FilePart("f", fs, contentType getOrElse "application/octet-stream; charset=UTF-8", "UTF-8") OK Json) flatMap { json =>
 
           json.asOpt[Response]
-            .fold[Future[Boolean]](Future.successful(false)) { response => Future.successful(response.success) }
+            .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
         }
       }
     }
@@ -180,7 +226,7 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
     gender: Gender,
     homeAddress: Option[AddressInfo],
     workAddress: Option[AddressInfo],
-    contacts: Contacts) = {
+    contacts: Option[Contacts]) = {
 
     val payload = // Validation already done at Profile.update
       PlayJson.obj(
@@ -217,25 +263,25 @@ class SessionSupport(app: Application) extends Plugin with controllers.Execution
     }
   }
 
-  def checkActivationReq(username: String, ky: String): Future[Boolean] =
+  def checkActivationReq(username: String, ky: String): scala.concurrent.Future[Boolean] =
     Http(api / "users" / "check_activation_req" <<? Map("username" -> username, "key" -> ky) OK Json) flatMap { json =>
 
       json.asOpt[domain.Response]
-        .fold[Future[Boolean]](Future.successful(false)) { response => Future.successful(response.success) }
+        .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
     }
 
   def createPasswdResetReq(username: String) =
     Http(api / "users" / "lostpassword" << Map("username" -> username) OK Json) flatMap { json =>
 
       json.asOpt[domain.Response]
-        .fold[Future[Boolean]](Future.successful(false)) { response => Future.successful(response.success) }
+        .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
     }
 
   def resetPasswd(username: String, key: String, newPasswd: String) =
     Http(api / "users" / "resetpassword" << Map("username" -> username, "key" -> key, "newPassword" -> newPasswd) OK Json) flatMap { json =>
 
       json.asOpt[domain.Response]
-        .fold[Future[Boolean]](Future.successful(false)) { response => Future.successful(response.success) }
+        .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
     }
 
   private val gCapcha = url("http://www.google.com/recaptcha/api/verify")

@@ -1,30 +1,21 @@
 package misc
 
-import play.api.mvc._
+import play.api.{ GlobalSettings, Application }
 import play.api.Play.current
 
-import schola.oadmin._, domain._, http.Façade
+import schola.oadmin._
 import com.typesafe.plugin._
 
-object Global extends GlobalSettings with controllers.ExecutionSystem {
+object Global extends GlobalSettings {
 
-  var cleanUp: Option[() => Unit] = None
+  private val log = Logger("misc.Global")
 
   override def onStart(app: Application) {
-     Logger.info("Starting application . . .")
-
-    try use[Façade].drop() catch {
-      case _: Throwable => Logger.info("DROP failed:")
-    }
-
-    use[Façade].init(U.SuperUser.id.get)
-
-    cleanUp = use[Façade].genFixtures   
+    log.info("Starting application . . .")
   }
 
   override def onStop(app: Application) = {
-    Logger.info("Application clean up . . .")
-    cleanUp.foreach(_())
-    Cache.clearAll()
+    log.info("Application clean up . . .")
+    // Cache.clearAll()
   }
 }

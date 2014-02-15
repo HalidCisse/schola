@@ -25,4 +25,6 @@ resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositori
 
 libraryDependencies += Common.unfilteredMac
 
+libraryDependencies += "com.typesafe" %% "play-plugins-mailer" % "2.2.0"
+
 play.Project.playScalaSettings

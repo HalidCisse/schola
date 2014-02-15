@@ -5,7 +5,9 @@ package domain
 trait UpdateSpec[T] {
   def set: Option[Option[T]]
 
-  def foreach(f: Option[T] => Boolean) = set map f getOrElse true
+  @inline final def foreach(f: Option[T] => Boolean) = set map f getOrElse true
+
+  @inline final def isEmpty = set eq None
 }
 
 trait SetSpec[T] {
@@ -25,17 +27,17 @@ trait UserSpec {
     mobile1: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
     mobile2: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
 
-  case class ContactInfoSpec[T](
+  case class ContactInfoSpec(
     email: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
     fax: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
     phoneNumber: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
 
   case class ContactsSpec(
-    mobiles: MobileNumbersSpec = MobileNumbersSpec(),
-    home: Option[ContactInfoSpec[ContactInfo]] = None,
-    work: Option[ContactInfoSpec[ContactInfo]] = None)
+    mobiles: UpdateSpecImpl[MobileNumbersSpec] = UpdateSpecImpl[MobileNumbersSpec](),
+    home: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec](),
+    work: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec]())
 
-  def contacts: Option[ContactsSpec]
+  def contacts: UpdateSpec[ContactsSpec]
 
   def homeAddress: UpdateSpec[AddressInfo]
 
@@ -58,7 +60,7 @@ trait UserSpec {
 
 class DefaultUserSpec extends UserSpec {
 
-  lazy val contacts: Option[ContactsSpec] = None
+  lazy val contacts = UpdateSpecImpl[ContactsSpec]()
 
   lazy val homeAddress = UpdateSpecImpl[AddressInfo]()
 

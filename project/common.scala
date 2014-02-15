@@ -43,7 +43,8 @@ object Common {
 
   def jdbcDeps = 
     "org.postgresql" % "postgresql" % "9.3-1100-jdbc41" ::
-    "com.mchange" % "c3p0" % "0.9.5-pre6" :: Nil  
+    "com.mchange" % "c3p0" % "0.9.5-pre6" :: 
+    "com.jolbox" % "bonecp" % "0.8.0.RELEASE" :: Nil  
 
   val reactiveMango = "org.reactivemongo" %% "reactivemongo" % "0.11.0-SNAPSHOT"
 
@@ -111,7 +112,7 @@ object Common {
         </developer>
       </developers>
     )
-  ) ++ Format.settings
+  ) // ++ Format.settings
 
   val buildShellPrompt = 
     (state: State) => "[%s] ".format(Project.extract(state).currentProject.id)

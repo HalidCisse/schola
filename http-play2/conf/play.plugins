@@ -1,3 +1,5 @@
-9991:schola.oadmin.http.DB
+9990:schola.oadmin.http.BoneCP
+9991:schola.oadmin.http.C3P0
 9992:schola.oadmin.http.DefaultFaçade
 9993:schola.oadmin.http.DefaultAuthSource
+1500:com.typesafe.plugin.CommonsMailerPlugin

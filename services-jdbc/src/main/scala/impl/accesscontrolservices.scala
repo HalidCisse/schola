@@ -12,13 +12,19 @@ trait AccessControlServicesComponentImpl extends AccessControlServicesComponent 
 
     def getRole(name: String) = accessControlServiceRepo.getRole(name)
 
-    def getUserRoles(userId: String) = accessControlServiceRepo.getUserRoles(userId)
-
     def getPermissions = accessControlServiceRepo.getPermissions
 
     def getRolePermissions(role: String) = accessControlServiceRepo.getRolePermissions(role)
 
+    def getUserRoles(userId: String) = accessControlServiceRepo.getUserRoles(userId)
+
     def getUserPermissions(userId: String) = accessControlServiceRepo.getUserPermissions(userId)
+
+    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String]) = accessControlServiceRepo.grantUserRoles(userId, roles, grantedBy)
+
+    def revokeUserRoles(userId: String, roles: Set[String]) = accessControlServiceRepo.revokeUserRoles(userId, roles)
+
+    def userHasRole(userId: String, role: String) = accessControlServiceRepo.userHasRole(userId, role)
 
     def getClientPermissions(clientId: String) = accessControlServiceRepo.getClientPermissions(clientId)
 
@@ -26,15 +32,9 @@ trait AccessControlServicesComponentImpl extends AccessControlServicesComponent 
 
     def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String]) = accessControlServiceRepo.grantRolePermissions(role, permissions, grantedBy)
 
-    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String]) = accessControlServiceRepo.grantUserRoles(userId, roles, grantedBy)
-
-    def revokeUserRole(userId: String, roles: Set[String]) = accessControlServiceRepo.revokeUserRole(userId, roles)
-
     def revokeRolePermission(role: String, permissions: Set[String]) = accessControlServiceRepo.revokeRolePermission(role, permissions)
 
     def purgeRoles(roles: Set[String]) = accessControlServiceRepo.purgeRoles(roles)
-
-    def userHasRole(userId: String, role: String) = accessControlServiceRepo.userHasRole(userId, role)
 
     def roleHasPermission(role: String, permissions: Set[String]) = accessControlServiceRepo.roleHasPermission(role, permissions)
 
@@ -45,7 +45,6 @@ trait AccessControlServicesComponentImpl extends AccessControlServicesComponent 
 }
 
 trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoComponent {
-  this: AccessControlServicesComponent =>
 
   import schema._
   import domain._
@@ -85,6 +84,36 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
         Compiled(getRole _)
       }
 
+      val permissions = Compiled(for {
+        p <- Permissions
+      } yield (
+        p.name,
+        p.clientId))
+
+      val rolePermissions = {
+        def getRolePermissions(name: Column[String]) =
+          for {
+            r <- RolesPermissions if r.role is name
+          } yield (
+            r.role,
+            r.permission,
+            r.grantedAt,
+            r.grantedBy)
+
+        Compiled(getRolePermissions _)
+      }
+
+      val clientPermissions = {
+        def getClientPermissions(clientId: Column[String]) =
+          for {
+            p <- Permissions if p.clientId is clientId
+          } yield (
+            p.name,
+            p.clientId)
+
+        Compiled(getClientPermissions _)
+      }
+
       val userRoles = {
         def getUserRoles(id: Column[java.util.UUID]) =
           for {
@@ -106,25 +135,6 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
         Compiled(getUserRole _)
       }
 
-      val permissions = Compiled(for {
-        p <- Permissions
-      } yield (
-        p.name,
-        p.clientId))
-
-      val rolePermissions = {
-        def getRolePermissions(name: Column[String]) =
-          for {
-            r <- RolesPermissions if r.role is name
-          } yield (
-            r.role,
-            r.permission,
-            r.grantedAt,
-            r.grantedBy)
-
-        Compiled(getRolePermissions _)
-      }
-
       val userPermissions =
         userRoles flatMap {
           f =>
@@ -137,18 +147,7 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
             Compiled(getUserPermissions _)
         }
 
-      val clientPermissions = {
-        def getClientPermissions(clientId: Column[String]) =
-          for {
-            p <- Permissions if p.clientId is clientId
-          } yield (
-            p.name,
-            p.clientId)
-
-        Compiled(getClientPermissions _)
-      }
-
-      val parent = {
+      val roleParent = {
         def getParent(role: Column[String]) =
           for { r <- Roles if r.name is role } yield r.parent
 
@@ -198,22 +197,6 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       }
     }
 
-    def getUserRoles(userId: String) = {
-      import Database.dynamicSession
-
-      val id = uuid(userId)
-      val userRoles = oq.userRoles(id)
-
-      val result = db.withDynSession {
-        userRoles.list
-      }
-
-      result map {
-        case (sUserId, role, grantedAt, grantedBy) =>
-          UserRole(sUserId getOrElse id, role, grantedAt getOrElse 0L, grantedBy, delegated = sUserId eq None)
-      }
-    }
-
     def getPermissions = {
       import Database.dynamicSession
 
@@ -242,6 +225,22 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       }
     }
 
+    def getUserRoles(userId: String) = {
+      import Database.dynamicSession
+
+      val id = uuid(userId)
+      val userRoles = oq.userRoles(id)
+
+      val result = db.withDynSession {
+        userRoles.list
+      }
+
+      result map {
+        case (sUserId, role, grantedAt, grantedBy) =>
+          UserRole(sUserId getOrElse id, role, grantedAt getOrElse 0L, grantedBy, delegated = sUserId eq None)
+      }
+    }
+
     def getUserPermissions(userId: String) = {
       import Database.dynamicSession
 
@@ -252,6 +251,42 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
           userPermissions.list
         }: _*)
     }
+
+    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String]) = db.withTransaction { implicit session =>
+      UsersRoles ++= (roles map (UserRole(uuid(userId), _, grantedBy = grantedBy map uuid)))
+    }
+
+    def revokeUserRoles(userId: String, roles: Set[String]) = db.withTransaction { implicit session =>
+      val q = for { arg <- UsersRoles if (arg.userId is uuid(userId)) && (arg.role inSet roles) } yield arg
+      q.delete
+    }
+
+    def userHasRole(userId: String, role: String) =
+      if (U.SuperUser.id exists (_.toString == userId)) true
+      else {
+        import Database.dynamicSession
+
+        val id = uuid(userId)
+
+        @inline
+        def getParent(role: String) =
+          oq.roleParent(role).firstFlatten
+
+        @scala.annotation.tailrec
+        def userHasRoleAcc(role: String): Boolean = {
+
+          val userRoleExists = oq.userRoleExists(id, role)
+
+          (userRoleExists.firstOption getOrElse false) || (getParent(role) match {
+            case Some(parent) => userHasRoleAcc(parent)
+            case _            => false
+          })
+        }
+
+        db.withDynSession {
+          userHasRoleAcc(role)
+        }
+      }
 
     def getClientPermissions(clientId: String) = {
       import Database.dynamicSession
@@ -281,15 +316,6 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       RolesPermissions ++= (permissions map (RolePermission(role, _, grantedBy = grantedBy map uuid)))
     }
 
-    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String]) = db.withTransaction { implicit session =>
-      UsersRoles ++= (roles map (UserRole(uuid(userId), _, grantedBy = grantedBy map uuid)))
-    }
-
-    def revokeUserRole(userId: String, roles: Set[String]) = db.withTransaction { implicit session =>
-      val q = for { arg <- UsersRoles if (arg.userId is uuid(userId)) && (arg.role inSet roles) } yield arg
-      q.delete
-    }
-
     def revokeRolePermission(role: String, permissions: Set[String]) = db.withTransaction { implicit session =>
       val q = for { arg <- RolesPermissions if (arg.role is role) && (arg.permission inSet permissions) } yield arg
       q.delete
@@ -299,33 +325,6 @@ trait AccessControlServicesRepoComponentImpl extends AccessControlServicesRepoCo
       val q = for { r <- Roles if (r.name isNot R.SuperUserR.name) && r.publiq && (r.name inSet roles) } yield r
       q.delete
     }
-
-    def userHasRole(userId: String, role: String) =
-      if (U.SuperUser.id exists (_.toString == userId)) true
-      else {
-        import Database.dynamicSession
-
-        val id = uuid(userId)
-
-        @inline
-        def getParent(role: String) =
-          oq.parent(role).firstFlatten
-
-        @scala.annotation.tailrec
-        def userHasRoleAcc(role: String): Boolean = {
-
-          val userRoleExists = oq.userRoleExists(id, role)
-
-          (userRoleExists.firstOption getOrElse false) || (getParent(role) match {
-            case Some(parent) => userHasRoleAcc(parent)
-            case _            => false
-          })
-        }
-
-        db.withDynSession {
-          userHasRoleAcc(role)
-        }
-      }
 
     def roleHasPermission(name: String, permissions: Set[String]) =
       if (name.compareToIgnoreCase(R.SuperUserR.name) == 0) true
