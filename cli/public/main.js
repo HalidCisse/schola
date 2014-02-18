@@ -13140,9 +13140,11 @@ Released under the MIT License
           return _results;
         })()).join('');
         this.homeCountry.html(opts).chosen({
+          allow_single_deselect: true,
           width: "330px"
         });
         this.workCountry.html(opts).chosen({
+          allow_single_deselect: true,
           width: "330px"
         });
         return this.el;

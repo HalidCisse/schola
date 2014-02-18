@@ -204,8 +204,8 @@ class User.Form extends Spine.Stack
           "<option value='#{country['code']}'>#{country['name']}</option>"
       ).join('')
 
-      @homeCountry.html(opts).chosen(width:"330px")
-      @workCountry.html(opts).chosen(width:"330px")
+      @homeCountry.html(opts).chosen(allow_single_deselect: yes, width:"330px")
+      @workCountry.html(opts).chosen(allow_single_deselect: yes, width:"330px")
 
       @el
 

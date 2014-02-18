@@ -310,7 +310,7 @@
 
         @request.flash.get("error").map { msg => 
           ERROR('@msg', "Error!")
-        } getOrElse {
+        }.getOrElse {
           @form.errors.headOption.map { msg =>
             ERROR('@msg.message', "Error!")
             $('[name="@msg.key"]').focus()
@@ -446,7 +446,7 @@
         });                  
 
         var options = (function () {        
-          var html = '';
+          var html = '<option value=""></option>';
           for(var i in countries) {
             html += '<option value="' + countries[i]['code'] + '">' + countries[i]['name'] + '</option>';
           }
@@ -455,11 +455,11 @@
 
           $('#home-country').html(options)
                             .val('@homeCountry' || window['sGeobytesIso2'])
-                            .chosen({width:"330px"});
+                            .chosen({allow_single_deselect: true, width:"330px"});
 
           $('#work-country').html(options)
                             .val('@workCountry' || window['sGeobytesIso2'])
-                            .chosen({width:"330px"});
+                            .chosen({allow_single_deselect: true, width:"330px"});
 
           (function(){    
               $('#home-city').val('@homeCity' || window['sGeobytesCity']);

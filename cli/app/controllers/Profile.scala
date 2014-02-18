@@ -67,16 +67,16 @@ object Profile extends Controller with Helpers {
       GivenName -> nonEmptyText,
       FamilyName -> nonEmptyText,
       Gender -> nonEmptyText.transform(domain.Gender.withName, (_: Gender).toString),
-      HomeAddress -> optional(mapping(
+      HomeAddress -> mapping(
         City -> text,
         Country -> text,
         PostalCode -> text,
-        StreetAddress -> text)((city, country, postalCode, streetAddress) => AddressInfo(Option(city), Option(country), Option(postalCode), Option(streetAddress)))(addressInfo => Some(addressInfo.city.getOrElse(""), addressInfo.country.getOrElse(""), addressInfo.postalCode.getOrElse(""), addressInfo.streetAddress.getOrElse("")))),
-      WorkAddress -> optional(mapping(
+        StreetAddress -> text)((city, country, postalCode, streetAddress) => Option(AddressInfo(Option(city), Option(country), Option(postalCode), Option(streetAddress))))(addressInfo => Option(addressInfo.flatMap(_.city).getOrElse(""), addressInfo.flatMap(_.country).getOrElse(""), addressInfo.flatMap(_.postalCode).getOrElse(""), addressInfo.flatMap(_.streetAddress).getOrElse(""))),
+      WorkAddress -> mapping(
         City -> text,
         Country -> text,
         PostalCode -> text,
-        StreetAddress -> text)((city, country, postalCode, streetAddress) => AddressInfo(Option(city), Option(country), Option(postalCode), Option(streetAddress)))(addressInfo => Some(addressInfo.city.getOrElse(""), addressInfo.country.getOrElse(""), addressInfo.postalCode.getOrElse(""), addressInfo.streetAddress.getOrElse("")))),
+        StreetAddress -> text)((city, country, postalCode, streetAddress) => Option(AddressInfo(Option(city), Option(country), Option(postalCode), Option(streetAddress))))(addressInfo => Option(addressInfo.flatMap(_.city).getOrElse(""), addressInfo.flatMap(_.country).getOrElse(""), addressInfo.flatMap(_.postalCode).getOrElse(""), addressInfo.flatMap(_.streetAddress).getOrElse(""))),
       Contacts -> mapping(
         Mobiles -> mapping(
           Mobile1 -> text,

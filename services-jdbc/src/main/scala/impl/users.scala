@@ -137,6 +137,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
           } yield (
             u.id,
             u.primaryEmail,
+            u.password,
             u.givenName,
             u.familyName,
             u.createdAt,
@@ -191,9 +192,6 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
       val userUpdates = {
 
-        def forUserPasswd(id: Column[java.util.UUID]) =
-          Users where (_.id is id) map (o => (o.primaryEmail, o.password))
-
         def forPrimaryEmail(id: Column[java.util.UUID]) =
           Users where (_.id is id) map (o => (o.primaryEmail, o.lastModifiedAt, o.lastModifiedBy))
 
@@ -222,7 +220,6 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
           Users where (_.id is id) map (o => (o.contacts, o.lastModifiedAt, o.lastModifiedBy))
 
         new {
-          val userPasswd = Compiled(forUserPasswd _)
           val primaryEmail = Compiled(forPrimaryEmail _)
           val password = Compiled(forPasswd _)
           val givenName = Compiled(forFN _)
@@ -272,7 +269,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
       }
 
       result map {
-        case (sId, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin) =>
+        case (sId, primaryEmail, _, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin) =>
           User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, avatar, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(sId), labels = getUserLabels(sId.toString))
       }
     }
@@ -370,13 +367,13 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
     def updateUser(id: String, spec: UserSpec) = {
       val uid = uuid(id)
-      val userPasswd = oq.userUpdates.userPasswd(uid)
+      val user = oq.userById(uid)
 
       db.withSession {
-        implicit session => userPasswd.firstOption
+        implicit session => user.firstOption
       } match {
 
-        case Some((sUsername, sPassword)) =>
+        case Some((_, sUsername, sPassword, _, _, _, _, _, _, _, _, sHomeAddress, sWorkAddress, sContacts, _, _)) =>
           db.withTransaction {
             implicit session =>
 
@@ -411,42 +408,80 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
               } getOrElse true)
 
               val _6 = _5 && (spec.homeAddress foreach {
-                case Some(homeAddress) =>
+                case Some(s) =>
 
-                  (homeAddress.city foreach {
-                    city => 
-                      oq.userUpdates.homeAddress(uid).update((Some(AddressInfo(city = city)), currentTimestamp, Some(uid))) == 1
-                  }) && (homeAddress.country foreach {
-                    country => 
-                      oq.userUpdates.homeAddress(uid).update((Some(AddressInfo(country = country)), currentTimestamp, Some(uid))) == 1
-                  }) && (homeAddress.postalCode foreach {
-                    postalCode => 
-                      oq.userUpdates.homeAddress(uid).update((Some(AddressInfo(postalCode = postalCode)), currentTimestamp, Some(uid))) == 1
-                  }) && (homeAddress.streetAddress foreach {
-                    streetAddress => 
-                      oq.userUpdates.homeAddress(uid).update((Some(AddressInfo(streetAddress = streetAddress)), currentTimestamp, Some(uid))) == 1
-                  })
+                  sHomeAddress match {
+
+                    case Some(AddressInfo(curCity, curCountry, curPostalCode, curStreetAddress)) => 
+
+                      oq.userUpdates
+                        .homeAddress(uid)
+                        .update((
+                          Some(AddressInfo(
+                            city = if (s.city.isEmpty) curCity else s.city.set.get,
+                            country = if (s.country.isEmpty) curCountry else s.country.set.get,
+                            postalCode = if (s.postalCode.isEmpty) curPostalCode else s.postalCode.set.get,
+                            streetAddress = if (s.streetAddress.isEmpty) curStreetAddress else s.streetAddress.set.get
+                          )), 
+                          currentTimestamp, 
+                          Some(uid)
+                        )) == 1
+                    
+                    case _ =>
+
+                      oq.userUpdates
+                        .homeAddress(uid)
+                        .update((
+                          Some(AddressInfo(
+                            city = if (s.city.isEmpty) None else s.city.set.get,
+                            country = if (s.country.isEmpty) None else s.country.set.get,
+                            postalCode = if (s.postalCode.isEmpty) None else s.postalCode.set.get,
+                            streetAddress = if (s.streetAddress.isEmpty) None else s.streetAddress.set.get
+                          )), 
+                          currentTimestamp, 
+                          Some(uid)
+                        )) == 1
+
+                  }              
 
                 case _ =>
                   oq.userUpdates.homeAddress(uid).update(None, currentTimestamp, Some(uid)) == 1
               })
 
               val _7 = _6 && (spec.workAddress foreach {
-                case Some(workAddress) =>
+                case Some(s) =>
 
-                  (workAddress.city foreach {
-                    city => 
-                      oq.userUpdates.workAddress(uid).update(Some(AddressInfo(city = city)), currentTimestamp, Some(uid)) == 1
-                  }) && (workAddress.country foreach {
-                    country => 
-                      oq.userUpdates.workAddress(uid).update(Some(AddressInfo(country = country)), currentTimestamp, Some(uid)) == 1
-                  }) && (workAddress.postalCode foreach {
-                    postalCode => 
-                      oq.userUpdates.workAddress(uid).update(Some(AddressInfo(postalCode = postalCode)), currentTimestamp, Some(uid)) == 1
-                  }) && (workAddress.streetAddress foreach {
-                    streetAddress => 
-                      oq.userUpdates.workAddress(uid).update(Some(AddressInfo(streetAddress = streetAddress)), currentTimestamp, Some(uid)) == 1
-                  })
+                  sWorkAddress match {
+                    case Some(AddressInfo(curCity, curCountry, curPostalCode, curStreetAddress)) => 
+
+                      oq.userUpdates
+                        .workAddress(uid)
+                        .update((
+                          Some(AddressInfo(
+                            city = if (s.city.isEmpty) curCity else s.city.set.get,
+                            country = if (s.country.isEmpty) curCountry else s.country.set.get,
+                            postalCode = if (s.postalCode.isEmpty) curPostalCode else s.postalCode.set.get,
+                            streetAddress = if (s.streetAddress.isEmpty) curStreetAddress else s.streetAddress.set.get
+                          )), 
+                          currentTimestamp, 
+                          Some(uid)
+                        )) == 1
+
+                    case _ =>
+
+                      oq.userUpdates
+                        .workAddress(uid)
+                        .update((
+                          Some(AddressInfo(
+                            city = if (s.city.isEmpty) None else s.city.set.get,
+                            country = if (s.country.isEmpty) None else s.country.set.get,
+                            postalCode = if (s.postalCode.isEmpty) None else s.postalCode.set.get,
+                            streetAddress = if (s.streetAddress.isEmpty) None else s.streetAddress.set.get
+                          )), 
+                          currentTimestamp, 
+                          Some(uid)
+                        )) == 1
+                  }
 
                 case _ =>
                   oq.userUpdates.workAddress(uid).update(None, currentTimestamp, Some(uid)) == 1
@@ -459,135 +494,97 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
               _8 && {
 
-                  val qContacts = oq.userUpdates.contacts(uid)
+                val qContacts = oq.userUpdates.contacts(uid)
 
-                  spec.contacts foreach {                    
+                spec.contacts foreach {
 
-                    case Some(s) =>
+                  case Some(s) =>    
 
-                      (s.mobiles foreach {
-                        case Some(mobiles) =>
-                          (mobiles.mobile1 foreach {
-                            case m1 @ Some(_) =>
-                              (qContacts update ((
-                                Some(Contacts(
-                                  mobiles = Some(MobileNumbers(mobile1 = m1)))),
-                                currentTimestamp,
-                                Some(uid)))) == 1
-                            case _ =>
-                              (qContacts update ((
-                                Some(Contacts(
-                                  mobiles = Some(MobileNumbers(mobile1 = None)))),
-                                currentTimestamp,
-                                Some(uid)))) == 1
-                          }) && (mobiles.mobile2 foreach {
-                            case m2 @ Some(_) =>
-                              (qContacts update ((
-                                Some(Contacts(
-                                  mobiles = Some(MobileNumbers(mobile2 = m2)))),
-                                currentTimestamp,
-                                Some(uid)))) == 1
-                            case _ =>
+                    import utils.If                
 
-                              (qContacts update ((
-                                Some(Contacts(
-                                  mobiles = Some(MobileNumbers(mobile2 = None)))),
-                                currentTimestamp,
-                                Some(uid)))) == 1
-                          })
-                        case _ =>
+                    sContacts match {
 
-                          (qContacts update ((
-                            Some(Contacts(
-                              mobiles = None)),
-                            currentTimestamp,
-                            Some(uid)))) == 1
+                      case Some(Contacts(curMobiles, curHome, curWork)) =>                        
 
-                        }) && (s.home foreach {
-                            case Some(home) =>
+                        val newHome = if (s.home.isEmpty) curHome else if (s.home.set.get eq None) None else Some {
+                          val tmp = s.home.set.get.get
+                          val empt = curHome.nonEmpty
 
-                              (home.email foreach {
-                                email =>
+                          ContactInfo(
+                            email = If(tmp.email.set eq None, If(empt, curHome.get.email, None), tmp.email.set.get),
+                            fax = If(tmp.fax.set eq None, If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                            phoneNumber = If(tmp.phoneNumber.set eq None, If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get))
+                        }
 
-                                  (qContacts update ((
-                                    Some(Contacts(
-                                      home = Some(ContactInfo(email = email)))),
-                                    currentTimestamp,
-                                    Some(uid)))) == 1
+                        val newWork = if (s.work.isEmpty) curWork else if (s.work.set.get eq None) None else Some {
+                          val tmp = s.work.set.get.get
+                          val empt = curWork.nonEmpty
 
-                              }) && (home.phoneNumber foreach {
-                                phoneNumber =>
+                          ContactInfo(
+                            email = If(tmp.email.set eq None, If(empt, curHome.get.email, None), tmp.email.set.get),
+                            fax = If(tmp.fax.set eq None, If(empt, curHome.get.fax, None), tmp.fax.set.get),
+                            phoneNumber = If(tmp.phoneNumber.set eq None, If(empt, curHome.get.phoneNumber, None), tmp.phoneNumber.set.get))
+                        }
 
-                                  (qContacts update ((
-                                    Some(Contacts(
-                                      home = Some(ContactInfo(phoneNumber = phoneNumber)))),
-                                    currentTimestamp,
-                                    Some(uid)))) == 1
+                        val newMobiles = if (s.mobiles.isEmpty) curMobiles else if (s.mobiles.set.get eq None) None else Some {
+                          val tmp = s.mobiles.set.get.get
+                          val empt = curMobiles.nonEmpty
 
-                              }) && (home.fax foreach {
-                                fax =>
+                          MobileNumbers(
+                            mobile1 = If(tmp.mobile1.set eq None, If(empt, curMobiles.get.mobile1, None), tmp.mobile1.set.get),
+                            mobile2 = If(tmp.mobile2.set eq None, If(empt, curMobiles.get.mobile2, None), tmp.mobile2.set.get))
+                        }
 
-                                  (qContacts update ((
-                                    Some(Contacts(
-                                      home = Some(ContactInfo(fax = fax)))),
-                                    currentTimestamp,
-                                    Some(uid)))) == 1
+                        (qContacts update ((
+                          Some(Contacts(
+                            mobiles = newMobiles,
+                            home = newHome,
+                            work = newWork)),
+                          currentTimestamp,
+                          Some(uid)))) == 1
 
-                              })
+                      case _ =>
 
-                            case _ =>
+                        val newHome = if (s.home.isEmpty || (s.home.set.get eq None)) None else Some {
+                          val tmp = s.home.set.get.get
 
-                              (qContacts update ((
-                                Some(Contacts(
-                                  home = None)),
-                                currentTimestamp,
-                                Some(uid)))) == 1
+                          ContactInfo(
+                            email = If(tmp.email.set eq None, None, tmp.email.set.get),
+                            fax = If(tmp.fax.set eq None, None, tmp.fax.set.get),
+                            phoneNumber = If(tmp.phoneNumber.set eq None, None, tmp.phoneNumber.set.get))
+                        }
 
-                      }) && (s.work foreach {
-                          case Some(work) =>
-                            (work.email foreach {
-                              email =>
+                        val newWork = if (s.work.isEmpty || (s.work.set.get eq None)) None else Some {
+                          val tmp = s.work.set.get.get
 
-                                (qContacts update ((
-                                  Some(Contacts(
-                                    work = Some(ContactInfo(email = email)))),
-                                  currentTimestamp,
-                                  Some(uid)))) == 1
+                          ContactInfo(
+                            email = If(tmp.email.set eq None, None, tmp.email.set.get),
+                            fax = If(tmp.fax.set eq None, None, tmp.fax.set.get),
+                            phoneNumber = If(tmp.phoneNumber.set eq None, None, tmp.phoneNumber.set.get))
+                        }
 
-                            }) && (work.phoneNumber foreach {
-                              phoneNumber =>
+                        val newMobiles = if (s.mobiles.isEmpty || (s.mobiles.set.get eq None)) None else Some {
+                          val tmp = s.mobiles.set.get.get
 
-                                (qContacts update ((
-                                  Some(Contacts(
-                                    work = Some(ContactInfo(phoneNumber = phoneNumber)))),
-                                  currentTimestamp,
-                                  Some(uid)))) == 1
+                          MobileNumbers(
+                            mobile1 = If(tmp.mobile1.set eq None, None, tmp.mobile1.set.get),
+                            mobile2 = If(tmp.mobile2.set eq None, None, tmp.mobile2.set.get))
+                        }
 
-                            }) && (work.fax foreach {
-                              fax =>
+                        (qContacts update ((
+                          Some(Contacts(
+                            mobiles = newMobiles,
+                            home = newHome,
+                            work = newWork)),
+                          currentTimestamp,
+                          Some(uid)))) == 1                        
+                    }
 
-                                (qContacts update ((
-                                  Some(Contacts(
-                                    work = Some(ContactInfo(fax = fax)))),
-                                  currentTimestamp,
-                                  Some(uid)))) == 1
+                  case _ =>
 
-                            })
-                          case _ =>
-
-                            (qContacts update ((
-                              Some(Contacts(
-                                work = None)),
-                              currentTimestamp,
-                              Some(uid)))) == 1
-                            
-                            })
-
-                    case _ =>
-
-                      (qContacts update ((None, currentTimestamp, Some(uid)))) == 1
-                  }                
-              }                
+                    (qContacts update ((None, currentTimestamp, Some(uid)))) == 1
+                }                            
+              }              
           }
 
         case _ => false

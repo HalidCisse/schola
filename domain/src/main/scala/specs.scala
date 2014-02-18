@@ -59,7 +59,7 @@ trait UserSpec {
 
   def familyName: Option[String]
 
-  def gender: Option[Gender.Value]
+  def gender: Option[Gender]
 
   def avatar: UpdateSpec[String]
 }
@@ -84,5 +84,5 @@ class DefaultUserSpec extends UserSpec {
 
   lazy val gender: Option[Gender.Value] = None
 
-  lazy val avatar: UpdateSpec[String] = UpdateSpecImpl[String]()
+  lazy val avatar = UpdateSpecImpl[String]()
 }
