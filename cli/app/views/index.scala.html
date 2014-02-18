@@ -13,7 +13,7 @@
     <link href='@routes.Assets.at("css/bootstrap-theme.css")' rel="stylesheet">
     <link href='@routes.Assets.at("css/chosen.min.css")' rel="stylesheet">
     <link href='@routes.Assets.at("main.css")' rel="stylesheet">
-    <script type="text/javascript" src="/api/@schola.oadmin.API_VERSION/javascriptRoutes"></script>
+    <script type="text/javascript" src="/api/@schola.oadmin.API_VERSION/javascriptRoutes"></script>    
   </head>
   <body>
     <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
@@ -139,7 +139,7 @@
               
           $('#msg').fadeIn();
           
-          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 10000);
+          window.__msgs = setTimeout(function(){ $('#msg').fadeOut(); }, 6000);
         }
         
         function ERROR(msg, title) {

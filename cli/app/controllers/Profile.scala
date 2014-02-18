@@ -1,6 +1,7 @@
 package controllers
 
 import play.api.mvc._
+import play.api.Routes
 
 import play.api.data.Form
 import play.api.data.Forms._
@@ -20,6 +21,7 @@ import play.api.libs.iteratee.{ Iteratee, Enumerator }
 object Profile extends Controller with Helpers {
 
   val CurrentPassword = "password"
+  val NewPassword = "new_password"
   val Password1 = "password1"
   val Password2 = "password2"
   val PrimaryEmail = "primaryEmail"
@@ -45,6 +47,7 @@ object Profile extends Controller with Helpers {
   case class UserInfo(
     primaryEmail: String,
     password: Option[String],
+    newPassword: Option[String],
     givenName: String,
     familyName: String,
     gender: Gender,
@@ -52,12 +55,13 @@ object Profile extends Controller with Helpers {
     workAddress: Option[AddressInfo],
     contacts: Option[Contacts])
 
-  implicit def UserToInfo(user: domain.User) = UserInfo(user.primaryEmail, None, user.givenName, user.familyName, user.gender, user.homeAddress, user.workAddress, user.contacts)
+  implicit def UserToInfo(user: domain.User) = UserInfo(user.primaryEmail, None, None, user.givenName, user.familyName, user.gender, user.homeAddress, user.workAddress, user.contacts)
 
   val form = Form[UserInfo](
     mapping(
       PrimaryEmail -> email,
-      CurrentPassword -> optional(tuple(
+      CurrentPassword -> optional(text),
+      NewPassword -> optional(tuple(
         Password1 -> nonEmptyText(minLength = schola.oadmin.PasswordMinLength),
         Password2 -> nonEmptyText).verifying("Passwords do not match", passwords => passwords._1 == passwords._2)),
       GivenName -> nonEmptyText,
@@ -67,28 +71,28 @@ object Profile extends Controller with Helpers {
         City -> text,
         Country -> text,
         PostalCode -> text,
-        StreetAddress -> text)(AddressInfo)(AddressInfo.unapply)),
+        StreetAddress -> text)((city, country, postalCode, streetAddress) => AddressInfo(Option(city), Option(country), Option(postalCode), Option(streetAddress)))(addressInfo => Some(addressInfo.city.getOrElse(""), addressInfo.country.getOrElse(""), addressInfo.postalCode.getOrElse(""), addressInfo.streetAddress.getOrElse("")))),
       WorkAddress -> optional(mapping(
         City -> text,
         Country -> text,
         PostalCode -> text,
-        StreetAddress -> text)(AddressInfo)(AddressInfo.unapply)),
-      Contacts -> optional(mapping(
-        Mobiles -> optional(mapping(
-          Mobile1 -> optional(text),
-          Mobile2 -> optional(text))(MobileNumbers)(MobileNumbers.unapply)),
-        Home -> optional(mapping(
+        StreetAddress -> text)((city, country, postalCode, streetAddress) => AddressInfo(Option(city), Option(country), Option(postalCode), Option(streetAddress)))(addressInfo => Some(addressInfo.city.getOrElse(""), addressInfo.country.getOrElse(""), addressInfo.postalCode.getOrElse(""), addressInfo.streetAddress.getOrElse("")))),
+      Contacts -> mapping(
+        Mobiles -> mapping(
+          Mobile1 -> text,
+          Mobile2 -> text)((mobile1, mobile2) => Option(MobileNumbers(Option(mobile1), Option(mobile2))))(mobileNumbers => Option(mobileNumbers.flatMap(_.mobile1).getOrElse(""), mobileNumbers.flatMap(_.mobile2).getOrElse(""))),
+        Home -> mapping(
           Email -> optional(email),
-          PhoneNumber -> optional(text),
-          Fax -> optional(text))(ContactInfo)(ContactInfo.unapply)),
-        Work -> optional(mapping(
+          PhoneNumber -> text,
+          Fax -> text)((email, phoneNumber, fax) => Option(ContactInfo(Option(email.getOrElse("")), Option(phoneNumber), Option(fax))))(contactInfoIn => Option(contactInfoIn.flatMap(_.email), contactInfoIn.flatMap(_.phoneNumber).getOrElse(""), contactInfoIn.flatMap(_.fax).getOrElse(""))),
+        Work -> mapping(
           Email -> optional(email),
-          PhoneNumber -> optional(text),
-          Fax -> optional(text))(ContactInfo)(ContactInfo.unapply)))(domain.Contacts)(domain.Contacts.unapply))) {
+          PhoneNumber -> text,
+          Fax -> text)((email, phoneNumber, fax) => Option(ContactInfo(Option(email.getOrElse("")), Option(phoneNumber), Option(fax))))(contactInfoIn => Option(contactInfoIn.flatMap(_.email), contactInfoIn.flatMap(_.phoneNumber).getOrElse(""), contactInfoIn.flatMap(_.fax).getOrElse(""))))(domain.Contacts)(domain.Contacts.unapply)) {
 
-        (primaryEmail, passwords, givenName, familyName, gender, homeAddress, workAddress, contacts) => UserInfo(primaryEmail, passwords map (_._1), givenName, familyName, gender, homeAddress, workAddress, contacts)
+        (primaryEmail, password, newPasswords, givenName, familyName, gender, homeAddress, workAddress, contacts) => UserInfo(primaryEmail, password, newPasswords map(_._1), givenName, familyName, gender, homeAddress, workAddress, Option(contacts))
 
-      } { (userInfo: UserInfo) => Some(userInfo.primaryEmail, Some("", ""), userInfo.givenName, userInfo.familyName, userInfo.gender, userInfo.homeAddress, userInfo.workAddress, userInfo.contacts) })
+      } { (userInfo: UserInfo) => Some(userInfo.primaryEmail, Some(""), Some("", ""), userInfo.givenName, userInfo.familyName, userInfo.gender, userInfo.homeAddress, userInfo.workAddress, userInfo.contacts.getOrElse(domain.Contacts())) })
 
   def edit = Action.async {
     implicit request =>
@@ -138,6 +142,7 @@ object Profile extends Controller with Helpers {
               val UserInfo(
                 primaryEmail,
                 password,
+                newPassword,
                 givenName,
                 familyName,
                 gender,
@@ -150,6 +155,7 @@ object Profile extends Controller with Helpers {
                 userAgent,
                 primaryEmail,
                 password,
+                newPassword,
                 givenName,
                 familyName,
                 gender,
@@ -188,7 +194,7 @@ object Profile extends Controller with Helpers {
           { Enumerator.fromFile(request.body.file) |>>> Iteratee.consume[Array[Byte]]() } flatMap {
             bytes =>
 
-              use[SessionSupport].setAvatar(sessionKey, userAgent, filename, request.contentType, bytes) map {
+              use[SessionSupport].uploadAvatar(sessionKey, userAgent, filename, request.contentType, bytes) map {
                 success => json[domain.Response](Response(success = success))
               } recover {
                 case ex: Throwable =>
@@ -209,7 +215,7 @@ object Profile extends Controller with Helpers {
 
         case Some(sessionKey) =>
 
-          use[SessionSupport].getAvatar(sessionKey, userAgent) map {
+          use[SessionSupport].downloadAvatar(sessionKey, userAgent) map {
             json[domain.AvatarInfo]
           } recover {
             case _: Throwable => NotFound
@@ -239,4 +245,14 @@ object Profile extends Controller with Helpers {
           scala.concurrent.Future.successful(json[domain.Response](Response(success = false)))
       }
   }
+
+  def javascriptRoutes = Action {
+    implicit request =>
+      Ok(
+        Routes.javascriptRouter("jsRoutes")(
+        routes.javascript.Profile.uploadAvatar,
+        routes.javascript.Profile.downloadAvatar,
+        routes.javascript.Profile.purgeAvatar
+      )).as(JAVASCRIPT)
+  }  
 }

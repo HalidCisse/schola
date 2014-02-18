@@ -75,7 +75,7 @@ trait Secured {
       }
     }
 
-  final def withAuth[A](bodyParser: BodyParser[A])(f: ResourceOwner => Request[A] => SimpleResult) =
+  def withAuth[A](bodyParser: BodyParser[A])(f: ResourceOwner => Request[A] => SimpleResult) =
     Action.async(bodyParser) {
       request =>
 
@@ -85,34 +85,32 @@ trait Secured {
         }
     }
 
-  def withAuth[A >: AnyContent](f: ResourceOwner => Request[A] => SimpleResult): EssentialAction =
+  final def withAuth[A >: AnyContent](f: ResourceOwner => Request[A] => SimpleResult): EssentialAction =
     withAuth(BodyParsers.parse.anyContent)(f)
 
-  def withAuth(f: => SimpleResult): EssentialAction =
+  final def withAuth(f: => SimpleResult): EssentialAction =
     withAuth((_: ResourceOwner) => (_: Request[_ >: AnyContent]) => f)
 
   def authenticated[A](req: Request[A])(next: ResourceOwner => SimpleResult): Future[SimpleResult] = req match {
 
     case MacAuthorization(id, nonce, bodyhash, ext, mac) =>
 
-      try {
-        tokenSecret(id) match {
-          case Some(key) =>
-            // compare a signed request with the signature provided
-            Mac.sign(req, nonce, ext, bodyhash, key, MACAlgorithm).fold({
-              err =>
-                errorResponse(Unauthorized, err, req)
-            }, {
-              sig =>
-                if (sig == mac) doAuth(MacAuthToken(id, key, nonce, bodyhash, ext), req)(next)(failedAuthenticationResponse)
-                else errorResponse(Unauthorized, "invalid MAC signature", req)
-            })
-          case _ =>
-            errorResponse(Unauthorized, "invalid token", req)
-        }
-      } catch {
-        case _: Exception =>
-          errorResponse(Unauthorized, "invalid MAC header.", req)
+      tokenSecret(id) match {
+
+        case Some(key) =>
+          // compare a signed request with the signature provided
+          Mac.sign(req, nonce, ext, bodyhash, key, MACAlgorithm).fold({
+            err =>
+              errorResponse(Unauthorized, err, req)
+          }, {
+            sig =>
+              if (sig == mac) doAuth(MacAuthToken(id, key, nonce, bodyhash, ext), req)(next)(failedAuthenticationResponse)
+              else errorResponse(Unauthorized, "invalid MAC signature", req)
+          })
+
+        case _ =>
+
+          errorResponse(Unauthorized, "invalid token", req)
       }
 
     case _ => errorResponse(Unauthorized, "invalid MAC header.", req)

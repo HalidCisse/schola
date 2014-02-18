@@ -34,15 +34,17 @@ class User extends Spine.Model
 
           PAGES = Math.ceil(count / @MaxResults)
 
+          return @refresh([], clear: yes) if PAGES is 0
+
           $.Deferred (deferred) =>
 
-            deferred.progress (us) => 
-              users.push(u) for u in us
+            deferred.progress (us) =>              
+              users = [].concat.apply(users, us)
 
               deferred.resolve(users) if ++completed is PAGES
 
-            deferred.done (us) => 
-              @refresh(us, clear: true)
+            deferred.done (us) =>
+             @refresh(us, clear: yes)
 
             LoadPage = (index) ->
               app.users.getUsers(index)

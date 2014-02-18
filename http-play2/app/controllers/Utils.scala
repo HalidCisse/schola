@@ -80,6 +80,7 @@ object Utils extends Controller with Helpers {
           routes.javascript.Roles.getPermissions,
           routes.javascript.Roles.getRolePermissions,
           routes.javascript.Roles.grantPermissions,
+          routes.javascript.Roles.revokePermissions,
           routes.javascript.Roles.roleExists,
 
           routes.javascript.Tags.getTags,

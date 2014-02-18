@@ -53,7 +53,7 @@ object `package` {
 
   case class Contacts(mobiles: Option[MobileNumbers] = None, home: Option[ContactInfo] = None, work: Option[ContactInfo] = None)
 
-  case class AddressInfo(city: String, country: String, postalCode: String, streetAddress: String)
+  case class AddressInfo(city: Option[String] = None, country: Option[String] = None, postalCode: Option[String] = None, streetAddress: Option[String] = None)
 
   case class UsersStats(count: Int)
 

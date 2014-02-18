@@ -203,7 +203,7 @@ trait AvatarServicesRepoComponentImpl extends AvatarServicesRepoComponent {
       import scala.util.control.Exception.allCatch
       import scala.concurrent.Await
 
-      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+      implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
 
       (avatarService ? Avatars.Get(id)).mapTo[(String, Option[String], Array[Byte])]
     }
@@ -214,7 +214,7 @@ trait AvatarServicesRepoComponentImpl extends AvatarServicesRepoComponent {
 
       import system.dispatcher
 
-      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+      implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
 
       val q = (avatarService ? Avatars.Save(userId, filename, contentType, bytes)).mapTo[String]
 
@@ -236,7 +236,7 @@ trait AvatarServicesRepoComponentImpl extends AvatarServicesRepoComponent {
 
       import system.dispatcher
 
-      implicit val timeout = akka.util.Timeout(5 seconds) // needed for `?` below
+      implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
 
       val ok = (avatarService ? Avatars.Purge(avatarId)).mapTo[Boolean]
 

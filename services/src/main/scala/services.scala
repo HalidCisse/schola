@@ -35,7 +35,7 @@ trait UserServicesComponent {
 
     def unLabelUser(userId: String, labels: Set[String])
 
-    def getUserLabels(userId: String): List[UserLabelLike]
+    def getUserLabels(userId: String): List[String]
 
     def createPasswdResetReq(username: String): Unit
 
@@ -79,7 +79,7 @@ trait UserServicesRepoComponent {
 
     def unLabelUser(userId: String, labels: Set[String])
 
-    def getUserLabels(userId: String): List[UserLabelLike]
+    def getUserLabels(userId: String): List[String]
 
     def createPasswdResetReq(username: String): Unit
 
@@ -271,7 +271,7 @@ trait LabelServicesComponent {
 
     def findOrNew(label: String, color: Option[String]): Option[LabelLike]
 
-    def remove(label: Set[String])
+    def remove(labels: Set[String])
   }
 }
 
@@ -287,7 +287,7 @@ trait LabelServicesRepoComponent {
 
     def findOrNew(label: String, color: Option[String]): Option[LabelLike]
 
-    def remove(label: Set[String])
+    def remove(labels: Set[String])
   }
 }
 

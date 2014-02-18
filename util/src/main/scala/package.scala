@@ -19,10 +19,6 @@ object `package` {
 
   val passwords = webcrank.password.Passwords.scrypt(n = 4096) // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
-  val Hostname = config.getString("hostname")
-
-  val Port = config.getInt("port")
-
   val MaxResults = 50
 
   val API_VERSION = config.getString("api-version")

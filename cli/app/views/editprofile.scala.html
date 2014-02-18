@@ -95,6 +95,7 @@
     <link href='@routes.Assets.at("css/bootstrap.css")' rel="stylesheet">
     <link href='@routes.Assets.at("css/chosen.min.css")' rel="stylesheet">
     <link href='@routes.Assets.at("css/editprofile.css")' rel="stylesheet">
+    <script type="text/javascript" src="@routes.Profile.javascriptRoutes"></script>
     <style type="text/css">
       *:required:after {
         content: "*";
@@ -152,10 +153,10 @@
                 <input type="password" name="password" placeholder="Enter current password" class="form-control">
               </div>
               <div class="form-group">
-                <input type="password" name="password.password1" placeholder="New Password" class="form-control">
+                <input type="password" name="new_password.password1" placeholder="New Password" class="form-control">
               </div>
               <div class="form-group">
-                <input type="password" name="password.password2" placeholder="Confirm Password" class="form-control">
+                <input type="password" name="new_password.password2" placeholder="Confirm Password" class="form-control">
               </div>
               <div id="gender" class="form-group">
                 <label class="radio-inline">
@@ -181,7 +182,7 @@
                   <input type="text" name="workAddress.postalCode" value='@workPostalCode' placeholder="Postal Code" class="form-control">
                 </div>
                 <div class="form-group">
-                  <textarea name="workAddress.streetAddress" value='@workStreetAddress' placeholder="Address" class="form-control"></textarea>
+                  <textarea name="workAddress.streetAddress" placeholder="Address" class="form-control">@workStreetAddress</textarea>
                 </div>
               </div>
               <div class="container">
@@ -198,7 +199,7 @@
                   <input type="text" name="homeAddress.postalCode" value='@homePostalCode' placeholder="Postal Code" class="form-control">
                 </div>
                 <div class="form-group">
-                  <textarea name="homeAddress.streetAddress" value='@homeStreetAddress' placeholder="Address" class="form-control"></textarea>
+                  <textarea name="homeAddress.streetAddress" placeholder="Address" class="form-control">@homeStreetAddress</textarea>
                 </div>
               </div>
             </div>
@@ -307,14 +308,19 @@
 
         $('[data-toggle=tooltip]').tooltip();    
 
-         @request.flash.get("error").map { msg => 
+        @request.flash.get("error").map { msg => 
           ERROR('@msg', "Error!")
-        }    
+        } getOrElse {
+          @form.errors.headOption.map { msg =>
+            ERROR('@msg.message', "Error!")
+            $('[name="@msg.key"]').focus()
+          }
+        }
 
         var $avatar = $('.avatar');
 
         function loadAvatar() {                  
-          return $.getJSON("/Avatar")
+          return $.getJSON(jsRoutes.controllers.Profile.downloadAvatar().url)
            .done(function(data){ $avatar[0].src = "data:"+data.contentType+";base64,"+data.data; })                       
         }
 
@@ -323,9 +329,10 @@
         }, 0);
 
         function sendFile(file) {
+          route = jsRoutes.controllers.Profile.uploadAvatar(file.name);
           return $.ajax({
-            type: 'POST',
-            url: '/Avatar?name=' + file.name,
+            type: route.type,
+            url: route.url,
             data: file,
             success: function () {
               // do something
@@ -416,11 +423,11 @@
           $f.click();
         });
         
-        $('a.purge').click(function(){          
-
+        $('a.purge').click(function(){        
+          route = jsRoutes.controllers.Profile.purgeAvatar()
           $.ajax({
-            type:"DELETE",
-            url: "/Avatar",
+            type:route.type,
+            url: route.url,
             dataType: 'json'
           })
           .done(function(msg) {

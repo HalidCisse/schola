@@ -50,8 +50,10 @@ footer {
 #msg {
   position: absolute;
   left: 300px;
-  top: 70px;
+  top: 30px;
   display: none;
+  z-index: 1999;
+  opacity: 0.95;
 }
 #main {
   height: 100%;

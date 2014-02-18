@@ -73,7 +73,7 @@ object Common {
 
     organization := "schola.oadmin",
 
-    version := "0.5.1",
+    version := "0.7.0",
 
     scalaVersion := "2.10.3",
 

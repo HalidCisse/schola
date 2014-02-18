@@ -296,8 +296,8 @@ class DefaultFaçade(app: Application) extends Façade {
         createdBy = U.SuperUser.id,
         gender = Gender.Male,
 
-        homeAddress = Some(AddressInfo(rndString(10), rndString(10), rndPostalCode, rndStreetAddress)),
-        workAddress = Some(AddressInfo(rndString(10), rndString(10), rndPostalCode, rndStreetAddress)),
+        homeAddress = Some(AddressInfo(Some(rndString(10)), Some(rndString(10)), Some(rndPostalCode), Some(rndStreetAddress))),
+        workAddress = Some(AddressInfo(Some(rndString(10)), Some(rndString(10)), Some(rndPostalCode), Some(rndStreetAddress))),
 
         contacts = Some(Contacts(Some(MobileNumbers(Some(rndPhone), None)), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone))), Some(ContactInfo(Some(rndEmail), Some(rndPhone), Some(rndPhone))))),
 
@@ -308,7 +308,7 @@ class DefaultFaçade(app: Application) extends Façade {
     val rndRoles = (((0 to 5) map (_ => rndRole)) ++ createRndRoles).par
     val rndPermissions = (0 to 50).par map (_ => rndPermission)
 
-    val users = withTransaction { implicit s =>
+    val users = {
       log.info("Creating users . . . ")
 
       rndUsers map { u =>
@@ -327,11 +327,11 @@ class DefaultFaçade(app: Application) extends Façade {
     }
 
     log.info("Creating roles . . . ");
-    val roles = rndRoles.seq map (r => withTransaction { implicit s => accessControlService.saveRole(r.name, r.parent, r.createdBy map (_.toString)).get })
+    val roles = rndRoles.seq map (r => accessControlService.saveRole(r.name, r.parent, r.createdBy map (_.toString)).get)
 
     val permissions = withTransaction { implicit s => log.info("Creating permissions . . . "); rndPermissions map (p => { Permissions.insert(p); p }) }
 
-    withTransaction { implicit s =>
+    {
       log.info("Creating users grants . . . ")
 
       for (u <- users) try
@@ -348,7 +348,7 @@ class DefaultFaçade(app: Application) extends Façade {
       }
     }
 
-    withTransaction { implicit s =>
+    {
       log.info("Creating roles grants . . . ")
 
       for (r <- roles) try
@@ -365,7 +365,7 @@ class DefaultFaçade(app: Application) extends Façade {
       }
     }
 
-    () => withTransaction { implicit s =>
+    () => {
 
       users foreach { u => accessControlService.revokeUserRoles(u.id.get.toString, roles.seq.map(_.name).toSet) }
       roles foreach { r => accessControlService.revokeRolePermission(r.name, permissions.seq.map(_.name).toSet) }
@@ -373,7 +373,9 @@ class DefaultFaçade(app: Application) extends Façade {
       users foreach (u => userService.purgeUsers(Set(u.id.get.toString)))
       roles foreach (r => accessControlService.purgeRoles(Set(r.name)))
 
-      Permissions where (_.name inSet permissions.seq.map(_.name)) delete
+      withTransaction { implicit s =>
+        Permissions where (_.name inSet permissions.seq.map(_.name)) delete
+      }
     }
   }
 }
@@ -392,7 +394,7 @@ trait MailingComponentImpl extends MailingComponent {
         | Username: $username \r\n\r\n
         | If this was a mistake, just ignore this email and nothing will happen. \r\n\r\n
         | To reset your password, visit the following address:\r\n\r\n
-        | < http://$Hostname${if (Port == 80) "" else ":" + Port}/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
+        | < http://localhost/RstPasswd?key=$key&login=${java.net.URLEncoder.encode(username, "UTF-8")} >\r\n""".stripMargin
 
       sendEmail(subj, username, (Some(msg), None))
     }
@@ -417,13 +419,13 @@ trait MailingComponentImpl extends MailingComponent {
         | Here are the details:\r\n\r\n
         | Username: $username \r\n\r\n
         | Password: $password \r\n\r\n
-        | Sign in immediately at < http://$Hostname${if (Port == 80) "" else ":" + Port}/Login > to reset your password and start using the service.\r\n\r\n
+        | Sign in immediately at < http://localhost/Login > to reset your password and start using the service.\r\n\r\n
         | Thank you.\r\n""".stripMargin
 
       sendEmail(subj, username, (Some(msg), None))
     }
 
-    lazy val fromAddress = implicitly[Application].configuration.getString("smtp.from").getOrElse(throw new RuntimeException("From addres is required."))
+    lazy val FromAddress = implicitly[Application].configuration.getString("smtp.from").getOrElse(throw new RuntimeException("From addres is required."))
 
     private lazy val mailerRepo = use[com.typesafe.plugin.MailerPlugin].email
 
@@ -435,13 +437,13 @@ trait MailingComponentImpl extends MailingComponent {
         log.debug("[oadmin] mail = [%s]".format(body))
       }
 
-      play.libs.Akka.system.scheduler.scheduleOnce(1 second) {
+      play.libs.Akka.system.scheduler.scheduleOnce(1000 microseconds) {
 
         mailerRepo.setSubject(subject)
         mailerRepo.setRecipient(recipient)
-        mailerRepo.setFrom(fromAddress)
+        mailerRepo.setFrom(FromAddress)
 
-        mailerRepo.setReplyTo(fromAddress)
+        mailerRepo.setReplyTo(FromAddress)
 
         // the mailer plugin handles null / empty string gracefully
         mailerRepo.send(body._1 getOrElse "", body._2 getOrElse "")
@@ -457,8 +459,8 @@ import schola.oadmin._, schema._, domain._, http._
 //import com.mchange.v2.c3p0.ComboPooledDataSource
 import com.jolbox.bonecp.BoneCPDataSource
 
-//object d extends DefaultFaçade(null) { override lazy val db = schema.Q.Database.forDataSource(new ComboPooledDataSource); override implicit val system =akka.actor.ActorSystem()  }
-object d extends DefaultFaçade(null) { override lazy val db = schema.Q.Database.forDataSource(new BoneCPDataSource { setDriverClass("org.postgresql.Driver") }); override implicit val system =akka.actor.ActorSystem()  }
+//object d extends DefaultFaçade(null) { override lazy val db = schema.Q.Database.forDataSource(new ComboPooledDataSource); override implicit lazy val system =a kka.actor.ActorSystem()  }
+object d extends DefaultFaçade(null) { override lazy val db = schema.Q.Database.forDataSource(new BoneCPDataSource { setDriverClass("org.postgresql.Driver") }); override implicit lazy val system = akka.actor.ActorSystem()  }
 
 d.drop()
 d.init(U.SuperUser.id.get)

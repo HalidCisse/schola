@@ -14102,18 +14102,18 @@ Released under the MIT License
 
   $ = require('jqueryify');
 
-  R = jsRoutes.controllers;
+  R = jsRoutes.controllers.Tags;
 
   labels = (function() {
     function labels() {}
 
     labels.getLabels = function() {
-      return $.getJSON(R.Tags.getTags().url);
+      return $.getJSON(R.getTags().url);
     };
 
     labels.addLabel = function(label, color) {
       var route;
-      route = R.Roles.addTag(label, color);
+      route = R.addTag(label, color);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14123,7 +14123,7 @@ Released under the MIT License
 
     labels.updateLabelColor = function(name, color) {
       var route;
-      route = R.Roles.updateTagColor(name, color);
+      route = R.updateTagColor(name, color);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14133,7 +14133,7 @@ Released under the MIT License
 
     labels.updateLabel = function(name, newName) {
       var route;
-      route = R.Roles.updateTag(name, newName);
+      route = R.updateTag(name, newName);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14143,7 +14143,7 @@ Released under the MIT License
 
     labels.purgeLabels = function(labels) {
       var route;
-      route = R.Roles.purgeTags(labels);
+      route = R.purgeTags(labels);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14438,30 +14438,30 @@ module.exports = {
 
   $ = require('jqueryify');
 
-  R = jsRoutes.controllers;
+  R = jsRoutes.controllers.Roles;
 
   roles = (function() {
     function roles() {}
 
     roles.getRoles = function() {
-      return $.getJSON(R.Roles.getRoles().url);
+      return $.getJSON(R.getRoles().url);
     };
 
     roles.getRole = function(name) {
-      return $.getJSON(R.Roles.getRole(name).url);
+      return $.getJSON(R.getRole(name).url);
     };
 
     roles.getPermissions = function() {
-      return $.getJSON(R.Roles.getPermissions().url);
+      return $.getJSON(R.getPermissions().url);
     };
 
     roles.getRolePermissions = function(name) {
-      return $.getJSON(R.Roles.getRolePermissions(name).url);
+      return $.getJSON(R.getRolePermissions(name).url);
     };
 
     roles.addRole = function(spec) {
       var route;
-      route = R.Roles.addRole(spec);
+      route = R.addRole(spec);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14471,7 +14471,7 @@ module.exports = {
 
     roles.updateRole = function(name, newName, parent) {
       var route;
-      route = R.Roles.updateRole(name, newName, parent);
+      route = R.updateRole(name, newName, parent);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14481,7 +14481,7 @@ module.exports = {
 
     roles.purgeRoles = function(roles) {
       var route;
-      route = R.Roles.purgeRoles(roles);
+      route = R.purgeRoles(roles);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14491,7 +14491,7 @@ module.exports = {
 
     roles.grantPermissions = function(roleName, permissions) {
       var route;
-      route = R.Roles.grantRolePermissions(roleName, permissions);
+      route = R.grantPermissions(roleName, permissions);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14501,7 +14501,7 @@ module.exports = {
 
     roles.revokePermissions = function(roleName, permissions) {
       var route;
-      route = R.Roles.revokeRolePermissions(roleName, permissions);
+      route = R.revokePermissions(roleName, permissions);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14510,7 +14510,7 @@ module.exports = {
     };
 
     roles.roleExists = function(roleName) {
-      return $.getJSON(R.Roles.roleExists(roleName).url);
+      return $.getJSON(R.roleExists(roleName).url);
     };
 
     return roles;
@@ -14682,33 +14682,45 @@ module.exports = {
 
   $ = require('jqueryify');
 
-  R = jsRoutes.controllers;
+  R = jsRoutes.controllers.Users;
 
   users = (function() {
     function users() {}
 
     users.getUser = function(id) {
-      return $.getJSON(R.Users.getUser(id).url);
+      return $.getJSON(R.getUser(id).url);
     };
 
     users.getUsersStats = function() {
-      return $.getJSON(R.Users.getUsersStats().url);
+      return $.getJSON(R.getUsersStats().url);
     };
 
     users.getUsers = function(page) {
       if (page == null) {
         page = 0;
       }
-      return $.getJSON(R.Users.getUsers(page).url);
+      return $.getJSON(R.getUsers(page).url);
     };
 
     users.getUserRoles = function(id) {
-      return $.getJSON(R.Users.getUserRoles(id).url);
+      return $.getJSON(R.getUserRoles(id).url);
     };
 
-    users.upsertUser = function(spec) {
+    users.saveUser = function(spec) {
       var route;
-      route = spec.id ? R.Users.addUser() : R.Users.updateUser(spec.id);
+      route = R.addUser();
+      return $.ajax({
+        type: route.type,
+        url: route.url,
+        dataType: 'json',
+        contentType: 'application/json; charset=UTF-8',
+        data: JSON.stringify(spec)
+      });
+    };
+
+    users.updateUser = function(id, spec) {
+      var route;
+      route = R.updateUser(id);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14720,7 +14732,7 @@ module.exports = {
 
     users.removeUsers = function(users) {
       var route;
-      route = R.Users.removeUsers(users);
+      route = R.deleteUsers(users);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14730,7 +14742,7 @@ module.exports = {
 
     users.purgeUsers = function(users) {
       var route;
-      route = R.Users.purgeUsers(users);
+      route = R.purgeUsers(users);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14740,7 +14752,7 @@ module.exports = {
 
     users.undeleteUsers = function(users) {
       var route;
-      route = R.Users.undeleteUsers(users);
+      route = R.undeleteUsers(users);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14750,7 +14762,7 @@ module.exports = {
 
     users.changePasswd = function(id, newPasswd, oldPassword) {
       var route;
-      route = R.Users.changePasswd(id);
+      route = R.changePasswd(id);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14765,7 +14777,7 @@ module.exports = {
 
     users.setAddress = function(id, spec) {
       var route;
-      route = R.Users.updateUser(id);
+      route = R.updateUser(id);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14777,7 +14789,7 @@ module.exports = {
 
     users.remHomeAddress = function(id) {
       var route;
-      route = R.Users.updateUser(id);
+      route = R.updateUser(id);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14791,7 +14803,7 @@ module.exports = {
 
     users.remWorkAddress = function(id) {
       var route;
-      route = R.Users.updateUser(id);
+      route = R.updateUser(id);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14805,7 +14817,7 @@ module.exports = {
 
     users.updateContacts = function(id, contacts) {
       var route;
-      route = R.Users.updateUser(id);
+      route = R.updateUser(id);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14819,7 +14831,7 @@ module.exports = {
 
     users.grantRoles = function(id, roles) {
       var route;
-      route = R.Users.grantUserRoles(id, roles);
+      route = R.grantUserRoles(id, roles);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14829,7 +14841,7 @@ module.exports = {
 
     users.revokeRoles = function(id, roles) {
       var route;
-      route = R.Users.revokeUserRoles(id, roles);
+      route = R.revokeUserRoles(id, roles);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14837,9 +14849,9 @@ module.exports = {
       });
     };
 
-    users.remAvatar = function(id, avatarId) {
+    users.purgeAvatar = function(id, avatarId) {
       var route;
-      route = R.Users.purgeAvatar(id, avatarId);
+      route = R.purgeAvatar(id, avatarId);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14847,15 +14859,15 @@ module.exports = {
       });
     };
 
-    users.getAvatar = function(avatarId) {
-      return $.getJSON(R.Users.downloadAvatar(avatarId).url);
+    users.downloadAvatar = function(avatarId) {
+      return $.getJSON(R.downloadAvatar(avatarId).url);
     };
 
-    users.setAvatar = function(id, file) {
+    users.uploadAvatar = function(id, file) {
       var sendFile;
       sendFile = function(file) {
         var route;
-        route = R.Users.uploadAvatar(id, file.name);
+        route = R.uploadAvatar(id, file.name);
         return $.ajax({
           type: route.type,
           url: route.url,
@@ -14883,20 +14895,20 @@ module.exports = {
     };
 
     users.getUserRoles = function(id) {
-      return $.getJSON(R.Users.getUserRoles(id).url);
+      return $.getJSON(R.getUserRoles(id).url);
     };
 
     users.userExists = function(username) {
-      return $.getJSON(R.Users.primaryEmailExists(username).url);
+      return $.getJSON(R.userExists(username).url);
     };
 
     users.getTrash = function() {
-      return $.getJSON(R.Users.getPurgedUsers().url);
+      return $.getJSON(R.getPurgedUsers().url);
     };
 
     users.labelUser = function(id, labels) {
       var route;
-      route = R.Users.addUserTags(id, labels);
+      route = R.addUserTags(id, labels);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14906,7 +14918,7 @@ module.exports = {
 
     users.unLabelUser = function(id, labels) {
       var route;
-      route = R.Users.purgeUserTags(id, labels);
+      route = R.purgeUserTags(id, labels);
       return $.ajax({
         type: route.type,
         url: route.url,
@@ -14915,7 +14927,7 @@ module.exports = {
     };
 
     users.getUserLabels = function(id) {
-      return $.getJSON(R.Users.getUserTags(id).url);
+      return $.getJSON(R.getUserTags(id).url);
     };
 
     return users;
@@ -15107,14 +15119,15 @@ module.exports = {
         var PAGES, count;
         count = _arg['count'];
         PAGES = Math.ceil(count / _this.MaxResults);
+        if (PAGES === 0) {
+          return _this.refresh([], {
+            clear: true
+          });
+        }
         return $.Deferred(function(deferred) {
           var LoadPage, i, _i, _results;
           deferred.progress(function(us) {
-            var u, _i, _len;
-            for (_i = 0, _len = us.length; _i < _len; _i++) {
-              u = us[_i];
-              users.push(u);
-            }
+            users = [].concat.apply(users, us);
             if (++completed === PAGES) {
               return deferred.resolve(users);
             }

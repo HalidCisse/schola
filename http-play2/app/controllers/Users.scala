@@ -44,8 +44,41 @@ object Users extends Controller with Secured with Helpers  {
       resourceOwner =>
         implicit request =>
 
-          request.body.validate[domain.User].map {
-            case domain.User(primaryEmail, password, givenName, familyName, _, _, _, _, _, gender, homeAddress, workAddress, contacts, _, _, _, _, changePasswordAtNextLogin, _, _) =>
+          import play.api.libs.json._, Reads._
+          import play.api.libs.functional.syntax._
+
+          case class UserIn(
+            primaryEmail: String,
+            password: Option[String],
+            givenName: String,
+            familyName: String,
+            gender: Gender,
+            homeAddress: Option[AddressInfo],
+            workAddress: Option[AddressInfo],
+            contacts: Option[Contacts],
+            changePasswordAtNextLogin: Boolean)
+
+          implicit val addressInfoReads = (
+            (__ \ "city").readNullable[String] ~
+            (__ \ "country").readNullable[String] ~
+            (__ \ "postalCode").readNullable[String] ~
+            (__ \ "streetAddress").readNullable[String]
+          )(AddressInfo)
+          
+          implicit val userInReads = (
+            (__ \ "primaryEmail").read[String](email) ~
+            (__ \ "password").readNullable(minLength[String](schola.oadmin.PasswordMinLength)) ~
+            (__ \ "givenName").read[String] ~
+            (__ \ "familyName").read[String] ~
+            (__ \ "gender").read[Gender] ~
+            (__ \ "homeAddress").readNullable[AddressInfo] ~
+            (__ \ "workAddress").readNullable[AddressInfo] ~
+            (__ \ "contacts").readNullable[Contacts] ~
+            (__ \ "changePasswordAtNextLogin").read[Boolean]
+          )(UserIn)
+
+          request.body.validate[UserIn].map {
+            case UserIn(primaryEmail, password, givenName, familyName, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) =>
 
               use[Façade].userService.saveUser(primaryEmail, password getOrElse randomString(4), givenName, familyName, Some(resourceOwner.id), gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) match {
                 case Some(user) =>
@@ -70,8 +103,43 @@ object Users extends Controller with Secured with Helpers  {
       resourceOwner =>
         implicit request =>
 
-          request.body.validate[domain.User].map {
-            case domain.User(sPrimaryEmail, sPassword, sGivenName, sFamilyName, _, _, _, _, _, sGender, sHomeAddress, sWorkAddress, sContacts, _, _, _, _, _, _, _) =>
+          import play.api.libs.json._, Reads._
+          import play.api.libs.functional.syntax._
+
+          case class UserIn(
+            primaryEmail: Option[String],
+            oldPassword: Option[String],
+            password: Option[String],
+            givenName: Option[String],
+            familyName: Option[String],
+            gender: Option[Gender],
+            homeAddress: Option[AddressInfo],
+            workAddress: Option[AddressInfo],
+            contacts: Option[Contacts],
+            changePasswordAtNextLogin: Option[Boolean]) 
+
+          implicit val addressInfoReads = (
+            (__ \ "city").readNullable[String] ~
+            (__ \ "country").readNullable[String] ~
+            (__ \ "postalCode").readNullable[String] ~
+            (__ \ "streetAddress").readNullable[String]
+          )(AddressInfo)
+          
+          implicit val userInReads = (
+            (__ \ "primaryEmail").readNullable[String](email) ~
+            (__ \ "oldPassword").readNullable[String] ~
+            (__ \ "password").readNullable(minLength[String](schola.oadmin.PasswordMinLength)) ~
+            (__ \ "givenName").readNullable[String] ~
+            (__ \ "familyName").readNullable[String] ~
+            (__ \ "gender").readNullable[Gender] ~
+            (__ \ "homeAddress").readNullable[AddressInfo] ~
+            (__ \ "workAddress").readNullable[AddressInfo] ~
+            (__ \ "contacts").readNullable[Contacts] ~
+            (__ \ "changePasswordAtNextLogin").readNullable[Boolean]
+          )(UserIn)              
+
+          request.body.validate[UserIn].map {
+            case UserIn(sPrimaryEmail, sOldPassword, sPassword, sGivenName, sFamilyName, sGender, sHomeAddress, sWorkAddress, sContacts, changePasswordAtNextLogin) =>
 
               if (use[Façade].userService.updateUser(id, new DefaultUserSpec {
 
@@ -105,21 +173,39 @@ object Users extends Controller with Secured with Helpers  {
                             })))
                     })
 
-                override lazy val homeAddress = UpdateSpecImpl[AddressInfo](set = sHomeAddress map Option[AddressInfo])
+                override lazy val homeAddress =
+                  UpdateSpecImpl[AddressInfoSpec](
+                    set = sHomeAddress collect {
+                      case AddressInfo(city, country, postalCode, streetAddress) =>
+                          Some(AddressInfoSpec(
+                            city = UpdateSpecImpl[String](set = city map Option[String]),
+                            country = UpdateSpecImpl[String](set = country map Option[String]),
+                            postalCode = UpdateSpecImpl[String](set = postalCode map Option[String]),
+                            streetAddress = UpdateSpecImpl[String](set = streetAddress map Option[String])))
+                    })
 
-                override lazy val workAddress = UpdateSpecImpl[AddressInfo](set = sWorkAddress map Option[AddressInfo])
+                override lazy val workAddress =
+                  UpdateSpecImpl[AddressInfoSpec](
+                    set = sWorkAddress collect {
+                      case AddressInfo(city, country, postalCode, streetAddress) =>
+                          Some(AddressInfoSpec(
+                            city = UpdateSpecImpl[String](set = city map Option[String]),
+                            country = UpdateSpecImpl[String](set = country map Option[String]),
+                            postalCode = UpdateSpecImpl[String](set = postalCode map Option[String]),
+                            streetAddress = UpdateSpecImpl[String](set = streetAddress map Option[String])))
+                    })                
 
-                override lazy val primaryEmail = Some(sPrimaryEmail)
+                override lazy val primaryEmail = sPrimaryEmail
 
-                override lazy val givenName = Some(sGivenName)
+                override lazy val givenName = sGivenName
 
-                override lazy val familyName = Some(sFamilyName)
+                override lazy val familyName = sFamilyName
 
-                override lazy val gender = Some(sGender)
+                override lazy val gender = sGender
 
                 override lazy val password = sPassword
 
-                override lazy val oldPassword = (request.body \ "old_password").asOpt[String]
+                override lazy val oldPassword = sOldPassword
               }))
                 render {
                   case Accepts.Json() =>
@@ -276,23 +362,23 @@ object Users extends Controller with Secured with Helpers  {
           }
     }
 
-  def getUserTags =
+  def getUserTags(id: String) =
     withAuth {
-      user: ResourceOwner =>
+      _ =>
         implicit request: RequestHeader =>
 
           render {
             case Accepts.Json() =>
-              json[List[UserLabel]](use[Façade].userService.getUserLabels(user.id))
+              json[List[String]](use[Façade].userService.getUserLabels(id))
           }
     }
 
-  def addUserTags(labels: List[String]) =
+  def addUserTags(id: String, labels: List[String]) =
     withAuth {
-      user: ResourceOwner =>
+      _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.labelUser(user.id, labels))
+          def result = tryo(use[Façade].userService.labelUser(id, labels))
 
           render {
             case Accepts.Json() =>
@@ -305,12 +391,12 @@ object Users extends Controller with Secured with Helpers  {
           }
     }
 
-  def purgeUserTags(labels: List[String]) =
+  def purgeUserTags(id: String, labels: List[String]) =
     withAuth {
-      user: ResourceOwner =>
+      _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.unLabelUser(user.id, labels))
+          def result = tryo(use[Façade].userService.unLabelUser(id, labels))
 
           render {
             case Accepts.Json() =>
@@ -344,7 +430,7 @@ object Users extends Controller with Secured with Helpers  {
                       .as(contentType.getOrElse("application/octet-stream; charset=UTF-8"))
                 }
             } recover {
-              case _: Throwable => BadRequest
+              case _: Throwable => NotFound
             }, Duration.Inf)
     }
 

@@ -21,16 +21,17 @@ trait SessionSupport extends Plugin {
 
   // Profile management
 
-  def getAvatar(sessionKey: String, userAgent: String): scala.concurrent.Future[AvatarInfo]
+  def downloadAvatar(sessionKey: String, userAgent: String): scala.concurrent.Future[AvatarInfo]
 
   def purgeAvatar(sessionKey: String, userAgent: String): scala.concurrent.Future[Boolean]
 
-  def setAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
+  def uploadAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
 
   def updateAccount(
     sessionKey: String,
     userAgent: String,
     primaryEmail: String,
+    oldPassword: Option[String],
     password: Option[String],
     givenName: String,
     familyName: String,
@@ -147,7 +148,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
     val nonce = _genNonce(session.issuedTime)
 
-    val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, Hostname, Port, "", "")
+    val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, "localhost", 80, "", "")
     unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
       errMsg => scala.concurrent.Future.failed(new ScholaException(s"Invalid request: $errMsg"))
     }, {
@@ -163,7 +164,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
   // Profile management
 
-  def getAvatar(sessionKey: String, userAgent: String) =
+  def downloadAvatar(sessionKey: String, userAgent: String) =
     session(sessionKey, userAgent) flatMap { session =>
 
       if (session.user.avatar.isDefined)
@@ -185,9 +186,9 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
       session(sessionKey, userAgent) flatMap { session =>
 
-        mac(session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatars/${session.user.avatar.get}", userAgent) flatMap { auth =>
+        mac(session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatar/${session.user.avatar.get}", userAgent) flatMap { auth =>
 
-          Http(api.DELETE / "user" / session.user.id.get.toString / "avatars" / session.user.avatar.get <:< auth OK Json) flatMap { json =>
+          Http(api.DELETE / "user" / session.user.id.get.toString / "avatar" / session.user.avatar.get <:< auth OK Json) flatMap { json =>
 
             json.asOpt[Response]
               .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
@@ -199,16 +200,12 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
       case ex: Throwable => scala.concurrent.Future.failed(ex)
     }
 
-  def setAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
+  def uploadAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
     session(sessionKey, userAgent) flatMap { session =>
 
-      mac(session, "POST", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatars", userAgent) flatMap { auth =>
+      mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatar?name=${java.net.URLEncoder.encode(filename, "UTF-8")}", userAgent) flatMap { auth =>
 
-        val fs = java.io.File.createTempFile("OAdmin-", s"-avatar_${session.user.id.get}")
-
-        org.apache.commons.io.FileUtils.writeByteArrayToFile(fs, bytes)
-
-        Http(api.POST / "user" / session.user.id.get.toString / "avatars" <:< auth addBodyPart new com.ning.http.multipart.FilePart("f", fs, contentType getOrElse "application/octet-stream; charset=UTF-8", "UTF-8") OK Json) flatMap { json =>
+        Http(api.PUT / "user" / session.user.id.get.toString / "avatar" <<? Map("name" -> filename) <:< auth + ("Content-Type" -> contentType.getOrElse("application/octet-stream; charset=UTF-8")) setBody(bytes) OK Json) flatMap { json =>
 
           json.asOpt[Response]
             .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
@@ -220,6 +217,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
     sessionKey: String,
     userAgent: String,
     primaryEmail: String,
+    oldPassword: Option[String],
     password: Option[String],
     givenName: String,
     familyName: String,
@@ -233,6 +231,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
         "primaryEmail" -> primaryEmail,
         "givenName" -> givenName,
         "familyName" -> familyName,
+        "oldPassword" -> oldPassword,
         "password" -> password,
         "gender" -> gender,
         "homeAddress" -> homeAddress,
@@ -256,7 +255,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
       mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}", userAgent) flatMap { auth =>
 
-        Http(api.PUT / "user" / session.user.id.get.toString << PlayJson.stringify(PlayJson.obj("old_password" -> passwd, "password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
+        Http(api.PUT / "user" / session.user.id.get.toString << PlayJson.stringify(PlayJson.obj("oldPassword" -> passwd, "password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
           true
         } recover { case _ => false }
       }

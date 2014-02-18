@@ -88,6 +88,7 @@ trait CachingUserServicesComponentImpl extends CachingServicesComponent with Use
 
     abstract override def removeUser(id: String): Boolean =
       super.removeUser(id) && {
+        
         cachingServices.evict(Params(id))
 
         cachingServices.evict(UserParams(calcPage = pageOf(id)))
@@ -95,8 +96,18 @@ trait CachingUserServicesComponentImpl extends CachingServicesComponent with Use
         true
       }
 
+    abstract override def removeUsers(users: Set[String]) {
+      super.removeUsers(users)
+      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(calcPage = pageOf(o))) })
+    }
+
     abstract override def purgeUsers(users: Set[String]) {
       super.purgeUsers(users)
+      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(calcPage = pageOf(o))) })
+    }
+
+    abstract override def undeleteUsers(users: Set[String]) = {
+      super.undeleteUsers(users)
       users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(calcPage = pageOf(o))) })
     }
   }

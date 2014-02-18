@@ -37,11 +37,17 @@ trait UserSpec {
     home: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec](),
     work: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec]())
 
+  case class AddressInfoSpec(
+    city: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+    country: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+    postalCode: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+    streetAddress: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
+
   def contacts: UpdateSpec[ContactsSpec]
 
-  def homeAddress: UpdateSpec[AddressInfo]
+  def homeAddress: UpdateSpec[AddressInfoSpec]
 
-  def workAddress: UpdateSpec[AddressInfo]
+  def workAddress: UpdateSpec[AddressInfoSpec]
 
   def primaryEmail: Option[String]
 
@@ -62,9 +68,9 @@ class DefaultUserSpec extends UserSpec {
 
   lazy val contacts = UpdateSpecImpl[ContactsSpec]()
 
-  lazy val homeAddress = UpdateSpecImpl[AddressInfo]()
+  lazy val homeAddress = UpdateSpecImpl[AddressInfoSpec]()
 
-  lazy val workAddress = UpdateSpecImpl[AddressInfo]()
+  lazy val workAddress = UpdateSpecImpl[AddressInfoSpec]()
 
   lazy val primaryEmail: Option[String] = None
 

@@ -1,14 +1,14 @@
 $ = require('jqueryify')
 
-R = jsRoutes.controllers
+R = jsRoutes.controllers.Tags
 
 class labels
 
   @getLabels: ->
-    $.getJSON R.Tags.getTags().url
+    $.getJSON R.getTags().url
 
   @addLabel: (label, color) ->
-    route = R.Roles.addTag(label, color)
+    route = R.addTag(label, color)
     $.ajax(
       type: route.type
       url: route.url
@@ -16,7 +16,7 @@ class labels
     )
 
   @updateLabelColor: (name, color) ->
-    route = R.Roles.updateTagColor(name, color)
+    route = R.updateTagColor(name, color)
     $.ajax(
       type: route.type
       url: route.url
@@ -24,7 +24,7 @@ class labels
     )
 
   @updateLabel: (name, newName) ->
-    route = R.Roles.updateTag(name, newName)
+    route = R.updateTag(name, newName)
     $.ajax(
       type: route.type
       url: route.url
@@ -32,7 +32,7 @@ class labels
     )    
 
   @purgeLabels: (labels) ->
-    route = R.Roles.purgeTags(labels)
+    route = R.purgeTags(labels)
     $.ajax(
       type: route.type
       url: route.url

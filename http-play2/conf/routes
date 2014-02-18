@@ -16,9 +16,9 @@ PUT     /users/_undelete                    controllers.Users.undeleteUsers(user
 
 GET     /users/userexists                   controllers.Users.userExists(username: String)
 
-GET     /user/labels                        controllers.Users.getUserTags
-PUT     /user/labels                        controllers.Users.addUserTags(labels: List[String])
-DELETE  /user/labels                        controllers.Users.purgeUserTags(labels: List[String])
+GET     /user/:id/labels                    controllers.Users.getUserTags(id: String)
+PUT     /user/:id/labels                    controllers.Users.addUserTags(id: String, labels: List[String])
+DELETE  /user/:id/labels                    controllers.Users.purgeUserTags(id: String, labels: List[String])
 
 GET     /user/:id                           controllers.Users.getUser(id: String)
 PUT     /user/:id                           controllers.Users.updateUser(id: String)

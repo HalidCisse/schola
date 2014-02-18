@@ -1,23 +1,33 @@
 $ = require('jqueryify')
 
-R = jsRoutes.controllers
+R = jsRoutes.controllers.Users
 
 class users
 
   @getUser: (id) ->
-    $.getJSON R.Users.getUser(id).url
+    $.getJSON R.getUser(id).url
 
   @getUsersStats: ->
-    $.getJSON R.Users.getUsersStats().url
+    $.getJSON R.getUsersStats().url
 
   @getUsers: (page=0) ->
-    $.getJSON R.Users.getUsers(page).url
+    $.getJSON R.getUsers(page).url
 
   @getUserRoles: (id) ->
-    $.getJSON R.Users.getUserRoles(id).url
+    $.getJSON R.getUserRoles(id).url
 
-  @upsertUser: (spec) ->
-    route = if spec.id then R.Users.addUser() else R.Users.updateUser(spec.id)
+  @saveUser: (spec) ->
+    route = R.addUser()
+    $.ajax(
+      type: route.type
+      url:  route.url
+      dataType: 'json',
+      contentType: 'application/json; charset=UTF-8'
+      data: JSON.stringify(spec)
+    )    
+
+  @updateUser: (id, spec) ->
+    route = R.updateUser(id)
     $.ajax(
       type: route.type
       url:  route.url
@@ -27,7 +37,7 @@ class users
     )    
 
   @removeUsers: (users) ->
-    route = R.Users.removeUsers(users)
+    route = R.deleteUsers(users)
     $.ajax(
       type: route.type
       url: route.url
@@ -35,7 +45,7 @@ class users
     )    
 
   @purgeUsers: (users) ->
-    route = R.Users.purgeUsers(users)
+    route = R.purgeUsers(users)
     $.ajax(
       type: route.type
       url: route.url
@@ -43,7 +53,7 @@ class users
     )
 
   @undeleteUsers: (users) ->
-    route = R.Users.undeleteUsers(users)
+    route = R.undeleteUsers(users)
     $.ajax(
       type: route.type
       url: route.url
@@ -51,7 +61,7 @@ class users
     )
 
   @changePasswd: (id, newPasswd, oldPassword) ->
-    route = R.Users.changePasswd(id)
+    route = R.changePasswd(id)
     $.ajax(
       type: route.type
       url: route.url
@@ -61,7 +71,7 @@ class users
     )    
 
   @setAddress: (id, spec) ->
-    route = R.Users.updateUser(id)
+    route = R.updateUser(id)
     $.ajax(
       type: route.type
       url: route.url
@@ -71,7 +81,7 @@ class users
     )        
 
   @remHomeAddress: (id) ->
-    route = R.Users.updateUser(id)
+    route = R.updateUser(id)
     $.ajax(
       type: route.type
       url: route.url
@@ -81,7 +91,7 @@ class users
     )
 
   @remWorkAddress: (id) ->
-    route = R.Users.updateUser(id)
+    route = R.updateUser(id)
     $.ajax(
       type: route.type
       url: route.url
@@ -91,7 +101,7 @@ class users
     )    
 
   @updateContacts: (id, contacts) ->
-    route = R.Users.updateUser(id)
+    route = R.updateUser(id)
     $.ajax(
       type: route.type
       url: route.url
@@ -101,7 +111,7 @@ class users
     )       
 
   @grantRoles: (id, roles) ->
-    route = R.Users.grantUserRoles(id, roles)
+    route = R.grantUserRoles(id, roles)
     $.ajax(
       type: route.type
       url: route.url
@@ -109,28 +119,28 @@ class users
     )
 
   @revokeRoles: (id, roles) ->
-    route = R.Users.revokeUserRoles(id, roles)
+    route = R.revokeUserRoles(id, roles)
     $.ajax(
       type: route.type,
       url: route.url
       dataType: 'json'
     )    
 
-  @remAvatar: (id, avatarId) ->
-    route = R.Users.purgeAvatar(id, avatarId)
+  @purgeAvatar: (id, avatarId) ->
+    route = R.purgeAvatar(id, avatarId)
     $.ajax(
       type: route.type
       url: route.url
       dataType: 'json'
     )     
 
-  @getAvatar: (avatarId) ->
-    $.getJSON R.Users.downloadAvatar(avatarId).url
+  @downloadAvatar: (avatarId) ->
+    $.getJSON R.downloadAvatar(avatarId).url
 
-  @setAvatar: (id, file) ->
+  @uploadAvatar: (id, file) ->
 
     sendFile = (file) ->
-      route = R.Users.uploadAvatar(id, file.name)
+      route = R.uploadAvatar(id, file.name)
       $.ajax(
         type: route.type
         url: route.url
@@ -156,16 +166,16 @@ class users
     sendFile(file)
 
   @getUserRoles: (id) ->
-    $.getJSON R.Users.getUserRoles(id).url
+    $.getJSON R.getUserRoles(id).url
 
   @userExists: (username) ->
-    $.getJSON R.Users.primaryEmailExists(username).url
+    $.getJSON R.userExists(username).url
 
   @getTrash: ->
-    $.getJSON R.Users.getPurgedUsers().url
+    $.getJSON R.getPurgedUsers().url
 
   @labelUser: (id, labels) ->
-    route = R.Users.addUserTags(id, labels)
+    route = R.addUserTags(id, labels)
     $.ajax(
       type: route.type
       url: route.url
@@ -173,7 +183,7 @@ class users
     )
 
   @unLabelUser: (id, labels) ->
-    route = R.Users.purgeUserTags(id, labels)
+    route = R.purgeUserTags(id, labels)
     $.ajax(
       type: route.type
       url: route.url
@@ -181,7 +191,7 @@ class users
     )
 
   @getUserLabels: (id) ->
-    $.getJSON R.Users.getUserTags(id).url
+    $.getJSON R.getUserTags(id).url
 
 
 module.exports = users

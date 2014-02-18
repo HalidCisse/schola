@@ -35,10 +35,10 @@ object Roles extends Controller with Secured with Helpers {
 
   def addRole(name: String, parent: Option[String]) =
     withAuth {
-      resourceOwner: ResourceOwner =>
+      user: ResourceOwner =>
         implicit request: RequestHeader =>
 
-          use[Façade].accessControlService.saveRole(name, parent, Some(resourceOwner.id)) match {
+          use[Façade].accessControlService.saveRole(name, parent, Some(user.id)) match {
             case Some(role) =>
 
               render {
@@ -59,7 +59,11 @@ object Roles extends Controller with Secured with Helpers {
 
             render {
               case Accepts.Json() =>
-                json[Role](use[Façade].accessControlService.getRole(name))
+
+                use[Façade].accessControlService.getRole(newName) match {
+                  case Some(role) => json[Role](role)
+                  case _          => NotFound
+                }
             }
 
           else BadRequest

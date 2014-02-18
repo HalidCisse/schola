@@ -3,7 +3,8 @@ package oadmin
 
 package oauth2
 
-import com.mchange.v2.c3p0.ComboPooledDataSource
+// import com.mchange.v2.c3p0.ComboPooledDataSource
+import com.jolbox.bonecp.BoneCPDataSource
 
 object main extends App
     with OAuth2Component
@@ -27,9 +28,10 @@ object main extends App
 
   val oauthService = new OAuthServicesImpl
 
-  protected val db = Database.forDataSource(new ComboPooledDataSource)
+  // protected val db = Database.forDataSource(new ComboPooledDataSource)
+  protected val db = Database.forDataSource(new BoneCPDataSource)
 
-  val server = Http(Port, Hostname)
+  val server = Http(3000)
 
   implicit val system = akka.actor.ActorSystem("ScholaActorSystem")
 
