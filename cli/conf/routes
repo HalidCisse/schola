@@ -9,7 +9,7 @@ GET     /EditAccount          controllers.Profile.edit
 POST    /UpdateAccount        controllers.Profile.update
 
 GET     /Avatar               controllers.Profile.downloadAvatar
-POST    /Avatar               controllers.Profile.uploadAvatar(name: String)
+POST    /Avatar               controllers.Profile.uploadAvatar(filename: String)
 DELETE  /Avatar               controllers.Profile.purgeAvatar
 
 GET     /ChangePasswd         controllers.Passwords.changePage(required: Boolean ?= false)
@@ -28,6 +28,10 @@ POST    /Login                controllers.LoginPage.login
 GET     /Logout               controllers.LoginPage.logout
 
 GET     /javascriptRoutes     controllers.Profile.javascriptRoutes
+
+# Admin Module
+
+->      /admin                admin.Routes
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file         controllers.Assets.at(path="/public", file)

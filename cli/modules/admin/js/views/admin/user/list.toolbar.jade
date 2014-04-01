@@ -1,0 +1,68 @@
+.toolbar.btn-toolbar.empty
+  .btn-group#users-select
+    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')
+      .checker
+      .select-toggle-wrapper.select-toggle(type='button' data-toggle="dropdown" data-target='#users-select')
+        span.caret
+    ul.selection-menu.dropdown-menu.squared(role="menu")
+      li
+        a(href="#" data-state='select:all') All
+      li
+        a(href="#" data-state='select:none') None
+      li
+        a(href="#" data-state='select:active') Active
+      li
+        a(href="#" data-state='select:suspended') Suspended
+  .btn-group
+    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')
+      span.glyphicon.glyphicon-refresh
+    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete' type='button')
+      span.glyphicon.glyphicon-trash
+  .labels-menu.btn-group
+    button.selection.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')
+      span.glyphicon.glyphicon-tags
+      | &nbsp;&nbsp;Labels &nbsp;
+      span.caret
+    ul.dropdown-menu.squared.dropdown-menu-left
+      li
+        .labels-list-wrapper
+          form.tags
+            fieldset
+              .filter
+                input.form-control.squared.input-sm(type='text' placeholder='Search' autofocus)
+                span.glyphicon.glyphicon-search
+              .shadow
+              .scrollable
+                .labels-list
+      li.divider
+      li.newLabel
+        a(href='#' class='new-label') New Label    
+      li.manage
+        a(href='#' class='manage-labels') Manage Labels    
+      li.apply
+        a(href='#' class='apply-labels') Apply    
+  .more.btn-group
+    button.btn.btn-default.btn-md.dropdown-toggle(type='button' data-toggle='dropdown')
+      | More &nbsp;
+      span.caret
+    ul.dropdown-menu.squared
+      li
+        a(href='#') Import
+      li
+        a(href='#') Export
+      li.divider
+      li
+        a(href='#') Disable
+  .paging.pull-right
+    span.paging-info 
+      strong.interval 
+        span.start
+        |–
+        span.end
+      | of 
+      strong.count
+    .btn-group
+      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')
+        span.glyphicon.glyphicon-chevron-left
+      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')
+        span.glyphicon.glyphicon-chevron-right

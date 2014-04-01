@@ -1,0 +1,2 @@
+
+GET   /assets/*file     controllers.admin.Assets.at(path="/public", file)

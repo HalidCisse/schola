@@ -1,6 +1,4 @@
-package schola
-package oadmin
-
+package ma.epsilon.schola
 package oauth2
 
 // import com.mchange.v2.c3p0.ComboPooledDataSource
@@ -9,11 +7,7 @@ import com.jolbox.bonecp.BoneCPDataSource
 object main extends App
     with OAuth2Component
     with impl.OAuthServicesRepoComponentImpl
-    with impl.OAuthServicesComponentImpl
-    with impl.AccessControlServicesRepoComponentImpl
-    with impl.AccessControlServicesComponentImpl {
-
-  /* UNUSED */ lazy val accessControlService = null
+    with impl.OAuthServicesComponentImpl {
 
   import unfiltered.jetty.Http
   import unfiltered.response.Pass
@@ -44,7 +38,7 @@ object main extends App
     }
 
   server.run({ s =>
-    log.info(s"oauth2-server is runing at ${s.url} . . . ")
+    log.info(s"oauth2-server is running at ${s.url} . . . ")
 
   }, { s =>
 

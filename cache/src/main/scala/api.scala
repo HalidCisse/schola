@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 
 import scala.concurrent.duration.Duration
 

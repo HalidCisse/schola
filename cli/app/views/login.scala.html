@@ -13,11 +13,11 @@
     <link href='@routes.Assets.at("css/signin.css")' rel="stylesheet">
   </head>
   <body>
-    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+    <nav role="navigation" class="navbar navbar-default navbar-fixed-top">
       <div class="container">
-        <div class="navbar-header"><a href="/" class="navbar-brand">Schola</a></div>
+        <div class="navbar-header"><a href="@routes.Application.index" class="navbar-brand">Schola</a></div>
       </div>
-    </div>
+    </nav>
     <div id="msgs" class="container">
 
         @request.flash.get("success").map { msg =>
@@ -47,7 +47,7 @@
               <input name='rememberMe' type="checkbox" value="remember-me" checked>                   
             } else {
               <input name='rememberMe' type="checkbox" value="remember-me">
-            } Stay signed in
+            } Keep me signed in
           </label><span class="forgot_passwd"><a href='@routes.Passwords.lostPage'>Forgot password</a></span>
         </fieldset>
       </form>

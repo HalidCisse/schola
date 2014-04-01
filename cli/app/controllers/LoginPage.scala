@@ -6,7 +6,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import com.typesafe.plugin._
 
-import schola.oadmin._, cli.SessionSupport
+import ma.epsilon.schola._, cli.SessionSupport
 
 import play.api.data.Form
 import play.api.data.Forms._
@@ -41,7 +41,7 @@ object LoginPage extends Controller with Helpers {
   val loginForm = Form(
     tuple(
       "username" -> email,
-      "password" -> nonEmptyText(minLength = schola.oadmin.PasswordMinLength),
+      "password" -> nonEmptyText(minLength = ma.epsilon.schola.PasswordMinLength),
       "rememberMe" -> optional(text)))
 
   /**
@@ -67,7 +67,7 @@ object LoginPage extends Controller with Helpers {
 
           use[SessionSupport].login(username, password, userAgent) map { session =>
 
-            if (session.user.suspended)
+            if (session.suspended)
 
               Redirect(routes.LoginPage.index)
                 .discardingCookies(DiscardingCookie(SESSION_KEY))
@@ -93,7 +93,7 @@ object LoginPage extends Controller with Helpers {
                     httpOnly = true))
 
           } recover {
-            case _: Throwable =>
+            case scala.util.control.NonFatal(_) =>
 
               Redirect(routes.LoginPage.index)
                 .flashing("error" -> "Login failed; invalid username or password.")
@@ -122,7 +122,7 @@ object LoginPage extends Controller with Helpers {
           use[SessionSupport].logout(sessionKey)
             .map(_ => result)
             .recover {
-              case _: Throwable => result
+              case scala.util.control.NonFatal(_) => result
             }
 
         case _ =>

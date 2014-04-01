@@ -3,7 +3,7 @@ package misc
 import play.api.{ GlobalSettings, Application }
 import play.api.Play.current
 
-import schola.oadmin._
+import ma.epsilon.schola._
 import com.typesafe.plugin._
 
 object Global extends GlobalSettings {

@@ -11,7 +11,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import com.typesafe.plugin._
 
-import schola.oadmin._, domain._, cli.SessionSupport, conversions.json._
+import ma.epsilon.schola._, domain._, cli.SessionSupport, conversions.json._
 import play.api.libs.iteratee.{ Iteratee, Enumerator }
 
 /**
@@ -55,14 +55,14 @@ object Profile extends Controller with Helpers {
     workAddress: Option[AddressInfo],
     contacts: Option[Contacts])
 
-  implicit def UserToInfo(user: domain.User) = UserInfo(user.primaryEmail, None, None, user.givenName, user.familyName, user.gender, user.homeAddress, user.workAddress, user.contacts)
+  implicit def UserToInfo(user: domain.Profile) = UserInfo(user.primaryEmail, None, None, user.givenName, user.familyName, user.gender, user.homeAddress, user.workAddress, user.contacts)
 
   val form = Form[UserInfo](
     mapping(
       PrimaryEmail -> email,
       CurrentPassword -> optional(text),
       NewPassword -> optional(tuple(
-        Password1 -> nonEmptyText(minLength = schola.oadmin.PasswordMinLength),
+        Password1 -> nonEmptyText(minLength = ma.epsilon.schola.PasswordMinLength),
         Password2 -> nonEmptyText).verifying("Passwords do not match", passwords => passwords._1 == passwords._2)),
       GivenName -> nonEmptyText,
       FamilyName -> nonEmptyText,
@@ -90,7 +90,7 @@ object Profile extends Controller with Helpers {
           PhoneNumber -> text,
           Fax -> text)((email, phoneNumber, fax) => Option(ContactInfo(Option(email.getOrElse("")), Option(phoneNumber), Option(fax))))(contactInfoIn => Option(contactInfoIn.flatMap(_.email), contactInfoIn.flatMap(_.phoneNumber).getOrElse(""), contactInfoIn.flatMap(_.fax).getOrElse(""))))(domain.Contacts)(domain.Contacts.unapply)) {
 
-        (primaryEmail, password, newPasswords, givenName, familyName, gender, homeAddress, workAddress, contacts) => UserInfo(primaryEmail, password, newPasswords map(_._1), givenName, familyName, gender, homeAddress, workAddress, Option(contacts))
+        (primaryEmail, password, newPasswords, givenName, familyName, gender, homeAddress, workAddress, contacts) => UserInfo(primaryEmail, password, newPasswords map (_._1), givenName, familyName, gender, homeAddress, workAddress, Option(contacts))
 
       } { (userInfo: UserInfo) => Some(userInfo.primaryEmail, Some(""), Some("", ""), userInfo.givenName, userInfo.familyName, userInfo.gender, userInfo.homeAddress, userInfo.workAddress, userInfo.contacts.getOrElse(domain.Contacts())) })
 
@@ -104,13 +104,13 @@ object Profile extends Controller with Helpers {
           use[SessionSupport].session(sessionKey, userAgent) map {
             session =>
 
-              if (session.user.changePasswordAtNextLogin)
+              if (session.changePasswordAtNextLogin)
                 Redirect(routes.Passwords.changePage(required = true))
 
               else Ok(views.html.editprofile(form.fill(session.user)))
 
           } recover {
-            case _: Throwable =>
+            case scala.util.control.NonFatal(_) =>
 
               Redirect(routes.LoginPage.index)
                 .discardingCookies(DiscardingCookie(SESSION_KEY))
@@ -197,7 +197,7 @@ object Profile extends Controller with Helpers {
               use[SessionSupport].uploadAvatar(sessionKey, userAgent, filename, request.contentType, bytes) map {
                 success => json[domain.Response](Response(success = success))
               } recover {
-                case ex: Throwable =>
+                case scala.util.control.NonFatal(_) =>
                   json[domain.Response](Response(success = false))
               }
           }
@@ -218,7 +218,7 @@ object Profile extends Controller with Helpers {
           use[SessionSupport].downloadAvatar(sessionKey, userAgent) map {
             json[domain.AvatarInfo]
           } recover {
-            case _: Throwable => NotFound
+            case scala.util.control.NonFatal(_) => NotFound
           }
 
         case _ =>
@@ -237,7 +237,7 @@ object Profile extends Controller with Helpers {
           use[SessionSupport].purgeAvatar(sessionKey, userAgent) map {
             success => json[domain.Response](Response(success = success))
           } recover {
-            case _: Throwable => json[domain.Response](Response(success = false))
+            case scala.util.control.NonFatal(_) => json[domain.Response](Response(success = false))
           }
 
         case _ =>
@@ -250,9 +250,8 @@ object Profile extends Controller with Helpers {
     implicit request =>
       Ok(
         Routes.javascriptRouter("jsRoutes")(
-        routes.javascript.Profile.uploadAvatar,
-        routes.javascript.Profile.downloadAvatar,
-        routes.javascript.Profile.purgeAvatar
-      )).as(JAVASCRIPT)
-  }  
+          routes.javascript.Profile.uploadAvatar,
+          routes.javascript.Profile.downloadAvatar,
+          routes.javascript.Profile.purgeAvatar)).as(JAVASCRIPT)
+  }
 }

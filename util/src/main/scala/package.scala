@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 
 /**
  * Schola base Exception.
@@ -14,12 +13,12 @@ object `package` {
 
   val config = {
     val root = ConfigFactory.load()
-    root getConfig "oadmin"
+    root getConfig "schola"
   }
 
   val passwords = webcrank.password.Passwords.scrypt(n = 4096) // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
-  val MaxResults = 50
+  val MaxResults = 100
 
   val API_VERSION = config.getString("api-version")
 

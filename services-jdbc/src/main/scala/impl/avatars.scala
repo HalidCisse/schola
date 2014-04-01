@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 
 package impl
 
@@ -29,30 +28,28 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
     gfs
   }
 
-  def uploadAvatar(userId: String, filename: String, contentType: Option[String], data: Array[Byte], listener: ActorRef) = {
+  def uploadAvatar(userId: String, filename: String, contentType: Option[String], data: Array[Byte]) = {
     import play.api.libs.iteratee.Enumerator
 
     log.debug("uploading new avatar . . .")
 
-    gridFS.save(Enumerator(data), DefaultFileToSave(filename, contentType, metadata = BSONDocument("user_id" -> BSONString(userId))))
-      .map(_.id.asInstanceOf[BSONObjectID].stringify) pipeTo listener
-
+    gridFS.save(
+      Enumerator(data),
+      DefaultFileToSave(filename, contentType, metadata = BSONDocument("user_id" -> BSONString(userId))))
   }
 
-  def purgeAvatar(id: String, listener: ActorRef) = gridFS.remove(BSONObjectID(id)) map (_.ok) pipeTo listener
-
-  def purgeAvatarForUser(userId: String, listener: ActorRef) = {
+  def purgeAvatar(userId: String) = {
     val fs = gridFS.find(BSONDocument("metadata" -> BSONDocument("user_id" -> BSONString(userId))))
 
     fs.headOption.filter(_.isDefined).map(_.get).flatMap { f: ReadFile[BSONValue] =>
-      gridFS.remove(f.id) map (_.ok)
-    } pipeTo listener
+      gridFS.remove(f.id)
+    }
   }
 
-  def getAvatar(id: String, listener: ActorRef) = {
+  def getAvatar(userId: String) = {
     import play.api.libs.iteratee.Iteratee
 
-    val fs = gridFS.find(BSONDocument("_id" -> BSONObjectID(id)))
+    val fs = gridFS.find(BSONDocument("metadata" -> BSONDocument("user_id" -> BSONString(userId))))
 
     fs.headOption.filter(_.isDefined).map(_.get).flatMap { f: ReadFile[BSONValue] =>
       val en = gridFS.enumerate(f)
@@ -60,26 +57,21 @@ class AvatarWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
       for {
         bytes <- en run Iteratee.consume[Array[Byte]]()
       } yield (f.filename, f.contentType, bytes)
-    } pipeTo listener
-
+    }
   }
 
   def receive = {
     case Avatars.Save(userId, filename, contentType, bytes) =>
 
-      uploadAvatar(userId, filename, contentType, bytes, sender)
+      uploadAvatar(userId, filename, contentType, bytes)
 
-    case Avatars.Get(id) =>
+    case Avatars.Get(userId) =>
 
-      getAvatar(id, sender)
+      getAvatar(userId) pipeTo sender
 
-    case Avatars.PurgeForUser(userId) =>
+    case Avatars.Purge(userId) =>
 
-      purgeAvatarForUser(userId, sender)
-
-    case Avatars.Purge(id) =>
-
-      purgeAvatar(id, sender)
+      purgeAvatar(userId)
   }
 }
 
@@ -94,7 +86,7 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
 
     log.info("ReactiveMongo starting...")
 
-    implicit val system = context.system
+    implicit def system = context.system
 
     val _helper = try {
       Some(ReactiveMongoHelper(Database, Seq(Host), Nil, None))
@@ -137,7 +129,7 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
   }
 
   val workerPool = context.actorOf(
-    props = Props(classOf[AvatarWorkers], helper).withRouter(RandomRouter(4)).withDeploy(Deploy.local), // TODO: change when you upgrade to 2.3
+    props = FromConfig.props(Props(classOf[AvatarWorkers], helper)),
     name = "Avatars_upload-workers")
 
   def receive = {
@@ -152,11 +144,9 @@ object Avatars {
 
   case class Save(userId: String, filename: String, contentType: Option[String], fdata: Array[Byte]) extends Msg
 
-  case class Get(id: String) extends Msg
+  case class Get(userId: String) extends Msg
 
-  case class Purge(id: String) extends Msg
-
-  case class PurgeForUser(userId: String) extends Msg
+  case class Purge(userId: String) extends Msg
 
 }
 
@@ -183,77 +173,33 @@ trait AvatarServicesComponentImpl extends AvatarServicesComponent {
     def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
       avatarServicesRepo.uploadAvatar(userId, filename, contentType, bytes)
 
-    def purgeAvatar(userId: String, avatarId: String) =
-      avatarServicesRepo.purgeAvatar(userId, avatarId)
-
-    def purgeAvatarForUser(userId: String) = avatarServicesRepo.purgeAvatarForUser(userId)
+    def purgeAvatar(userId: String) =
+      avatarServicesRepo.purgeAvatar(userId)
   }
 }
 
 trait AvatarServicesRepoComponentImpl extends AvatarServicesRepoComponent {
-  this: UserServicesComponent =>
+  this: UserServicesComponent with AkkaSystemProvider =>
 
-  class AvatarServicesRepoImpl(implicit system: akka.actor.ActorSystem) extends AvatarServicesRepo {
+  lazy protected val avatarServicesRepo = new AvatarServicesRepoImpl
 
-    val avatarService = system.actorOf(akka.actor.Props(classOf[Avatars], new MongoDBSettings(config getConfig "mongodb")), name = "avatars")
+  class AvatarServicesRepoImpl extends AvatarServicesRepo {
 
-    def getAvatar(id: String) = {
-      import scala.concurrent.duration._
-      import akka.pattern._
-      import scala.util.control.Exception.allCatch
-      import scala.concurrent.Await
+    private[this] val avatarService = system.actorOf(akka.actor.Props(classOf[Avatars], new MongoDBSettings(config getConfig "mongodb")), name = "avatars")
 
-      implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
-
-      (avatarService ? Avatars.Get(id)).mapTo[(String, Option[String], Array[Byte])]
-    }
-
-    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]) = {
+    def getAvatar(userId: String) = {
       import scala.concurrent.duration._
       import akka.pattern._
 
-      import system.dispatcher
-
       implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
 
-      val q = (avatarService ? Avatars.Save(userId, filename, contentType, bytes)).mapTo[String]
-
-      q map {
-        avatarId =>
-
-          userService.updateUser(userId, new domain.DefaultUserSpec {
-            override lazy val avatar = UpdateSpecImpl[String](set = Some(Some(avatarId)))
-          })
-
-      } recover {
-        case _: Throwable => false
-      }
+      (avatarService ? Avatars.Get(userId)).mapTo[(String, Option[String], Array[Byte])]
     }
 
-    def purgeAvatar(userId: String, avatarId: String) = {
-      import scala.concurrent.duration._
-      import akka.pattern._
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
+      avatarService ! Avatars.Save(userId, filename, contentType, bytes)
 
-      import system.dispatcher
-
-      implicit val timeout = akka.util.Timeout(60 seconds) // needed for `?` below
-
-      val ok = (avatarService ? Avatars.Purge(avatarId)).mapTo[Boolean]
-
-      ok map {
-        k =>
-
-          k && userService.updateUser(userId, new domain.DefaultUserSpec {
-            override lazy val avatar = UpdateSpecImpl[String](set = Some(None))
-          })
-
-      } recover {
-        case _: Throwable => false
-      }
-    }
-
-    def purgeAvatarForUser(userId: String) {
-      avatarService ! Avatars.PurgeForUser(userId)
-    }
+    def purgeAvatar(userId: String) =
+      avatarService ! Avatars.Purge(userId)
   }
 }

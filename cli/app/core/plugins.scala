@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 package cli
 
 import play.api.{ Plugin, Logger, Application }
@@ -67,14 +66,14 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
   }
 
   override def onStart() {
-    Logger.info("[oadmin-cli] loaded session plugin: %s".format(getClass.getName))
+    Logger.info("[schola-cli] loaded session plugin: %s".format(getClass.getName))
   }
 
   val hostname = "localhost"
 
   val client = OAuthClient(
-    "oadmin", "oadmin",
-    f"http://$hostname")
+    "schola", "schola",
+    s"http://$hostname")
 
   private val apiHost = host(hostname)
 
@@ -167,18 +166,14 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
   def downloadAvatar(sessionKey: String, userAgent: String) =
     session(sessionKey, userAgent) flatMap { session =>
 
-      if (session.user.avatar.isDefined)
+      mac(session, "GET", s"/api/$API_VERSION/avatar/${session.user.id.toString}", userAgent) flatMap { auth =>
 
-        mac(session, "GET", s"/api/$API_VERSION/avatar/${session.user.avatar.get}", userAgent) flatMap { auth =>
+        Http(api / "avatar" / session.user.id.toString <:< auth + ("Accept" -> "application/json") OK Json) flatMap { json =>
 
-          Http(api / "avatar" / session.user.avatar.get <:< auth + ("Accept" -> "application/json") OK Json) flatMap { json =>
-
-            json.asOpt[AvatarInfo]
-              .fold[scala.concurrent.Future[AvatarInfo]](scala.concurrent.Future.failed(new ScholaException("Avatar not found."))) { avatarInfo => scala.concurrent.Future.successful(avatarInfo) }
-          }
+          json.asOpt[AvatarInfo]
+            .fold[scala.concurrent.Future[AvatarInfo]](scala.concurrent.Future.failed(new ScholaException("Avatar not found."))) { avatarInfo => scala.concurrent.Future.successful(avatarInfo) }
         }
-
-      else scala.concurrent.Future.failed(new ScholaException("Avatar not found."))
+      }
     }
 
   def purgeAvatar(sessionKey: String, userAgent: String) =
@@ -186,9 +181,9 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
       session(sessionKey, userAgent) flatMap { session =>
 
-        mac(session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatar/${session.user.avatar.get}", userAgent) flatMap { auth =>
+        mac(session, "DELETE", s"/api/$API_VERSION/user/${session.user.id.toString}/avatar", userAgent) flatMap { auth =>
 
-          Http(api.DELETE / "user" / session.user.id.get.toString / "avatar" / session.user.avatar.get <:< auth OK Json) flatMap { json =>
+          Http(api.DELETE / "user" / session.user.id.toString / "avatar" <:< auth OK Json) flatMap { json =>
 
             json.asOpt[Response]
               .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
@@ -197,15 +192,15 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
       }
 
     catch {
-      case ex: Throwable => scala.concurrent.Future.failed(ex)
+      case scala.util.control.NonFatal(ex) => scala.concurrent.Future.failed(ex)
     }
 
   def uploadAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
     session(sessionKey, userAgent) flatMap { session =>
 
-      mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}/avatar?name=${java.net.URLEncoder.encode(filename, "UTF-8")}", userAgent) flatMap { auth =>
+      mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.toString}/avatar?filename=${java.net.URLEncoder.encode(filename, "UTF-8")}", userAgent) flatMap { auth =>
 
-        Http(api.PUT / "user" / session.user.id.get.toString / "avatar" <<? Map("name" -> filename) <:< auth + ("Content-Type" -> contentType.getOrElse("application/octet-stream; charset=UTF-8")) setBody(bytes) OK Json) flatMap { json =>
+        Http(api.PUT / "user" / session.user.id.toString / "avatar" <<? Map("filename" -> filename) <:< auth + ("Content-Type" -> contentType.getOrElse("application/octet-stream; charset=UTF-8")) setBody (bytes) OK Json) flatMap { json =>
 
           json.asOpt[Response]
             .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
@@ -240,11 +235,11 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
     session(sessionKey, userAgent) flatMap { session =>
 
-      mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}", userAgent) flatMap { auth =>
+      mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.toString}", userAgent) flatMap { auth =>
 
-        Http(api.PUT / "user" / session.user.id.get.toString << PlayJson.stringify(payload) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
+        Http(api.PUT / "user" / session.user.id.toString << PlayJson.stringify(payload) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
           true
-        } recover { case _ => false }
+        } recover { case scala.util.control.NonFatal(_) => false }
       }
     }
   }
@@ -253,11 +248,11 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
     session(sessionKey, userAgent) flatMap { session =>
 
-      mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.get.toString}", userAgent) flatMap { auth =>
+      mac(session, "PUT", s"/api/$API_VERSION/user/${session.user.id.toString}", userAgent) flatMap { auth =>
 
-        Http(api.PUT / "user" / session.user.id.get.toString << PlayJson.stringify(PlayJson.obj("oldPassword" -> passwd, "password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
+        Http(api.PUT / "user" / session.user.id.toString << PlayJson.stringify(PlayJson.obj("oldPassword" -> passwd, "password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
           true
-        } recover { case _ => false }
+        } recover { case scala.util.control.NonFatal(_) => false }
       }
     }
   }

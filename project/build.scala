@@ -1,48 +1,17 @@
 import sbt._
 import Keys._
-// import com.typesafe.sbt.SbtAtmosPlay.atmosPlaySettings
 
 object ApplicationBuild extends Build {
-  import Common._
-  import java.lang.{ Boolean => JBoolean }
 
-  val appVersion      = "0.7.0"
-
-  val appDependencies = Seq()  
-
-  def id(name: String) = "schola-%s" format name
-
-  def local(name: String) = LocalProject(id(name))
-
-  def srcPathSetting(projectId: String, rootPkg: String) =
-    mappings in (LocalProject(projectId), Compile, packageSrc) ~= {
-      defaults: Seq[(File,String)] =>
-        defaults.map { case(file, path) =>
-          (file, rootPkg + "/" + path)
-        }
-    }
-
-  private def ciSettings: Seq[Def.Setting[_]] = {
-    if (JBoolean.parseBoolean(
-      sys.env.getOrElse("TRAVIS", "false"))) Seq(
-      logLevel in Global := Level.Warn,
-      logLevel in Compile := Level.Warn,
-      logLevel in Test := Level.Info
-    ) else Seq.empty[Def.Setting[_]]
-  }
+  val appDependencies = Seq()
 
   private def module(moduleName: String)(
     projectId: String = "schola-" + moduleName,
     dirName: String = moduleName,
     srcPath: String = "schola/" + moduleName.replace("-","/"),
     settings: Seq[Setting[_]] = Seq.empty
-  ) = play.Project(projectId, appVersion, Seq(), path = file(dirName),
-        settings = (
-            Defaults.defaultSettings ++
-              Common.settings ++
-              ciSettings ++
-              srcPathSetting(projectId, srcPath) ++ settings            
-            ))
+  ) = play.Project(projectId, Common.appVersion, Seq(), path = file(dirName),
+        settings = Defaults.defaultSettings ++ Common.settings ++ settings)
 
   lazy val root =
     Project("root",
@@ -50,9 +19,21 @@ object ApplicationBuild extends Build {
             settings = Defaults.defaultSettings ++ Common.settings
     ).aggregate(
             domain, services, servicesJdbc, cache, 
-            oauth2Server/*, http, httpPlay2*/, util, cli)
+            oauth2Server, httpPlay2, util, cli)
 
-  lazy val domain: Project =
+  // Common
+
+  lazy val cache = module("cache")().dependsOn(util)
+
+  lazy val util = module("util")()
+
+ lazy val oauth2Server = 
+    module("oauth2-server")(
+      ).dependsOn(domain, servicesJdbc, util)  
+
+  // Base
+
+  lazy val domain =
     module("domain")(
    ).dependsOn(util)
 
@@ -63,24 +44,36 @@ object ApplicationBuild extends Build {
     module("services-jdbc")(
     ).dependsOn(services, util, cache)
 
-  lazy val cache = module("cache")().dependsOn(util)
+  // Admin module
 
-  lazy val util = module("util")()
+  // API access projects
 
-  lazy val oauth2Server = 
-    module("oauth2-server")(
-      ).dependsOn(domain, servicesJdbc, util)
-       // .settings(atmosPlaySettings: _*)
-
-  lazy val httpPlay2 = 
+  val httpPlay2 =
     module("http-play2")(
-      ).dependsOn(domain, servicesJdbc, util)
-       // .settings(atmosPlaySettings: _*)   
+      ).dependsOn(domain, servicesJdbc, util, common, admin)
+
+  lazy val common =
+    project.in(
+      file("http-play2/modules/common")
+    ).settings(Defaults.defaultSettings ++ Common.settings: _*)
+     .dependsOn(domain, servicesJdbc, util)
+
+  lazy val admin =
+    project.in(
+      file("http-play2/modules/admin")
+    ).settings(Defaults.defaultSettings ++ Common.settings: _*)
+     .dependsOn(common)
+
+  // Web-client access modules
 
   val cli = 
     module("cli")(
-      ).dependsOn(domain, util)
-       // .settings(atmosPlaySettings: _*)
+      ).dependsOn(domain, util, `cli-admin`)
        .settings(
-          libraryDependencies := libraryDependencies.value map(_ excludeAll(ExclusionRule(name = "avsl"))))
+          libraryDependencies := libraryDependencies.value map(_ excludeAll ExclusionRule(name = "avsl")))
+
+  lazy val `cli-admin` =
+    project.in(
+      file("cli/modules/admin")
+    ).settings(Defaults.defaultSettings ++ Common.settings: _*)
 }

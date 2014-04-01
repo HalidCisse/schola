@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 
 package impl
 
@@ -24,13 +23,14 @@ trait OAuthServicesComponentImpl extends OAuthServicesComponent {
 
     def authUser(username: String, password: String) = oauthServiceRepo.authUser(username, password)
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) =
-      oauthServiceRepo.saveToken(accessToken, refreshToken, macKey, uA, clientId, redirectUri, userId, expiresIn, refreshExpiresIn, scopes)
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], accessRights: Set[domain.AccessRight]) =
+      oauthServiceRepo.saveToken(accessToken, refreshToken, macKey, uA, clientId, redirectUri, userId, expiresIn, refreshExpiresIn, accessRights)
+
+    def getUserAccessRights(userId: String) = oauthServiceRepo.getUserAccessRights(userId)
   }
 }
 
 trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
-  this: AccessControlServicesComponent =>
 
   import schema._
   import domain._
@@ -55,7 +55,14 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         Compiled(getTokenSecret _)
       }
 
-      val lastAccessTime = Compiled(OAuthTokens map (_.lastAccessTime))
+      val lastAccessTime = {
+        def getLastAccessTime(accessToken: Column[String]) =
+          for {
+            t <- OAuthTokens if t.accessToken is accessToken
+          } yield t.lastAccessTime
+
+        Compiled(getLastAccessTime _)
+      }
 
       val refreshToken = {
         def getRefreshToken(mRefreshToken: Column[String]) =
@@ -73,7 +80,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             t.refreshExpiresIn,
             t.createdAt,
             t.lastAccessTime,
-            t.scopes)
+            t.accessRights)
 
         Compiled(getRefreshToken _)
       }
@@ -92,7 +99,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             t.createdAt,
             t.expiresIn,
             t.refreshExpiresIn,
-            t.scopes)
+            t.accessRights)
 
         Compiled(getRefreshToken _)
       }
@@ -120,7 +127,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             t.refreshExpiresIn,
             t.createdAt,
             t.lastAccessTime,
-            t.scopes)
+            t.accessRights)
 
         Compiled(getAccessToken _)
       }
@@ -141,7 +148,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             t.refreshExpiresIn,
             t.createdAt,
             t.lastAccessTime,
-            t.scopes)
+            t.accessRights)
 
         Compiled(getUserTokens _)
       }
@@ -175,7 +182,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
             t.refreshExpiresIn,
             t.createdAt,
             t.lastAccessTime,
-            t.scopes))
+            t.accessRights))
 
         Compiled(getUserSession _)
       }
@@ -194,6 +201,15 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
           Users where (_.id is id) map (_.lastLoginTime)
 
         Compiled(getLastLoginTime _)
+      }
+
+      val userRights = {
+        def getUserAccessRights(id: Column[java.util.UUID]) =
+          for {
+            (userAccessRight, accessRight) <- UsersAccessRights leftJoin AccessRights on (_.accessRightId is _.id) if userAccessRight.userId is id
+          } yield accessRight
+
+        Compiled(getUserAccessRights _)
       }
     }
 
@@ -216,7 +232,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result flatMap {
-        case (accessToken, clientId, redirectUri, userId, sRefreshToken, macKey, uA, expires, refreshExpires, createdAt, lastAccessTime, sScopes) =>
+        case (accessToken, clientId, redirectUri, userId, sRefreshToken, macKey, uA, expires, refreshExpires, createdAt, lastAccessTime, sAccessRights) =>
 
           def isExpired = refreshExpires exists (_ * 1000 + createdAt < System.currentTimeMillis)
 
@@ -226,7 +242,7 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
                 throw new Exception("getRefreshToken: can't delete expired refresh token")
               None
             }
-          } else Some(OAuthToken(accessToken, clientId, redirectUri, userId, sRefreshToken, macKey, uA, expires, refreshExpires, createdAt, lastAccessTime, scopes = sScopes))
+          } else Some(OAuthToken(accessToken, clientId, redirectUri, userId, sRefreshToken, macKey, uA, expires, refreshExpires, createdAt, lastAccessTime, accessRights = sAccessRights))
       }
     }
 
@@ -235,30 +251,36 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       val token = oq.forExchange(refreshToken)
 
       token.firstOption flatMap {
-        case (aAccessToken, clientId, redirectUri, userId, uA, Some(aRefreshToken), issuedTime, expiresIn, refreshExpiresIn, aScopes) if refreshExpiresIn map (issuedTime + 1000 * _ > System.currentTimeMillis) getOrElse true => //aRefreshToken exists
+        case (aAccessToken, clientId, redirectUri, userId, uA, Some(aRefreshToken), issuedTime, expiresIn, refreshExpiresIn, aAccessRights) if refreshExpiresIn map (issuedTime + 1000 * _ > System.currentTimeMillis) getOrElse true => //aRefreshToken exists
 
-          def generateToken = utils.Crypto.generateSecureToken // utils.SHA3 digest s"$clientId:$userId:${System.nanoTime}"
-          def generateRefreshToken = utils.Crypto.generateSecureToken // utils.SHA3 digest s"$accessToken:$userId:${System.nanoTime}"
-          def generateMacKey = utils.Crypto.genMacKey(s"$userId:${System.nanoTime}") // utils.genPasswd(s"$userId:${System.nanoTime}")
+          def generateToken = utils.Crypto.generateSecureToken
+          def generateRefreshToken = utils.Crypto.generateSecureToken
+          def generateMacKey = utils.Crypto.genMacKey(s"$userId:${System.nanoTime}")
 
-          val accessToken = generateToken
+          try {
 
-          val currentTimestamp = System.currentTimeMillis
+            val currentTimestamp = System.currentTimeMillis
 
-          if ((OAuthTokens.forInsert +=
-            (accessToken, clientId, redirectUri, userId, Some(generateRefreshToken), generateMacKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", aScopes)) != 1)
-            throw new Exception("could not refresh Token")
+            Some {
 
-          val newToken = oq.accessToken(accessToken)
+              OAuthTokens insert (
+                generateToken,
+                clientId,
+                redirectUri,
+                userId,
+                Some(generateRefreshToken),
+                generateMacKey,
+                uA,
+                expiresIn,
+                refreshExpiresIn,
+                currentTimestamp,
+                currentTimestamp,
+                "mac",
+                aAccessRights)
+            }
 
-          newToken.firstOption map {
-            case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, dCreatedAt, dLastAccessTime, dScopes) =>
-
-              utils.tryo {
-                oq.bearerToken(aAccessToken).delete
-              }
-
-              OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, dCreatedAt, dLastAccessTime, scopes = dScopes)
+          } finally utils.tryo {
+            oq.bearerToken(aAccessToken).delete
           }
 
         case _ => None
@@ -281,51 +303,48 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
       }
 
       result map {
-        case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, sScopes) =>
-          OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, scopes = sScopes)
+        case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, sAccessRights) =>
+          OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, accessRights = sAccessRights)
       }
     }
 
-    def getUserSession(params: Map[String, String]) =
-      db.withTransaction { implicit s =>
-        //      val userId = params("userId")
-        val bearerToken = params("bearerToken")
-        val userAgent = params("userAgent")
+    def getUserSession(params: Map[String, String]) = {
+      val bearerToken = params("bearerToken")
+      val userAgent = params("userAgent")
 
-        val session = oq.session(bearerToken, userAgent)
+      val session = oq.session(bearerToken, userAgent)
 
-        session.firstOption map {
-          case (sUser, (sAccessToken, sClientId, sRefreshToken, sMacKey, sUA, sExpiresIn, sRefreshExpiresIn, sCreatedAt, sLastAccessTime, sScopes)) =>
-
-            import scala.util.control.Exception.allCatch
-
-            utils.tryo {
-              oq.lastAccessTime update (System.currentTimeMillis)
-            } // Touch session
-
-            val userId = sUser.id map (_.toString) get
-
-            val isSuperuser = sUser.isSuperuser
-
-            Session(
-              sAccessToken,
-              sMacKey,
-              sClientId,
-              sCreatedAt,
-              sExpiresIn,
-              sRefreshExpiresIn,
-              sRefreshToken,
-              sLastAccessTime,
-              user = sUser copy (password = None),
-              userAgent = sUA,
-              hasRole = Map(accessControlService.getRoles.par map (r => (r.name, isSuperuser || accessControlService.userHasRole(userId, r.name))) seq: _*) withDefaultValue (false),
-              hasPermission = {
-                val userPermissions = if (isSuperuser) None else Some { accessControlService.getUserPermissions(userId) } // TODO: is this dependency safe
-                Map(accessControlService.getPermissions map (p => (p.name, isSuperuser || (userPermissions exists (_.contains(p.name))))): _*) withDefaultValue (false)
-              },
-              scopes = sScopes)
-        }
+      val result = db.withTransaction {
+        implicit s => session.firstOption
       }
+
+      result map {
+        case (sUser, (sAccessToken, sClientId, sRefreshToken, sMacKey, sUA, sExpiresIn, sRefreshExpiresIn, sCreatedAt, sLastAccessTime, sAccessRights)) =>
+
+          utils.tryo {
+            db.withTransaction {
+              implicit s =>
+                oq.lastAccessTime(sAccessToken) update System.currentTimeMillis
+            }
+          } // Touch session
+
+          Session(
+            sAccessToken,
+            sMacKey,
+            sClientId,
+            sCreatedAt,
+            sExpiresIn,
+            sRefreshExpiresIn,
+            sRefreshToken,
+            sLastAccessTime,
+            superUser = sUser.id == U.SuperUser.id,
+            suspended = sUser.suspended,
+            changePasswordAtNextLogin = sUser.changePasswordAtNextLogin,
+            user = Profile(sUser.id.get, sUser.primaryEmail, sUser.givenName, sUser.familyName, sUser.createdAt, sUser.createdBy, sUser.lastModifiedAt, sUser.lastModifiedBy, sUser.gender, sUser.homeAddress, sUser.workAddress, sUser.contacts),
+            userAgent = sUA,
+            accessRights = sAccessRights)
+      }
+    }
 
     def getClient(id: String, secret: String) = {
       import Database.dynamicSession
@@ -353,30 +372,34 @@ trait OAuthServicesRepoComponentImpl extends OAuthServicesRepoComponent {
         case (id, sPasswd) if passwords verify (password, sPasswd) =>
 
           db.withTransaction { implicit session =>
-            oq.forLastLoginTime(id) update (Some(System.currentTimeMillis))
+            oq.forLastLoginTime(id) update Some(System.currentTimeMillis)
           }
 
           id.toString
       }
     }
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]) = {
-      val currentTimestamp = System.currentTimeMillis
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], accessRights: Set[domain.AccessRight]) =
+      db.withTransaction {
+        implicit session =>
+          val currentTimestamp = System.currentTimeMillis
 
-      if (db.withTransaction { implicit session =>
-        (OAuthTokens.forInsert += (accessToken, clientId, redirectUri, uuid(userId), refreshToken, macKey, uA, expiresIn, refreshExpiresIn, currentTimestamp, currentTimestamp, "mac", scopes)) != 1
-      }) throw new IllegalStateException("can't save token")
-
-      val token = oq.accessToken(accessToken)
-
-      val result = db.withSession { implicit session =>
-        token.firstOption
+          OAuthTokens insert (
+            accessToken,
+            clientId,
+            redirectUri,
+            uuid(userId),
+            refreshToken,
+            macKey,
+            uA,
+            expiresIn,
+            refreshExpiresIn,
+            currentTimestamp,
+            currentTimestamp,
+            "mac",
+            accessRights)
       }
 
-      result map {
-        case (sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, sScopes) =>
-          OAuthToken(sAccessToken, sClientId, sRedirectUri, sUserId, sRefreshToken, sMacKey, sUA, sExpires, sRefreshExpires, sCreatedAt, sLastAccessTime, scopes = sScopes)
-      }
-    }
+    def getUserAccessRights(userId: String) = db.withSession { implicit session => oq.userRights(uuid(userId)).list }
   }
 }

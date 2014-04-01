@@ -1,5 +1,5 @@
-package schola
-package oadmin
+package ma.epsilon.schola
+package caching
 package impl
 
 import akka.actor._

@@ -1,0 +1,24 @@
+{
+  "server": {
+    "port"  : 9294
+  },
+
+  "routes": [
+    { "": "./public" }
+  ],
+
+  "packages": {
+    "cli-admin": {
+      "main"    : "./app/admin",
+      "libs"    : [],
+      "modules" : [],
+      "paths"   : ["./js"],
+      "target"  : "./public/admin.js",
+      "jsAfter" : "jade.rethrow = function rethrow(err, filename, lineno){ throw err; } "
+    },
+    "css": {
+      "paths"  : "./css",
+      "target" : "./public/admin.css"
+    }
+  }
+}

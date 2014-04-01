@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 package caching
 
 import net.spy.memcached.auth.{ PlainCallbackHandler, AuthDescriptor }
@@ -33,8 +32,8 @@ object `package` {
       val cf = new ConnectionFactoryBuilder()
         .setProtocol(ConnectionFactoryBuilder.Protocol.BINARY)
         .setHashAlg(new net.spy.memcached.HashAlgorithm {
-        override def hash(key: String) = utils.xxHash(key.getBytes)
-      })
+          override def hash(key: String) = utils.xxHash(key.getBytes)
+        })
 
       User map {
         memcacheUser =>
@@ -45,7 +44,6 @@ object `package` {
           // Use plain SASL to connect to memcached
           val ad = new AuthDescriptor(Array("PLAIN"),
             new PlainCallbackHandler(memcacheUser, memcachePassword))
-
 
           new MemcachedClient(cf.setAuthDescriptor(ad)
             .build(), Hosts)

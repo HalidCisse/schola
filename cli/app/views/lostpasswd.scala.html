@@ -13,16 +13,21 @@
     <link href='@routes.Assets.at("css/lostpasswd.css")' rel="stylesheet">
   </head>
   <body>
-    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+    <nav role="navigation" class="navbar navbar-default navbar-fixed-top">
       <div class="container">
-        <div class="navbar-header"><a href='@routes.Application.index' class="navbar-brand">Schola</a></div>
+        <div class="navbar-header">
+          <ol class="breadcrumb">
+            <li><a href='@routes.Application.index' class="navbar-brand">Schola</a></li>
+            <li class="active">Reset your password</li>
+          </ol>
+        </div>
       </div>
-    </div>
-    <div class="container">
+    </nav>
+    <!-- <div class="container">
       <div class="page-header">
         <h3>Reset your password</h3>
       </div>
-    </div>
+    </div> -->
     <div class="container">
       <form role="form" method="POST" class="form-lostpasswd" action='@routes.Passwords.lost'>
         <fieldset>

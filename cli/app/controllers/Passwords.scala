@@ -6,7 +6,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.data.Form
 import play.api.data.Forms._
 
-import schola.oadmin._, cli.SessionSupport
+import ma.epsilon.schola._, cli.SessionSupport
 
 import com.typesafe.plugin._
 
@@ -54,7 +54,7 @@ object Passwords extends Controller with Helpers {
       CurrentPassword -> nonEmptyText,
       NewPassword ->
         tuple(
-          Password1 -> nonEmptyText(minLength = schola.oadmin.PasswordMinLength),
+          Password1 -> nonEmptyText(minLength = ma.epsilon.schola.PasswordMinLength),
           Password2 -> nonEmptyText).verifying("Passwords do not match", passwords => passwords._1 == passwords._2),
       Required -> default(boolean, false))((currentPassword, newPassword, required) => ChangeInfo(currentPassword, newPassword._1, required))((changeInfo: ChangeInfo) => Some("", ("", ""), changeInfo.required)))
 
@@ -172,7 +172,7 @@ object Passwords extends Controller with Helpers {
       Key -> text,
       NewPassword ->
         tuple(
-          Password1 -> nonEmptyText(minLength = schola.oadmin.PasswordMinLength),
+          Password1 -> nonEmptyText(minLength = ma.epsilon.schola.PasswordMinLength),
           Password2 -> nonEmptyText).verifying("Passwords do not match", passwords => passwords._1 == passwords._2))((username, key, newPassword) => ResetInfo(username, key, newPassword._1))(_ => Some("", "", ("", ""))))
 
   def reset = Action.async {

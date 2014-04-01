@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 package domain
 
 trait UpdateSpec[T] {
@@ -10,18 +9,9 @@ trait UpdateSpec[T] {
   @inline final def isEmpty = set eq None
 }
 
-trait SetSpec[T] {
-
-  def toRem: Set[T]
-
-  def toAdd: Set[T]
-
-  final def diff(os: Set[T]): Set[T] = os ++ toAdd -- toRem
-}
-
 trait UserSpec {
 
-  case class UpdateSpecImpl[T: scala.reflect.ClassTag](set: Option[Option[T]] = None) extends UpdateSpec[T]
+  case class UpdateSpecImpl[T](set: Option[Option[T]] = None) extends UpdateSpec[T]
 
   case class MobileNumbersSpec(
     mobile1: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
@@ -62,6 +52,10 @@ trait UserSpec {
   def gender: Option[Gender]
 
   def avatar: UpdateSpec[String]
+
+  def accessRights: Option[Set[String]]
+
+  def updatedBy: Option[String]
 }
 
 class DefaultUserSpec extends UserSpec {
@@ -85,4 +79,8 @@ class DefaultUserSpec extends UserSpec {
   lazy val gender: Option[Gender.Value] = None
 
   lazy val avatar = UpdateSpecImpl[String]()
+
+  lazy val accessRights: Option[Set[String]] = None
+
+  lazy val updatedBy: Option[String] = None
 }

@@ -17,9 +17,14 @@
     <link href='@routes.Assets.at("css/changepasswd.css")' rel="stylesheet">
   </head>
   <body>
-    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+    <nav role="navigation" class="navbar navbar-default navbar-fixed-top">
       <div class="container">
-        <div class="navbar-header"><a href='@routes.Application.index' class="navbar-brand">Schola</a></div>
+        <div class="navbar-header">
+          <ol class="breadcrumb">
+            <li><a href='@routes.Application.index' class="navbar-brand">Schola</a></li>
+            <li class="active">Change your password</li>
+          </ol>                  
+        </div>
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav navbar-right">
             @if(!required) { 
@@ -32,13 +37,13 @@
             <li><a href='@routes.LoginPage.logout' data-toggle="tooltip" data-placement="bottom" title="Logout"><span class="glyphicon glyphicon-log-out"></span></a></li>
           </ul>
         </div>
-      </div>
+      </nav>
     </div>
-    <div class="container">
+    <!-- <div class="container">
       <div class="page-header">
         <h2>Change your password</h2>
       </div>
-    </div>
+    </div> -->
     <div class="container">
       <form role="form" method="POST" class="form-changepasswd" action='@routes.Passwords.change'>
         @form.forField("required") { f =>
@@ -98,8 +103,8 @@
           
           var i = cleaned(newPasswd.val());
           
-          if(i.length < @schola.oadmin.PasswordMinLength) {
-            ERROR("Password must be at least @schola.oadmin.PasswordMinLength characters long.", "Error!");
+          if(i.length < @ma.epsilon.schola.PasswordMinLength) {
+            ERROR("Password must be at least @ma.epsilon.schola.PasswordMinLength characters long.", "Error!");
             setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
             return false;
           }

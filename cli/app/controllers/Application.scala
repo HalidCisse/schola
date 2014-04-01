@@ -3,7 +3,7 @@ package controllers
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
-import schola.oadmin._, cli.SessionSupport, conversions.json._
+import ma.epsilon.schola._, cli.SessionSupport
 
 import com.typesafe.plugin._
 
@@ -56,7 +56,7 @@ object Application extends Controller with Helpers {
                     httpOnly = true))
 
           } recover {
-            case _: Throwable =>
+            case scala.util.control.NonFatal(_) =>
 
               Ok(Json.obj("error" -> true))
                 .discardingCookies(DiscardingCookie(SESSION_KEY))
@@ -85,13 +85,13 @@ object Application extends Controller with Helpers {
           use[SessionSupport].session(sessionKey, userAgent) map {
             session =>
 
-              if (session.user.changePasswordAtNextLogin)
+              if (session.changePasswordAtNextLogin)
                 Redirect(routes.Passwords.changePage(required = true))
 
               else Ok(views.html.index())
 
           } recover {
-            case _: Throwable =>
+            case scala.util.control.NonFatal(_) =>
 
               Redirect(routes.LoginPage.index)
                 .discardingCookies(DiscardingCookie(SESSION_KEY))

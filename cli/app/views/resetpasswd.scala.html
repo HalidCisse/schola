@@ -13,16 +13,19 @@
     <link href='@routes.Assets.at("css/rstpasswd.css")' rel="stylesheet">
   </head>
   <body>
-    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+    <nav role="navigation" class="navbar navbar-default navbar-fixed-top">
       <div class="container">
-        <div class="navbar-header"><a href='@routes.Application.index()' class="navbar-brand">Schola</a></div>
+          <ol class="breadcrumb">
+            <li><a href='@routes.Application.index' class="navbar-brand">Schola</a></li>
+            <li class="active">Reset your password</li>
+          </ol>
       </div>
-    </div>
-    <div class="container">
+    </nav>
+    <!-- <div class="container">
       <div class="page-header">
         <h2>Reset your password</h2>
       </div>
-    </div>
+    </div> -->
     <div class="container">
       <form role="form" method="POST" class="form-rstpasswd" action='@routes.Passwords.reset'>
         <fieldset>
@@ -71,8 +74,8 @@
           
           var i = cleaned(newPasswd.val());
           
-          if(i.length < @schola.oadmin.PasswordMinLength) {
-            ERROR("Password must be at least @schola.oadmin.PasswordMinLength characters long.", "Error!");
+          if(i.length < @ma.epsilon.schola.PasswordMinLength) {
+            ERROR("Password must be at least @ma.epsilon.schola.PasswordMinLength characters long.", "Error!");
             setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
             return false;
           }

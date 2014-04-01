@@ -3,10 +3,10 @@ package controllers
 import play.api.mvc._
 import play.api.Play.current
 
-import schola.oadmin._, domain._, http.{ Façade, Secured }, utils._, conversions.json._
+import ma.epsilon.schola._, domain._, http.{ Façade, Secured, HttpHelpers }, utils._, conversions.json._
 import com.typesafe.plugin._
 
-object Tags extends Controller with Secured with Helpers {
+object Tags extends Controller with Secured with HttpHelpers {
 
   def getTags =
     withAuth {
@@ -29,7 +29,7 @@ object Tags extends Controller with Secured with Helpers {
 
               use[Façade].labelService.findOrNew(name, color) match {
                 case Some(tag) => json[Label](tag)
-                case _         => NotFound
+                case _         => BadRequest
               }
           }
     }

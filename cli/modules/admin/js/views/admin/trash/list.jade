@@ -1,0 +1,18 @@
+.selections
+  .empty
+    span.empty-all(tabindex='0', role='link') Empty Trash
+    span
+    | &nbsp;(Users in Trash will automatically be deleted in 30 days.)
+  .all
+    span
+      | All users are selected. &nbsp;
+    span.clear(tabindex='0', role='link') Clear selection  
+  .page
+    span
+      | All
+      b=perPage
+      | users on this page are selected. &nbsp;
+    span.select-all(tabindex='0', role='link') Select all users in Trash
+.shadow
+.scrollable
+  .list

@@ -10,23 +10,32 @@
     <link rel="shortcut icon" href='@routes.Assets.at("ico/favicon.png")'>
     <title>Schola</title>
     <link href='@routes.Assets.at("css/bootstrap.css")' rel="stylesheet">
-    <link href='@routes.Assets.at("css/bootstrap-theme.css")' rel="stylesheet">
+    <!--<link href='@routes.Assets.at("css/bootstrap-theme.css")' rel="stylesheet">-->
     <link href='@routes.Assets.at("css/chosen.min.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/nprogress.css")' rel="stylesheet">
     <link href='@routes.Assets.at("main.css")' rel="stylesheet">
-    <script type="text/javascript" src="/api/@schola.oadmin.API_VERSION/javascriptRoutes"></script>    
+    <script type="text/javascript" charset="utf-8" src="/api/@ma.epsilon.schola.API_VERSION/javascriptRoutes"></script>
   </head>
   <body>
-    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
+    <nav role="navigation" class="navbar navbar-default navbar-fixed-top">
       <div class="container-fluid">
-        <div class="navbar-header"><a href='@routes.Application.index' class="navbar-brand">Schola</a></div>
+        <div class="navbar-header">
+          <ul class="nav navbar-nav navbar-left">
+            <li id='top-menu' class="dropdown">
+              <a href="#" data-toggle="dropdown" class="dropdown-toggle current-app"><span class="navbar-brand"></span> <b class="caret"></b></a>
+              <ul role="menu" class="dropdown-menu squared">
+              </ul>
+            </li>
+          </ul>          
+        </div>
         <div class="collapse navbar-collapse">
           <form id="search" role="search" class="navbar-form navbar-left">
             <div class="btn-group">
-              <input type="text" placeholder="Search users, roles or permissions" style='width:100%;' class="not-squared form-control input-sm"><span class="glyphicon glyphicon-search"></span>
+              <input type="text" placeholder="Search users" style='width:100%;' class="squared form-control input-sm"><span class="glyphicon glyphicon-search"></span>
             </div>
           </form>
           <ul class="nav navbar-nav navbar-right">
-            <li class="dropdown"><a href="#" data-toggle="dropdown" class="dropdown-toggle"><span class="glyphicon glyphicon-wrench"></span><span class="caret"></span></a>
+            <li class="dropdown"><a href="#" data-toggle="dropdown" class="dropdown-toggle"><span class="glyphicon glyphicon-wrench"></span><b class="caret"></b></a>
               <ul role="menu" class="dropdown-menu squared">
                 <li><a href='@routes.Profile.edit'>Edit Account</a></li>
                 <li><a href='@routes.Passwords.changePage()'>Change Password</a></li>
@@ -38,7 +47,7 @@
           </ul>
         </div>
       </div>
-    </div>
+    </nav>
     <div id="main" class="container-fluid">
       <div class="row">
         <div id="sidebar" role="navigation" class="col-md-2"></div>
@@ -52,21 +61,20 @@
         </div>
       </div> -->
     </div>
-    <script src='@routes.Assets.at("javascripts/countries.js")'></script>
-    <script src='@routes.Assets.at("main.js")'>   </script>
-    <script src='@routes.Assets.at("javascripts/spin.min.js")'></script>
-    <script src='@routes.Assets.at("javascripts/crypto/hmac-sha1.js")'></script>
-    <script src='@routes.Assets.at("javascripts/crypto/enc-base64-min.js")'></script>
-    <script type="text/javascript">var jQuery = require("jqueryify");</script>
-    <script src='@routes.Assets.at("javascripts/jquery.upload.js")'></script>
-    <script src='@routes.Assets.at("javascripts/bootstrap.js")'></script>
-    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/chosen.jquery.min.js")'></script>
-    <script src='@routes.Assets.at("javascripts/bootstrap3-typeahead.min.js")'></script>
-    <script src="http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2"></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("main.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/nprogress.js")'></script>
     <script type="text/javascript">
+      //<![CDATA[    
+      var sGeobytesLocationCode="MACACASA";var sGeobytesIsLocationMatch=false;var sGeobytesCountry="Morocco";var sGeobytesIso2="MA";var sGeobytesCity="Casablanca";
+      //]]>
+    </script>
+    <script src="http://gd.geobytes.com/gd?after=-1&variables=GeobytesCountry,GeobytesCity,GeobytesIso2" aysnc='true'></script>
+    <script type='text/javascript' charset='utf-8'>
 
-      //<![CDATA[      
-      
+      //<![CDATA[
+
+      NProgress.start();
+
       var exports = this;
       
       function isElementInViewport(el) {
@@ -89,12 +97,13 @@
         }
       })(jQuery);
       
-      jQuery(function($){
-      
+      jQuery(function($){          
       
         var App = require("index");
         
         exports.app = new App;
+
+        app.on('loaded', NProgress.done);
         
         // button state demo
         //- $('#fat-btn')
@@ -148,7 +157,34 @@
         
         function INFO(msg, title) {
           ShowMsg(msg, title, 'alert-success')
-        }      
+        }
+
+        /*
+
+        (function() {
+          try {
+            var $_console$$ = console;
+            Object.defineProperty(window, "console", {
+              get: function() {
+                if ($_console$$._commandLineAPI)
+                  throw "Sorry, for security reasons, the script console is deactivated on epsilon.ma";
+                return $_console$$
+              },
+              set: function($val$$) {
+                $_console$$ = $val$$
+              }
+            })
+          } catch ($ignore$$) {}
+        })(); */
+
+      /*
+
+      $('.vote').bind("DOMNodeRemoved", function(e) {
+        alert("Removed: " + e.target.id);
+      });
+
+      */
+
       });
 
       //]]>

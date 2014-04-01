@@ -8,9 +8,48 @@ class SelectionMgr extends Spine.Module
   constructor: ->
     super
 
+  setSelection: (sel) -> 
+    @_selections = (value.clone() for value in sel)
+    @trigger 'selectionChanged'
+
   selectOnly: (item) ->
-    @removed(other) for other in @getSelection()
+    @removeAll()
     @selected(item)
+
+  toggleOnly: (item) ->
+    wasSelected = @isSelected(item)
+    @removeAll()
+    
+    if wasSelected
+      # @_selections.splice(index, 1)
+
+      @trigger 'selectionChanged'
+      @trigger "selectionChanged_#{item.cid}", no
+
+    else
+      @_selections.push(item)
+
+      @trigger 'selectionChanged'
+      @trigger "selectionChanged_#{item.cid}", yes      
+
+    false
+
+  toggle: (item) ->
+    index = @_indexof(item)
+    
+    if index > -1
+      @_selections.splice(index, 1)
+
+      @trigger 'selectionChanged'
+      @trigger "selectionChanged_#{item.cid}", no
+
+    else
+      @_selections.push(item)
+
+      @trigger 'selectionChanged'
+      @trigger "selectionChanged_#{item.cid}", yes      
+
+    false
 
   selected: (item) ->
     if @_indexof(item) is -1
@@ -23,6 +62,9 @@ class SelectionMgr extends Spine.Module
 
   count: -> @_selections.length
 
+  removeAll: ->
+    @removed(@_selections[lastIndex - 1]) while lastIndex = @_selections.length
+  
   removed: (item) ->
     index = @_indexof(item)
     

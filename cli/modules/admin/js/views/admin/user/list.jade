@@ -1,0 +1,14 @@
+.selections
+  .all
+    span
+      | All users are selected. &nbsp;
+    span.clear(tabindex='0' role='link') Clear selection  
+  .page
+    span
+      | All
+      b=perPage
+      | users on this page are selected. &nbsp;
+    span.select-all(tabindex='0' role='link' data-state='select:all') Select all users
+.shadow
+.scrollable
+  .list

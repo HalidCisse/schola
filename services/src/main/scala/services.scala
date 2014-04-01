@@ -1,7 +1,26 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 
 import Types._
+
+trait Apps {
+  val appService: AppServices
+
+  trait AppServices {
+    def getApps: List[domain.App]
+    def addApp(name: String, scopes: Seq[String]): domain.App
+    def removeApp(id: String)
+  }
+}
+
+trait AppsRepo {
+  protected val appsServiceRepo: AppServicesRepo
+
+  trait AppServicesRepo {
+    def getApps: List[domain.App]
+    def addApp(name: String, scopes: Seq[String]): domain.App
+    def removeApp(id: String)
+  }
+}
 
 trait UserServicesComponent {
 
@@ -24,8 +43,10 @@ trait UserServicesComponent {
     def purgeUsers(users: Set[String])
 
     def undeleteUsers(users: Set[String])
+    
+    def suspendUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean): Option[UserLike]
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
 
     def updateUser(id: String, spec: domain.UserSpec): Boolean
 
@@ -69,7 +90,9 @@ trait UserServicesRepoComponent {
 
     def undeleteUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean): Option[UserLike]
+    def suspendUsers(users: Set[String])
+
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
 
     def updateUser(id: String, spec: domain.UserSpec): Boolean
 
@@ -113,7 +136,10 @@ trait OAuthServicesComponent {
 
     def authUser(username: String, password: String): Option[String]
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
+    @throws(classOf[Exception])
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], accessRights: Set[domain.AccessRight]): TokenLike
+
+    def getUserAccessRights(userId: String): List[domain.AccessRight]
   }
 }
 
@@ -139,7 +165,10 @@ trait OAuthServicesRepoComponent {
 
     def authUser(username: String, password: String): Option[String]
 
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], scopes: Set[String]): Option[TokenLike]
+    @throws(classOf[Exception])
+    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], accessRights: Set[domain.AccessRight]): TokenLike
+
+    def getUserAccessRights(userId: String): List[domain.AccessRight]
   }
 }
 
@@ -151,11 +180,9 @@ trait AvatarServicesComponent {
 
     def getAvatar(id: String): scala.concurrent.Future[(String, Option[String], Array[Byte])]
 
-    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte])
 
-    def purgeAvatar(userId: String, avatarId: String): scala.concurrent.Future[Boolean]
-
-    def purgeAvatarForUser(userId: String): Unit
+    def purgeAvatar(userId: String)
   }
 }
 
@@ -167,95 +194,9 @@ trait AvatarServicesRepoComponent {
 
     def getAvatar(id: String): scala.concurrent.Future[(String, Option[String], Array[Byte])]
 
-    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
+    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte])
 
-    def purgeAvatar(userId: String, avatarId: String): scala.concurrent.Future[Boolean]
-
-    def purgeAvatarForUser(userId: String): Unit
-  }
-}
-
-trait AccessControlServicesComponent {
-
-  val accessControlService: AccessControlServices
-
-  trait AccessControlServices {
-
-    def getRoles: List[RoleLike]
-
-    def getRole(name: String): Option[RoleLike]
-
-    def getPermissions: List[PermissionLike]
-
-    def getRolePermissions(role: String): List[RolePermissionLike]
-
-    def getClientPermissions(clientId: String): List[PermissionLike]
-
-    def getUserRoles(userId: String): List[UserRoleLike]
-
-    def getUserPermissions(userId: String): Set[String]
-
-    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String])
-
-    def revokeUserRoles(userId: String, roles: Set[String])
-
-    def userHasRole(userId: String, role: String): Boolean
-
-    def saveRole(name: String, parent: Option[String], createdBy: Option[String]): Option[RoleLike]
-
-    def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String])
-
-    def revokeRolePermission(role: String, permissions: Set[String])
-
-    def purgeRoles(roles: Set[String])
-
-    def roleHasPermission(role: String, permissions: Set[String]): Boolean
-
-    def roleExists(role: String): Boolean
-
-    def updateRole(name: String, newName: String, parent: Option[String]): Boolean
-  }
-}
-
-trait AccessControlServicesRepoComponent {
-
-  protected val accessControlServiceRepo: AccessControlServiceRepo
-
-  trait AccessControlServiceRepo {
-
-    def getRoles: List[RoleLike]
-
-    def getRole(name: String): Option[RoleLike]
-
-    def getPermissions: List[PermissionLike]
-
-    def getRolePermissions(role: String): List[RolePermissionLike]
-
-    def getClientPermissions(clientId: String): List[PermissionLike]
-
-    def getUserRoles(userId: String): List[UserRoleLike]
-
-    def getUserPermissions(userId: String): Set[String]
-
-    def grantUserRoles(userId: String, roles: Set[String], grantedBy: Option[String])
-
-    def revokeUserRoles(userId: String, roles: Set[String])
-
-    def userHasRole(userId: String, role: String): Boolean
-
-    def saveRole(name: String, parent: Option[String], createdBy: Option[String]): Option[RoleLike]
-
-    def grantRolePermissions(role: String, permissions: Set[String], grantedBy: Option[String])
-
-    def revokeRolePermission(role: String, permissions: Set[String])
-
-    def purgeRoles(roles: Set[String])
-
-    def roleHasPermission(role: String, permissions: Set[String]): Boolean
-
-    def roleExists(name: String): Boolean
-
-    def updateRole(name: String, newName: String, parent: Option[String]): Boolean
+    def purgeAvatar(userId: String)
   }
 }
 
@@ -305,4 +246,8 @@ trait CachingServicesComponent {
 
     def evict(params: Params)
   }
+}
+
+trait AkkaSystemProvider {
+  protected def system: akka.actor.ActorSystem
 }

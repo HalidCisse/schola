@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 package domain
 
 object `package` {
@@ -13,11 +12,12 @@ object `package` {
     refreshExpiresIn: Option[Long],
     refresh: Option[String],
     lastAccessTime: Long,
-    user: User,
+    superUser: Boolean,
+    suspended: Boolean,
+    changePasswordAtNextLogin: Boolean,
+    user: Profile,
     userAgent: String,
-    hasRole: Map[String, Boolean] = Map(),
-    hasPermission: Map[String, Boolean] = Map(),
-    scopes: Set[String] = Set())
+    accessRights: Set[AccessRight] = Set())
 
   case class OAuthToken(
     accessToken: String,
@@ -32,12 +32,12 @@ object `package` {
     createdAt: Long = System.currentTimeMillis,
     lastAccessTime: Long = System.currentTimeMillis,
     tokenType: String = "mac",
-    scopes: Set[String] = Set())
+    accessRights: Set[AccessRight] = Set())
 
   case class OAuthClient(id: String, secret: String, redirectUri: String)
 
   object Clients {
-    val OADMIN = "oadmin"
+    val OAdmin = "oadmin"
   }
 
   object Gender extends Enumeration {
@@ -59,34 +59,55 @@ object `package` {
 
   case class AvatarInfo(filename: String, contentType: String, data: String, base64: Boolean)
 
-  case class User(
-      primaryEmail: String,
-      password: Option[String],
-      givenName: String,
-      familyName: String,
-      createdAt: Long = System.currentTimeMillis,
-      createdBy: Option[java.util.UUID],
-      lastLoginTime: Option[Long] = None,
-      lastModifiedAt: Option[Long] = None,
-      lastModifiedBy: Option[java.util.UUID] = None,
-      gender: Gender = Gender.Male,
-      homeAddress: Option[AddressInfo] = None,
-      workAddress: Option[AddressInfo] = None,
-      contacts: Option[Contacts] = None,
-      avatar: Option[String] = None,
-      activationKey: Option[String] = None,
-      _deleted: Boolean = false,
-      suspended: Boolean = false,
-      changePasswordAtNextLogin: Boolean = false,
-      id: Option[java.util.UUID] = None,
-      labels: List[String] = Nil) {
+  case class Profile(
+    id: java.util.UUID,
+    primaryEmail: String,
+    givenName: String,
+    familyName: String,
+    createdAt: Long,
+    createdBy: Option[java.util.UUID],
+    lastModifiedAt: Option[Long],
+    lastModifiedBy: Option[java.util.UUID],
+    gender: Gender,
+    homeAddress: Option[AddressInfo],
+    workAddress: Option[AddressInfo],
+    contacts: Option[Contacts])
 
-    @inline def isSuperuser = id == U.SuperUser.id
+  case class User(
+    primaryEmail: String,
+    password: Option[String],
+    givenName: String,
+    familyName: String,
+    createdAt: Long = System.currentTimeMillis,
+    createdBy: Option[java.util.UUID],
+    lastLoginTime: Option[Long] = None,
+    lastModifiedAt: Option[Long] = None,
+    lastModifiedBy: Option[java.util.UUID] = None,
+    gender: Gender = Gender.Male,
+    homeAddress: Option[AddressInfo] = None,
+    workAddress: Option[AddressInfo] = None,
+    contacts: Option[Contacts] = None,
+    activationKey: Option[String] = None,
+    _deleted: Boolean = false,
+    suspended: Boolean = false,
+    changePasswordAtNextLogin: Boolean = false,
+    id: Option[java.util.UUID] = None,
+    labels: List[String] = Nil,
+    accessRights: List[AccessRight] = Nil)
+
+  object U {
+    val SuperUser =
+      User(
+        config.getString("root.primaryEmail"),
+        Some(config.getString("root.password")),
+        config.getString("root.givenName"),
+        config.getString("root.familyName"), createdAt = 0L, createdBy = None,
+        id = Some(java.util.UUID.fromString(config.getString("root.id"))))
   }
 
   case class Response(success: Boolean)
 
-  case class Role(name: String, parent: Option[String] = None, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, publiq: Boolean = true)
+  /*  case class Role(name: String, parent: Option[String] = None, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, publiq: Boolean = true)
 
   case class Permission(name: String, clientId: String)
 
@@ -133,23 +154,21 @@ object `package` {
     val all = Set(SuperUserR, AdministratorR)
   }
 
-  object U {
-    val SuperUser =
-      User(
-        config.getString("root.primaryEmail"),
-        Some(config.getString("root.password")),
-        config.getString("root.givenName"),
-        config.getString("root.familyName"), createdAt = 0L, createdBy = None,
-        id = Some(java.util.UUID.fromString(config.getString("root.id"))))
-
-    val all = Set(SuperUser)
-  }
-
   case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None)
 
-  case class UserRole(userId: java.util.UUID, role: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None, delegated: Boolean = false)
+  case class UserRole(userId: java.util.UUID, role: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None, delegated: Boolean = false)*/
 
   case class Label(name: String, color: String)
 
   case class UserLabel(userId: java.util.UUID, label: String)
+
+  // Modules
+
+  case class App(name: String, scopes: Seq[String], accessRights: Seq[AccessRight] = Seq(), id: Option[java.util.UUID] = None)
+
+  case class Scope(name: String, write: Boolean = true, trash: Boolean = true, purge: Boolean = false)
+
+  case class AccessRight(name: String, appId: java.util.UUID, scopes: Seq[Scope], id: Option[java.util.UUID] = None)
+
+  case class UserAccessRight(userId: java.util.UUID, accessRightId: java.util.UUID, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None)
 }

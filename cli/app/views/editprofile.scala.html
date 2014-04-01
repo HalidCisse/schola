@@ -15,8 +15,8 @@
 @gender = @{
   form("gender")
     .value
-    .flatMap(g => scala.util.control.Exception.allCatch.opt{schola.oadmin.domain.Gender.withName(g)})
-    .getOrElse(schola.oadmin.domain.Gender.Male)
+    .flatMap(g => scala.util.control.Exception.allCatch.opt{ma.epsilon.schola.domain.Gender.withName(g)})
+    .getOrElse(ma.epsilon.schola.domain.Gender.Male)
 }
 
 @homeCity = @{
@@ -104,27 +104,28 @@
     </style>
   </head>
   <body>
-    <div role="navigation" class="navbar navbar-inverse navbar-fixed-top">
-      <div class="container">
-        <div class="navbar-header"><a href='@routes.Application.index' class="navbar-brand">Schola</a></div>
+    <nav role="navigation" class="navbar navbar-default navbar-fixed-top">
+      <div class="container-fluid">
+        <div class="navbar-header">          
+          <ol class="breadcrumb">
+            <li><a href='@routes.Application.index' class="navbar-brand">Schola</a></li>
+            <li class="active">Edit your profile</li>
+          </ol>
+        </div>
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav navbar-right">
             <li class="dropdown"><a href="#" data-toggle="dropdown" class="dropdown-toggle"><span class="glyphicon glyphicon-wrench"></span><span class="caret"></span></a>
               <ul class="dropdown-menu">
                 <li><a href='@routes.Passwords.changePage()'>Change Password</a></li>
+
               </ul>
             </li>
             <li><a href='@routes.LoginPage.logout' title="Logout"><span class="glyphicon glyphicon-log-out"> </span></a></li>
           </ul>
         </div>
       </div>
-    </div>
-    <div class="container">
-      <div class="page-header">
-        <h3>Edit your profile</h3>
-      </div>
-    </div>
-    <div class="container">
+    </nav>
+    <div class="container-fluid scrollable">
       <form role="form" method="POST" class="form-editprofile" action='@routes.Profile.update'>
         <ul id="profiles" class="nav nav-tabs">
           <li class="active"><a data-toggle="tab" data-target="#basic" href="#">Basic</a></li>
@@ -160,10 +161,10 @@
               </div>
               <div id="gender" class="form-group">
                 <label class="radio-inline">
-                  <input type="radio" name="gender" value="Male" @if(gender eq schola.oadmin.domain.Gender.Male) {checked}> Male
+                  <input type="radio" name="gender" value="Male" @if(gender eq ma.epsilon.schola.domain.Gender.Male) {checked}> Male
                 </label>
                 <label class="radio-inline">
-                  <input type="radio" name="gender" value="Female"  @if(gender eq schola.oadmin.domain.Gender.Female) {checked}> Female
+                  <input type="radio" name="gender" value="Female"  @if(gender eq ma.epsilon.schola.domain.Gender.Female) {checked}> Female
                 </label>
               </div>
             </div>
@@ -248,10 +249,10 @@
           </div>
         </fieldset>
       </form>
-      <footer>
-        <p>© Amadou CISSE 2014.</p>
-      </footer>
     </div>
+    <footer>
+      <p>© Amadou CISSE 2014.</p>
+    </footer>
     <form id="f_fm"></form>
     <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/countries.js")'></script>
     <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/jquery.min.js")'></script>
@@ -273,7 +274,8 @@
           lines: 7, // The number of lines to draw
           length: 6, // The length of each line
           radius: 7, // The radius of the inner circle
-          left: '200px' // Left position relative to parent in px
+          left: '250px', // Left position relative to parent in px
+          top: '85px'
         };
 
         var spinner = new Spinner(opts),
@@ -298,8 +300,8 @@
             return false;
           }
 
-          if(i.length > 0 && i.length < @schola.oadmin.PasswordMinLength) {
-            ERROR("Password must be at least @schola.oadmin.PasswordMinLength characters long.", "Error!");
+          if(i.length > 0 && i.length < @ma.epsilon.schola.PasswordMinLength) {
+            ERROR("Password must be at least @ma.epsilon.schola.PasswordMinLength characters long.", "Error!");
             setTimeout(newPasswd[0].focus.bind(newPasswd[0]), 0)
             return false;
           }
@@ -364,8 +366,8 @@
 
             if(f) {
 
-              if(f.size > @schola.oadmin.MaxUploadSize * 1024 * 1024) { // Check the constraint
-                ERROR("The selected file must not be larger than @schola.oadmin.MaxUploadSize MB.", 'Error!');
+              if(f.size > @ma.epsilon.schola.MaxUploadSize * 1024 * 1024) { // Check the constraint
+                ERROR("The selected file must not be larger than @ma.epsilon.schola.MaxUploadSize MB.", 'Error!');
                 return false;
               }
 

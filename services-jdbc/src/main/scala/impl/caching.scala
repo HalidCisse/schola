@@ -1,11 +1,11 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 
 package impl
 
+import caching.impl._
 import Types._
 
-trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent with AccessControlServicesComponent {
+/*trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent with AccessControlServicesComponent {
   this: CacheSystemProvider =>
 
   trait CachingAccessControlServicesImpl extends AccessControlServices {
@@ -20,13 +20,11 @@ trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent
     abstract override def getRole(roleName: String) =
       cachingServices.get[Option[RoleLike]](Params(roleName)) { super.getRole(roleName) } flatten
 
-    abstract override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) =
-      super.saveRole(name, parent, createdBy) collect {
-        case my =>
-          cachingServices.evict(Params(my.name))
-          cachingServices.evict(RoleParams)
-          my
-      }
+    abstract override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) = {
+      super.saveRole(name, parent, createdBy)
+      cachingServices.evict(Params(name))
+      cachingServices.evict(RoleParams)
+    }
 
     abstract override def updateRole(name: String, newName: String, parent: Option[String]) =
       super.updateRole(name, newName, parent) && {
@@ -41,7 +39,7 @@ trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent
       cachingServices.evict(RoleParams)
     }
   }
-}
+}*/
 
 trait CachingUserServicesComponentImpl extends CachingServicesComponent with UserServicesComponent {
   this: CacheSystemProvider =>
@@ -66,49 +64,52 @@ trait CachingUserServicesComponentImpl extends CachingServicesComponent with Use
     abstract override def getUser(id: String) =
       cachingServices.get[Option[UserLike]](Params(id)) { super.getUser(id) } flatten
 
-    abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender.Value, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean) =
-      super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) collect {
-        case my =>
-          cachingServices.evict(Params(my.id.get.toString))
-
-          cachingServices.evict(UserParams(calcPage = pageOf(my.id.get.toString)))
-
-          my
-      }
+    abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, accessRights: List[String]) = {
+      val my = super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin, accessRights)
+      cachingServices.evict(Params(my.id.get.toString))
+      cachingServices.evict(UserParams(calcPage = pageOf(my.id.get.toString)))
+      my
+    }
 
     abstract override def updateUser(id: String, spec: domain.UserSpec) =
       super.updateUser(id, spec) && {
-
         cachingServices.evict(Params(id))
-
         cachingServices.evict(UserParams(calcPage = pageOf(id)))
-
         true
       }
 
     abstract override def removeUser(id: String): Boolean =
       super.removeUser(id) && {
-        
         cachingServices.evict(Params(id))
-
         cachingServices.evict(UserParams(calcPage = pageOf(id)))
-
         true
       }
 
     abstract override def removeUsers(users: Set[String]) {
       super.removeUsers(users)
-      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(calcPage = pageOf(o))) })
+      users foreach {
+        o =>
+          cachingServices.evict(Params(o))
+          cachingServices.evict(UserParams(calcPage = pageOf(o)))
+      }
     }
 
     abstract override def purgeUsers(users: Set[String]) {
       super.purgeUsers(users)
-      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(calcPage = pageOf(o))) })
+      users foreach {
+        o =>
+          cachingServices.evict(Params(o))
+          cachingServices.evict(UserParams(calcPage = pageOf(o)))
+      }
     }
 
     abstract override def undeleteUsers(users: Set[String]) = {
       super.undeleteUsers(users)
-      users foreach (o => { cachingServices.evict(Params(o)); cachingServices.evict(UserParams(calcPage = pageOf(o))) })
+      users foreach {
+        o =>
+          cachingServices.evict(Params(o))
+          cachingServices.evict(UserParams(calcPage = pageOf(o)))
+      }
     }
   }
 }

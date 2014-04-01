@@ -1,0 +1,35 @@
+.toolbar.btn-toolbar.empty
+  .btn-group#users-trash-select
+    button.select.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Select' type='button')
+      .checker
+      .select-toggle-wrapper.select-toggle(type='button' data-toggle="dropdown" data-target='#users-trash-select')
+        span.caret
+    ul.selection-menu.dropdown-menu.squared(role="menu")
+      li
+        a(href="#" data-state='select:all') All
+      li
+        a(href="#" data-state='select:none') None
+      li
+        a(href="#" data-state='select:active') Active
+      li
+        a(href="#" data-state='select:suspended') Suspended
+  .btn-group
+    button.refresh.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Refresh' type='button')
+      span.glyphicon.glyphicon-refresh
+    button.selection.purge.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Delete Forever' type='button')
+      span.glyphicon.glyphicon-exclamation-sign
+    button.selection.restore.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Restore' type='button')
+      span.glyphicon.glyphicon-upload
+  .paging.pull-right
+    span.paging-info 
+      strong.interval 
+        span.start
+        |–
+        span.end
+      | of 
+      strong.count
+    .btn-group
+      button.prev.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Previous' type='button')
+        span.glyphicon.glyphicon-chevron-left
+      button.next.btn.btn-default.btn-md(data-toggle='tooltip' data-placement='bottom' title='Next' type='button')
+        span.glyphicon.glyphicon-chevron-right

@@ -1,6 +1,4 @@
-package schola
-package oadmin
-package utils
+package ma.epsilon.schola.utils
 
 import scala.util.control.Exception.allCatch
 

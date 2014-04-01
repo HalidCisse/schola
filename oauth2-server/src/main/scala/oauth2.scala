@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 package oauth2
 
 import unfiltered.oauth2._
@@ -34,13 +33,13 @@ trait OAuth2Component {
 
       // Given a refresh token gives a new access token
       def refresh(other: Token) = oauthService.exchangeRefreshToken(other.refresh getOrElse "") map {
-        case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes) =>
+        case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sAccessRights) =>
           new Token {
             val tokenType = Some(sTokenType)
             val redirectUri = sRedirectUri
             val expiresIn = sExpires map (_.toInt)
             val owner = sOwnerId.toString
-            val scopes = sScopes.toSeq
+            val scopes = sAccessRights.flatMap(_.scopes.map(_.name)).toSeq
             val refresh = sRefreshToken
             val value = sAccessToken
             val clientId = sClientId
@@ -53,13 +52,13 @@ trait OAuth2Component {
       // Returns the refreshToken for the accessToken
       def refreshToken(refreshToken: String) =
         oauthService.getRefreshToken(refreshToken) map {
-          case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, uA, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes) if uA == userAgent =>
+          case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, uA, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sAccessRights) if uA == userAgent =>
             new Token {
               val tokenType = Some(sTokenType)
               val redirectUri = sRedirectUri
               val expiresIn = sExpires map (_.toInt)
               val owner = sOwnerId.toString
-              val scopes = sScopes.toSeq
+              val scopes = sAccessRights.flatMap(_.scopes.map(_.name)).toSeq
               val refresh = sRefreshToken
               val value = sAccessToken
               val clientId = sClientId
@@ -80,29 +79,29 @@ trait OAuth2Component {
       def generatePasswordToken(owner: ResourceOwner, client: Client,
                                 scopes: Seq[String]) = {
 
-        def generateToken = utils.Crypto.generateSecureToken // utils.SHA3 digest s"$clientId:$userId:${System.nanoTime}"
-        def generateRefreshToken = utils.Crypto.generateSecureToken // utils.SHA3 digest s"$accessToken:$userId:${System.nanoTime}"
-        def generateMacKey = utils.Crypto.genMacKey(s"${owner.id}:${System.nanoTime}") // utils.genPasswd(s"$userId:${System.nanoTime}")
+        def generateToken = utils.Crypto.generateSecureToken
+        def generateRefreshToken = utils.Crypto.generateSecureToken
+        def generateMacKey = utils.Crypto.genMacKey(s"${owner.id}:${System.nanoTime}")
 
         val accessToken = generateToken
 
-        oauthService.saveToken(
-          accessToken, Some(generateRefreshToken), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(scopes: _*)) match {
-            case Some(domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sScopes)) =>
+        try oauthService.saveToken(
+          accessToken, Some(generateRefreshToken), macKey = generateMacKey, userAgent, client.id, client.redirectUri, owner.id, Some(AccessTokenSessionLifeTime), Some(RefreshTokenSessionLifeTime), Set(oauthService.getUserAccessRights(owner.id): _*)) match {
+            case domain.OAuthToken(sAccessToken, sClientId, sRedirectUri, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sAccessRights) =>
               new Token {
                 val tokenType = Some(sTokenType)
                 val redirectUri = sRedirectUri
                 val expiresIn = sExpires map (_.toInt)
                 val owner = sOwnerId.toString
-                val scopes = sScopes.toSeq
+                val scopes = sAccessRights.flatMap(_.scopes.map(_.name)).toSeq
                 val refresh = sRefreshToken
                 val value = sAccessToken
                 val clientId = sClientId
                 override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm)
               }
-
-            case _ => throw BadTokenException("Token not created")
-          }
+          } catch {
+          case scala.util.control.NonFatal(ex) => throw BadTokenException(s"Token not created[$ex]")
+        }
       }
     }
 
@@ -126,10 +125,10 @@ trait OAuth2Component {
 
       def resourceOwner(userName: String, password: String): Option[ResourceOwner] =
         oauthService.authUser(userName, password) map {
-          uId =>
+          userId =>
             new ResourceOwner {
               val password = None
-              val id = uId
+              val id = userId
             }
         }
 
@@ -150,7 +149,7 @@ trait OAuth2Component {
   }
 }
 
-object Token {
+/*object Token {
 
   object BearerHeader {
     val HeaderPattern = """Bearer ([\w\d!#$%&'\(\)\*+\-\.\/:<=>?@\[\]^_`{|}~\\,;]+)""".r
@@ -170,4 +169,4 @@ object Token {
     case unfiltered.request.Params(BearerParam(token)) => Some(token)
     case _ => None
   }
-}
+}*/

@@ -2,12 +2,7 @@ Spine = require('spine')
 
 class Menu extends Spine.Controller
 
-  @USERS: 'users'
-  @TRASH: 'trash'
-  @ROLES: 'roles'
-  @STATS: 'stats'
-
-  className: 'menu'
+  className: 'menu' 
 
   @elements:
     '.menuHeader'    : 'menuHeader'
@@ -16,32 +11,42 @@ class Menu extends Spine.Controller
   constructor: ->
     super
 
-    @mgmt = new Menu.Mgmt
+    @manager = new Menu.Manager
 
-  @tmpl: require('views/menu/single')
+    @render()
+
+  @tmpl: require('views/menu/single')()
+  @itemTmpl: require('views/menu/item')()
 
   render: ->
-    @html Menu.tmpl()
+    @html Menu.tmpl
 
     @el.attr 'id', "menu-#{@id}"
+    @el.addClass "menu-#{@id}"
 
-    @menuHeader.html(@header)
-    @menuItems.append @add(new Menu.Item({item})).render() for item in @items
+    @menuHeader.html @header
+    @menuItems.append @add(new Menu.Item({item, manager: @manager, menu: @, el: Menu.itemTmpl})).render() for item in @items
 
     @el
 
-  getItem: (id) ->
-    for _ in @mgmt.items
-      return _  if _.item.id is id
+  getItem: (id, clbk) ->
+    for _ in @manager.items
+      if _.item.id is id
+        clbk _
+        return
+      else if _.item.getChildren
+        _.item.getChildren().done (children) =>
+          for ch in children when ch.id is id
+            clbk ch
 
   add: (item) ->
-    @mgmt.add(item)
+    @manager.add(item)
     item
 
-  activate: (item) ->
-    @mgmt.activate(item)
+  activateItem: (item) ->
+    @manager.activate(item)
 
-  class @Mgmt extends Spine.Module
+  class @Manager extends Spine.Module
     @include Spine.Events
 
     constructor: ->
@@ -74,30 +79,38 @@ class Menu extends Spine.Controller
 
   class @Item extends Spine.Controller
 
-    tag: 'li'
-
-    className: 'menuItem'
+    elements:
+      '.item'     : 'itemElement'
+      '.children' : 'childElements'
 
     @events:
       'click' : 'clicked'
 
     constructor: ->
-      super      
+      super
+
+      @el.addClass "menu-item-#{@item.id.replace('.', '_')}"
 
     loading: ->
-      @el.addClass('loading')
+      NProgress.start()
+
+      @itemElement.addClass('loading')
       @
 
     doneLoading: ->
-      @el.removeClass('loading')
+      NProgress.done()
+      
+      @itemElement.removeClass('loading')
       @      
 
     activate: ->
-      @el.addClass('active')
+      @itemElement.addClass('active')
+      @menu.el.addClass(@item.state) if @item.state
       @
 
     deactivate: ->
-      @el.removeClass('active')
+      @itemElement.removeClass('active')
+      @menu.el.removeClass(@item.state) if @item.state
       @
 
     clicked: (e) ->
@@ -106,46 +119,58 @@ class Menu extends Spine.Controller
       e.stopPropagation()
       e.preventDefault()
 
-      @navigate(@item.href)
+      @navigate @item.href
 
-    @tmpl: require('views/menu/item')
+    @linkTmpl: require('views/menu/link')
+
+    add: (item) ->
+      @manager.add(item)
+      item    
 
     render: ->
-      @html Item.tmpl()
+      @itemElement.html (@item.render or Menu.Item.linkTmpl)(@item)
 
-      @$('a').attr('href', @item.href)
-      @$('.glyphicon').addClass(@item.icon)
-      @$('.title').html(@item.title)
+      if @item.getChildren
+        @item.getChildren().done (children) =>
+          for child in children
+            @childElements.append @add(new Menu.Item({item: child, manager: @manager, menu: @, el: Menu.itemTmpl})).render()
 
       @el
 
-class Menu.Mgr
+  class @Mgr
 
-  @el: new Spine.Controller(el: '#sidebar')
+    menus: -> @_menus
 
-  @menus: {}
+    routes: -> {}
 
-  @add: (opts) ->
-    @rm opts.id
+    _menus: {}
 
-    @el.append (@menus[opts.id] = new Menu(opts)).render()
-  
-  @rm: (id) ->
+    add: (opts) ->
+      @rm opts.id
 
-    if @menus[id]
-      @menus[id].release()
+      @_menus[opts.id] = new Menu(opts)
+    
+    rm: (id) ->
 
-      delete @menus[id]
+      if @_menus[id]
+        @_menus[id].release()
 
-  @activate: (id) ->
-    {menu, item} = @_getMenu(id)
-    menu.activate(item)  
+        delete @_menus[id]
 
-  # private
+    activate: (id, clbk) ->
+      @_getMenu(id, (arg) -> 
+        {menu, item} = arg
+        menu.activateItem(item)
+        try
+          clbk(item)
+        catch _
+          ;
+      )      
 
-  @_getMenu: (id) ->
-    for _, menu of @menus
-      item = menu.getItem(id)
-      return {menu, item} if item 
+    # private
+
+    _getMenu: (id, clbk) ->
+      for _, menu of @_menus
+        menu.getItem(id, (item) => clbk {menu, item} if item)              
 
 module.exports = Menu

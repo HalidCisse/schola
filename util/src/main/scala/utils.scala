@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 package utils
 
 // -------------------------------------------------------------------------------------------------------------------------
@@ -82,7 +81,7 @@ object `package` {
   @inline def tryo[T](thunk: => T) = try {
     thunk; true
   } catch {
-    case e: Exception => false
+    case scala.util.control.NonFatal(_) => false
   }
 
   @inline def genPasswd(key: String) = passwords.crypt(key)

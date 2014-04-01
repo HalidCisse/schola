@@ -4,6 +4,12 @@ import org.sbtidea.SbtIdeaPlugin._
 object Common {
   import Keys._
 
+  val appVersion = "0.8.0"
+
+  def id(name: String) = "schola-%s" format name
+
+  def local(name: String) = LocalProject(id(name))
+
   def specsDep(sv: String) =
     sv.split("[.-]").toList match {
       case "2" :: "9" :: "0" :: _ :: _ => "org.scala-tools.testing" %% "specs" % "1.6.8"
@@ -36,25 +42,26 @@ object Common {
   val unfilteredSpec = "net.databinder" %% "unfiltered-spec" % unfilteredVersion % "test"
   val unfilteredSpec2 = "net.databinder" %% "unfiltered-spec2" % unfilteredVersion % "test"
 
-  val akkaVersion = "2.2.1"
+  val akkaVersion = "2.3.1"
   def akkaDeps =
     "com.typesafe.akka" %% "akka-actor" % akkaVersion ::
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion :: Nil
 
   def jdbcDeps = 
-    "org.postgresql" % "postgresql" % "9.3-1100-jdbc41" ::
+    "org.postgresql" % "postgresql" % "9.3-1101-jdbc41" ::
     "com.mchange" % "c3p0" % "0.9.5-pre6" :: 
     "com.jolbox" % "bonecp" % "0.8.0.RELEASE" :: Nil  
 
   val reactiveMango = "org.reactivemongo" %% "reactivemongo" % "0.11.0-SNAPSHOT"
 
-  val slick = "com.typesafe.slick" %% "slick" % "2.0.0"
+  val slick = "com.typesafe.slick" %% "slick" % "2.0.1"
 
   val utilDeps = withExclusions {   
     // "commons-validator" % "commons-validator" % "1.4.0" ::
-    "org.apache.commons" % "commons-lang3" % "3.1" ::    
+    "org.scala-lang" % "scala-reflect" % "2.10.4" ::    
+    "org.apache.commons" % "commons-lang3" % "3.3.1" ::    
     "net.jpountz.lz4" % "lz4" % "1.2.0" :: 
-    "com.typesafe" % "config" % "1.0.2" ::    
+    "com.typesafe" % "config" % "1.2.0" ::    
     "org.bouncycastle" % "bcprov-jdk15on" % "1.50" ::
     // "org.clapper" %% "avsl" % "1.0.1" ::  
     "ch.qos.logback" % "logback-classic" % "1.1.1" ::
@@ -71,15 +78,19 @@ object Common {
 
   val settings = Seq(
 
-    organization := "schola.oadmin",
+    organization := "ma.epsilon.schola",
 
-    version := "0.7.0",
+    version := appVersion,
 
-    scalaVersion := "2.10.3",
+    scalaVersion := "2.10.4",
 
     shellPrompt := buildShellPrompt,
 
     // crossScalaVersions := Seq("2.9.3", "2.10.3"),
+
+    incOptions := incOptions.value.withNameHashing(true),
+
+    offline := true,
 
     scalacOptions <++= scalaVersion.map(sv =>
       Seq("-Xcheckinit", "-encoding", "utf8", "-deprecation", "-unchecked", "-language:_")),
@@ -93,13 +104,13 @@ object Common {
     // publishTo := Some("releases" at
               // "https://oss.sonatype.org/service/local/staging/deploy/maven2"),
 
-  ideaExcludeFolders := Seq(".idea", ".idea_modules"),
+    ideaExcludeFolders := Seq(".idea", ".idea_modules"),
 
     publishArtifact in Test := false/*,
 
     licenses := Seq("MIT" -> url("http://www.opensource.org/licenses/MIT"))*/,
 
-    pomExtra := (
+    pomExtra :=
       <scm>
         <url>git@github.com:amsayk/schola.git</url>
         <connection>scm:git:git@github.com:amsayk/schola.git</connection>
@@ -111,20 +122,20 @@ object Common {
           <url>http://twitter.com/amsayk</url>
         </developer>
       </developers>
-    )
+
   ) // ++ Format.settings
 
   val buildShellPrompt = 
-    (state: State) => "[%s] ".format(Project.extract(state).currentProject.id)
+    (state: State) => "[%s] # ".format(Project.extract(state).currentProject.id)
 }
 
 object Format {
   import com.typesafe.sbt.SbtScalariform._
 
-  lazy val settings = scalariformSettings ++ Seq(
+  val settings = scalariformSettings ++ Seq(
     ScalariformKeys.preferences := formattingPreferences)
 
-  lazy val formattingPreferences = {
+  val formattingPreferences = {
     import scalariform.formatter.preferences._
     FormattingPreferences().
       setPreference(AlignParameters, true).

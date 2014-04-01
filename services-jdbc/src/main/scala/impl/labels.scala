@@ -1,5 +1,4 @@
-package schola
-package oadmin
+package ma.epsilon.schola
 
 package impl
 
@@ -84,7 +83,7 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
       result.fold {
 
         db.withTransaction { implicit session =>
-          Option(Labels.insert(label, color.getOrElse("#fff")))
+          Option(Labels insert (label, color.getOrElse("#fff")))
         }
 
       } {

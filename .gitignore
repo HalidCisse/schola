@@ -17,6 +17,6 @@ logs
 tmp
 .history
 dist/
-oadmin-cl/test
+cli/test
 logs
 Tools

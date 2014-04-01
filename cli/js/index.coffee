@@ -3,11 +3,8 @@ require('lib/setup')
 Spine   = require('spine')
 Manager = require('spine/lib/manager')
 
-Mac     = require('lib/mac')
 Session = require('lib/session')
-User    = require('controllers/User')
-Role    = require('controllers/Role')
-Menu    = require('controllers/Menu');
+Tag     = require('controllers/Tag')
 
 ### 
 
@@ -17,6 +14,7 @@ Menu    = require('controllers/Menu');
 # and deactivate all siblings (controllers or stacks), their parents and children recursively
 
 ###
+
 Manager::change = (current, args...) ->
 
   deactivate = (cont) ->
@@ -37,126 +35,166 @@ Manager::change = (current, args...) ->
 
 class App extends Spine.Module
   @include Spine.Log
+  @include Spine.Events
 
   isLoggedIn: -> !! @sesssion.key
 
-  server_host: 'localhost'
+  hostname: 'localhost'
 
-  server_port: 80  
+  port: 80  
+
+  server: "http://#{@::hostname}#{if @::port then ':' + @::port else ''}"
 
   session: {}
-
-  users: require('lib/users')
-
-  roles: require('lib/roles')
   
-  labels: require('lib/labels')
-
-  mgr: Menu.Mgr
-
-  menu: (id) -> @mgr.activate(id)
+  labels: require('lib/labels')    
 
   redirect: (path) ->
     Spine.Route.redirect path
 
   cleaned: (k) ->
     k = k.val()
-    (k && k.trim()) || ''  
+    (k && k.trim()) || ''
 
-  constructor: ->
-    super
+  modules: {}
 
-    @server = "http://#{@server_host}:#{@server_port}"
+  getApps: -> $.getJSON(jsRoutes.controllers.Utils.getApps().url)
 
-    @sessionMgr = new Session
+  registerApp: (app) ->
+    @topMenu.addApp(app.name, app.defaultUrl)
 
-    @sessionMgr.on 'session.loggedin', (s) =>
+    @menu.addMenu(app.name, app.menu.controller)
+    @menu.addRoute(route.path, route.callback.bind @menu) for route in app.menu.routes
 
-      setTimeout -> @redirect '/' if s.user.changePasswordAtNextLogin
+    @view.addView(key, val) for key, val of app.controllers
+    @view.addRoute(key, val) for key, val of app.routes    
+
+  onLoad: =>
+
+    @topMenu.addApp('archives', '#/archives')
+    @topMenu.addApp('schools', '#/schools')
+    
+    @topMenu.render()
+
+    @on 'session.loggedin', (s) =>
+
+      if s.suspended or s.changePasswordAtNextLogin
+        return setTimeout(-> @redirect '/')
 
       @session = s
 
-      $.ajaxSetup
-        beforeSend: (xhr, req) =>          
-
-          if req.url.search('/api/v1') is 0 # Authorization hdr only for API access
-            hdr = Mac.createHeader(@session, xhr, req)
-
-            xhr.setRequestHeader('Authorization', hdr)
-
-            req.url = "#{app.server}#{req.url}"
-            req.crossDomain = yes        
-
-            req.xhrFields =
-              withCredentials: yes
-
-    @sessionMgr.on 'session.error', =>
+    @on 'session.error', =>
       @session = {}
 
       $.ajaxSetup
         beforeSend: $.noop
 
-    @sessionMgr.on 'session.loggedout', => @redirect '/'
+    @on 'session.loggedout', => @redirect '/'
 
-    @sessionMgr.one 'session.loggedin', =>
-      @log 'Loading application'
+    Spine.Route.setup()
 
-      @mgr.add {
-        id: 'admin'
-        header: 'ADMIN'
-        items: [{
-          id: Menu.USERS
-          title: 'Users'
-          icon: 'glyphicon-user'
-          href: '/users'
-          fn: $.noop
-        },{
-          id: Menu.TRASH
-          title: 'Trash'
-          icon: 'glyphicon-trash'
-          href: '/trash'
-          fn: $.noop
-        },{
-          id: Menu.ROLES
-          title: 'Roles'
-          icon: 'glyphicon-tags'
-          href: '/roles'
-          fn: $.noop
-        },{
-          id: Menu.STATS
-          title: 'Stats'
-          icon: 'glyphicon-stats'
-          href: '/stats'
-          fn: $.noop
-        }]
-      }
-      
-      @view = new App.Stack
+    if Spine.Route.getPath() in [ '/', '' ]
+      for _, _app of @modules
+        @menu.delay -> @navigate(_app.defaultUrl)
+        break
+
+    @menu.delay -> 
+      $('.scrollable').on 'scroll', ->
+        $(@).siblings('.shadow')
+            .css
+              top: $(@).siblings('.toolbar').outerHeight(), 
+              opacity: if @scrollTop is 0 then 0 else 0.8
+
+    $(document.body).addClass('loaded')
+
+  constructor: ->
+    super    
+
+    @on 'loaded', @onLoad
+
+    @sessionMgr = new Session(@)
+    
+    @view    = new App.Stack
+    @menu    = new App.Menu
+    @topMenu = new App.TopMenu
+
+  class @TopMenu extends Spine.Controller
+
+    apps: []
+
+    @tmpl: require('views/util/top-menu/list').bind(window)
+
+    constructor: (args={el: '#top-menu'}) ->
+      super(args)
+
+      @list = new Spine.List(template: TopMenu.tmpl, selectFirst: yes, className: 'dropdown-menu squared', attributes: {role: 'menu'})
+
+      @list.on 'change', @changeApp
+
+      @append @list.el
+
+    changeApp: (app) =>
+      @$('a.current-app').attr('href', app.defaultUrl)
+      @$('a.current-app > .navbar-brand').html(S(app.name).capitalize().s)
+
+    render: ->
+      @el.addClass("top-menu-count-#{@apps.length}") 
+      @list.render(@apps)
+
+    addApp: (name, defaultUrl) =>
+      @apps.push({name, defaultUrl})    
+
+  class @Menu extends Spine.Stack
+
+    className: 'menus spine stack'
+
+    constructor: (args={el: '#sidebar'}) ->
+      super(args)
+
+    addMenu: (key, val) =>
+      val.stack = @
+      @[key] = val
+      @add(@[key])
+
+    addRoute: (key, val) =>
+      callback = val if typeof val is 'function'
+      callback or= => @[val].active(arguments...)
+      @route(key, callback)      
 
   class @Stack extends Spine.Stack
 
-    className: 'app spine stack'
+    controllers: 
+      labels : Tag.Stack
 
-    controllers:
-      users  : User.Stack
-      roles  : Role.Stack
+    className: 'app spine stack'
 
     constructor: (args={el: '#content'}) ->
       super(args)
 
-      Spine.Route.setup()
+    addView: (key, val) =>
+      @[key] = new val(stack: @)
+      @add(@[key])
 
-      if Spine.Route.getPath() in [ '/', '' ]
-        @delay -> @navigate('/' + @pdefault)
+    addRoute: (key, val) =>
+      callback = val if typeof val is 'function'
+      callback or= => @[val].active(arguments...)
+      @route(key, callback)      
 
-      @delay -> 
-        @$('.scrollable').on 'scroll', -> 
-          $(this).siblings('.shadow')
-                 .css({
-                    top: $(this).siblings('.toolbar').outerHeight(), 
-                    opacity: if this.scrollTop is 0 then 0 else 0.8
-                  })
 
-    pdefault: 'users'
+  arraysEqual: (a, b) ->
+
+    return true if a is b
+    
+    return false if a is null or b is null
+    
+    return false if a.length isnt b.length
+
+    a.sort()
+    b.sort()
+
+    for i in [0..a.length]
+      return false if a[i] isnt b[i]
+    
+    true
 
 module.exports = App
