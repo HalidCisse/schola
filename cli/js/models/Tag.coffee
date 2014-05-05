@@ -1,4 +1,3 @@
-Spine = require('spine')
 
 class Tag extends Spine.Model
 

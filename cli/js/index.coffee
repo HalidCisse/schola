@@ -1,10 +1,5 @@
-require('lib/setup')
-
-Spine   = require('spine')
-Manager = require('spine/lib/manager')
-
-Session = require('lib/session')
-Tag     = require('controllers/Tag')
+Session = require('js/lib/session')
+Tag     = require('js/controllers/Tag')
 
 ### 
 
@@ -15,7 +10,7 @@ Tag     = require('controllers/Tag')
 
 ###
 
-Manager::change = (current, args...) ->
+Spine.Manager::change = (current, args...) ->
 
   deactivate = (cont) ->
     cont.deactivate(args...)
@@ -47,7 +42,7 @@ class App extends Spine.Module
 
   session: {}
   
-  labels: require('lib/labels')    
+  labels: require('js/lib/labels')    
 
   redirect: (path) ->
     Spine.Route.redirect path
@@ -91,12 +86,7 @@ class App extends Spine.Module
 
     @on 'session.loggedout', => @redirect '/'
 
-    Spine.Route.setup()
-
-    if Spine.Route.getPath() in [ '/', '' ]
-      for _, _app of @modules
-        @menu.delay -> @navigate(_app.defaultUrl)
-        break
+    Spine.Route.setup(redirect: => @navigate('/'))
 
     @menu.delay -> 
       $('.scrollable').on 'scroll', ->
@@ -122,7 +112,7 @@ class App extends Spine.Module
 
     apps: []
 
-    @tmpl: require('views/util/top-menu/list').bind(window)
+    @tmpl: require('js/views/util/top-menu/list').bind(window)
 
     constructor: (args={el: '#top-menu'}) ->
       super(args)

@@ -1,4 +1,3 @@
-$ = require('jqueryify')
 
 R = jsRoutes.controllers.Tags
 

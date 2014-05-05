@@ -1,5 +1,15 @@
 
-description := "API based on Play! framework"
+import com.typesafe.sbt.packager.Keys._
+
+com.typesafe.sbt.SbtNativePackager.packageArchetype.java_server
+
+name := "schola-http"
+
+daemonUser in Linux := "root"
+
+daemonGroup in Linux := daemonUser.value
+
+com.typesafe.sbt.SbtNativePackager.packageArchetype.java_server
 
 libraryDependencies ++= Seq(
   // Select Play modules
@@ -23,4 +33,9 @@ libraryDependencies ++= Seq(
 
 resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
-play.Project.playScalaSettings
+description := "OAuth implementation based on Unfiltered OAuth2 module"
+
+packageSummary in Debian := description.value
+
+packageDescription in Debian := description.value
+

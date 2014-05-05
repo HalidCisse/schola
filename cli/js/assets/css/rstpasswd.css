@@ -1,0 +1,114 @@
+body {
+  padding-top: 65px;
+}
+
+[role=navigation] {
+  zoom: .96;
+  border-bottom: 1px solid #ebebeb;
+  margin-bottom: 5px;
+}
+
+[role=navigation] .dropdown-menu {
+border: 1px solid #ccc;
+width: 70px;
+}
+
+.breadcrumb > .active{
+  font-weight: bolder;
+}
+.breadcrumb {
+  margin: 10px auto;
+  padding: 0;
+  background-color: inherit;
+  font-size: 18px;
+}
+
+.breadcrumb .navbar-brand {
+padding-right: 3px;
+float: none;
+}
+
+.page-header{border-bottom:none}
+
+.form-rstpasswd {  
+  padding: 15px;
+}
+
+.form-rstpasswd .form-control {
+  position: relative;
+  font-size: 16px;
+  height: auto;
+  padding: 10px;
+  max-width: 330px;
+  -webkit-box-sizing: border-box;
+     -moz-box-sizing: border-box;
+          box-sizing: border-box;
+}
+
+.form-rstpasswd .form-control:focus {
+  z-index: 2;
+}
+
+/*
+ * Callouts
+ *
+ * Not quite alerts, but custom and helpful notes for folks reading the docs.
+ * Requires a base and modifier class.
+ */
+
+/* Common styles for all types */
+.bs-callout {
+  margin: 20px 0;
+  padding: 20px;
+  border-left: 3px solid #eee;
+  margin-top: 0;
+}
+.bs-callout h4 {
+  margin-top: 0;
+  margin-bottom: 5px;
+}
+.bs-callout p:last-child {
+  margin-bottom: 0;
+}
+
+/* Variations */
+.bs-callout-danger {
+  background-color: #fdf7f7;
+  border-color: #eed3d7;
+}
+.bs-callout-danger h4 {
+  color: #b94a48;
+}
+.bs-callout-warning {
+  background-color: #faf8f0;
+  border-color: #faebcc;
+}
+.bs-callout-warning h4 {
+  color: #8a6d3b;
+}
+.bs-callout-info {
+  background-color: #f4f8fa;
+  border-color: #bce8f1;
+}
+.bs-callout-info h4 {
+  color: #34789a;
+}
+.form-rstpasswd .btn + a.btn {
+margin-left: 10px;
+}
+.btn{font-size:16px}
+.container .text-muted {
+  margin: 20px 0;
+}
+footer {
+position: fixed;
+bottom: 10px;
+left: 38px;
+color: #999999;
+}
+#msg {
+position: absolute;
+left: 30%;
+top: 70px;
+display: none;
+}

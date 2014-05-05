@@ -53,14 +53,14 @@ trait Secured {
    * The response for failed authentication attempts. Intended to be overridden by authentication schemes that have
    * differing requirements.
    */
-  val failedAuthenticationResponse: (String => Result) = {
+  val failedAuthenticationResponse: (String => SimpleResult) = {
     msg =>
       Unauthorized(errorString("invalid_token", msg)).withHeaders("WWW-Authenticate" -> errorHeader(Some("invalid_token"), Some(msg)))
   }
 
   /** Return a function representing an error response */
   def errorResponse(status: Status, description: String,
-                    request: RequestHeader): Future[Result] =
+                    request: RequestHeader): Future[SimpleResult] =
     Future.successful {
 
       (status, description) match {
@@ -75,7 +75,7 @@ trait Secured {
   def tokenSecret(key: String): Option[String] = use[Façade].oauthService.getTokenSecret(key)
 
   /** Returns access token response to client */
-  def doAuth(token: MacAuthToken, request: RequestHeader)(next: ResourceOwner => Result)(errorResp: String => Result) =
+  def doAuth(token: MacAuthToken, request: RequestHeader)(next: ResourceOwner => SimpleResult)(errorResp: String => SimpleResult) =
     Future.successful {
 
       use[AuthSource].authenticateToken(token, request) match {
@@ -84,7 +84,7 @@ trait Secured {
       }
     }
 
-  def withAuth[A](bodyParser: BodyParser[A])(f: ResourceOwner => Request[A] => Result) =
+  def withAuth[A](bodyParser: BodyParser[A])(f: ResourceOwner => Request[A] => SimpleResult) =
     Action.async(bodyParser) {
       request =>
 
@@ -94,13 +94,13 @@ trait Secured {
         }
     }
 
-  final def withAuth[A >: AnyContent](f: ResourceOwner => Request[A] => Result): EssentialAction =
+  final def withAuth[A >: AnyContent](f: ResourceOwner => Request[A] => SimpleResult): EssentialAction =
     withAuth(BodyParsers.parse.anyContent)(f)
 
-  final def withAuth(f: => Result): EssentialAction =
+  final def withAuth(f: => SimpleResult): EssentialAction =
     withAuth((_: ResourceOwner) => (_: Request[_ >: AnyContent]) => f)
 
-  def authenticated[A](req: Request[A])(next: ResourceOwner => Result): Future[Result] = req match {
+  def authenticated[A](req: Request[A])(next: ResourceOwner => SimpleResult): Future[SimpleResult] = req match {
 
     case MacAuthorization(id, nonce, bodyhash, ext, mac) =>
 

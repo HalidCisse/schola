@@ -24,5 +24,3 @@ libraryDependencies ++= Seq(
 libraryDependencies ++= Common.dispatchDeps
 
 libraryDependencies += Common.unfilteredMac
-
-play.Project.playScalaSettings

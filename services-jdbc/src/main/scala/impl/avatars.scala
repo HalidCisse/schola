@@ -129,7 +129,8 @@ class Avatars(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
   }
 
   val workerPool = context.actorOf(
-    props = FromConfig.props(Props(classOf[AvatarWorkers], helper)),
+    // props = FromConfig.props(Props(classOf[AvatarWorkers], helper)),
+    props = Props(classOf[AvatarWorkers], helper).withRouter(RandomRouter(4)).withDeploy(Deploy.local), // TODO: change when you upgrade to 2.3
     name = "Avatars_upload-workers")
 
   def receive = {

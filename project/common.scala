@@ -1,10 +1,12 @@
 import sbt._
 import org.sbtidea.SbtIdeaPlugin._
 
+import com.typesafe.sbt.SbtNativePackager._, NativePackagerKeys._
+
 object Common {
   import Keys._
 
-  val appVersion = "0.8.0"
+  val appVersion = "0.9.0"
 
   def id(name: String) = "schola-%s" format name
 
@@ -42,7 +44,7 @@ object Common {
   val unfilteredSpec = "net.databinder" %% "unfiltered-spec" % unfilteredVersion % "test"
   val unfilteredSpec2 = "net.databinder" %% "unfiltered-spec2" % unfilteredVersion % "test"
 
-  val akkaVersion = "2.3.1"
+  val akkaVersion = "2.2.3"
   def akkaDeps =
     "com.typesafe.akka" %% "akka-actor" % akkaVersion ::
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion :: Nil
@@ -58,6 +60,7 @@ object Common {
 
   val utilDeps = withExclusions {   
     // "commons-validator" % "commons-validator" % "1.4.0" ::
+    "commons-codec" % "commons-codec" % "1.9" ::
     "org.scala-lang" % "scala-reflect" % "2.10.4" ::    
     "org.apache.commons" % "commons-lang3" % "3.3.1" ::    
     "net.jpountz.lz4" % "lz4" % "1.2.0" :: 
@@ -86,6 +89,8 @@ object Common {
 
     shellPrompt := buildShellPrompt,
 
+    maintainer in Linux := "Amadou Cisse <cisse.amadou.9@gmail.com>",
+
     // crossScalaVersions := Seq("2.9.3", "2.10.3"),
 
     incOptions := incOptions.value.withNameHashing(true),
@@ -93,7 +98,7 @@ object Common {
     offline := true,
 
     scalacOptions <++= scalaVersion.map(sv =>
-      Seq("-Xcheckinit", "-encoding", "utf8", "-deprecation", "-unchecked", "-language:_")),
+      Seq("-Xcheckinit", "-encoding", "utf-8", "-deprecation", "-unchecked", "-language:_")),
 
     parallelExecution in Test := false, // :( test servers collide on same port
 

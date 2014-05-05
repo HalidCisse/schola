@@ -1,4 +1,3 @@
-Spine = require('spine')
 
 class SelectionMgr extends Spine.Module
   @include Spine.Events

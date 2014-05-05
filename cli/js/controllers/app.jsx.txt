@@ -1,0 +1,29 @@
+
+class App extends React.Component {
+
+  constructor() {
+    [1, 2, 3].forEach(num => console.log(num))
+  }
+
+  static message() {
+    return "Hello, mate."
+  }
+
+  getInitialState(){
+    return {
+      hello: 'Howdy'
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        You said: { this.type.message() }<br/>
+        I said: { this.state.hello }
+      </div>
+    )
+  }
+
+}
+
+module.exports = App.toComponent()

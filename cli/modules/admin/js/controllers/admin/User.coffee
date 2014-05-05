@@ -1,16 +1,13 @@
-Spine   = require('spine')
-Manager = require('spine/lib/manager')
+UserM     = require('js/models/admin/User')
+TagM      = require('js/models/Tag')
+UserTagM  = require('js/models/admin/UserTag')
+Menu      = require('js/controllers/Menu')
 
-UserM     = require('models/admin/User')
-TagM      = require('models/Tag')
-UserTagM  = require('models/admin/UserTag')
-Menu      = require('controllers/Menu')
+LabelForm = require('js/controllers/LabelForm')
 
-LabelForm = require('controllers/LabelForm')
+SelectionMgr = require('js/lib/selection')
 
-SelectionMgr = require('lib/selection')
-
-position = require('lib/position')
+position = require('js/lib/position')
 
 class User
 
@@ -46,7 +43,7 @@ class User.Form extends Spine.Stack
     @active -> 
       @log("active")
 
-  @toolbarTmpl: require('views/admin/user/form.toolbar')
+  @toolbarTmpl: require('js/views/admin/user/form.toolbar')
 
   @UserInfo: (it, id=undefined) ->
     id: id
@@ -265,7 +262,7 @@ class User.Form extends Spine.Stack
 
     tag: 'form'
 
-    @tmpl: require('views/admin/user/form.new')()
+    @tmpl: require('js/views/admin/user/form.new')()
 
     calcHeight: -> $(window).height() - $('.selections').outerHeight() - @toolbar.el.outerHeight() - $('.navbar').outerHeight() - 8
 
@@ -303,7 +300,7 @@ class User.Form extends Spine.Stack
 
     tag: 'form'
 
-    @tmpl: require('views/admin/user/form.edit')()
+    @tmpl: require('js/views/admin/user/form.edit')()
 
     calcHeight: -> $(window).height() - $('.selections').outerHeight() - @toolbar.el.outerHeight() - $('.navbar').outerHeight() - 8
 
@@ -363,8 +360,8 @@ class User.Single extends Spine.Controller
       catch ex
         @log("Error finding User##{id}")
 
-  @tmpl: require('views/admin/user/single')()
-  @toolbarTmpl: require('views/admin/user/single.toolbar')()
+  @tmpl: require('js/views/admin/user/single')()
+  @toolbarTmpl: require('js/views/admin/user/single.toolbar')()
 
   render: ->
     @append @toolbar.el
@@ -499,10 +496,10 @@ class User.List extends Spine.Controller
 
     @contextmenu.on 'purge', (user) => @Purge([user])
 
-  @tmpl: require('views/admin/user/list')({perPage: UserM.MaxResults})
-  @rowTmpl: require('views/admin/user/row')()
-  @toolbarTmpl: require('views/admin/user/list.toolbar')()
-  @contextmenuTmpl: require('views/admin/user/contextmenu')()
+  @tmpl: require('js/views/admin/user/list')({perPage: UserM.MaxResults})
+  @rowTmpl: require('js/views/admin/user/row')()
+  @toolbarTmpl: require('js/views/admin/user/list.toolbar')()
+  @contextmenuTmpl: require('js/views/admin/user/contextmenu')()
 
   start: 0
 
@@ -948,7 +945,7 @@ class User.List extends Spine.Controller
 
       @form: new LabelForm
 
-      @labelTmpl: require('views/admin/user/label')
+      @labelTmpl: require('js/views/admin/user/label')
 
       class @Tag extends Spine.Controller
 
@@ -1053,7 +1050,7 @@ class User.List extends Spine.Controller
       SaveTag: (info) ->
         ;
     
-class User.Stack extends Manager.Stack
+class User.Stack extends Spine.Stack
 
   logPrefix: '(User.Stack)'
 

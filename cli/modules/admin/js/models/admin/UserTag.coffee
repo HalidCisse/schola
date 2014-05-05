@@ -1,5 +1,3 @@
-Spine = require('spine')
-
 UserTag = require('models/admin/UserTag')
 
 class UserTag extends Spine.Model

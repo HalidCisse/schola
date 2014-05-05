@@ -1,0 +1,13 @@
+{
+  "name": "cli-school",
+  "version": "0.8.0",
+  "main": "public/vendor.js",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "components",
+    "modules"
+  ],
+  "dependencies": {},
+  "overrides": {}
+}

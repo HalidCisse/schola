@@ -1,79 +1,93 @@
 import sbt._
 import Keys._
 
-object ApplicationBuild extends Build {
+// import play.Play.autoImport._, PlayKeys._
+import play.Project._
 
-  val appDependencies = Seq()
+import com.typesafe.sbt.SbtNativePackager._
+import com.typesafe.sbt.packager.Keys._
 
-  private def module(moduleName: String)(
-    projectId: String = "schola-" + moduleName,
-    dirName: String = moduleName,
-    srcPath: String = "schola/" + moduleName.replace("-","/"),
-    settings: Seq[Setting[_]] = Seq.empty
-  ) = play.Project(projectId, Common.appVersion, Seq(), path = file(dirName),
-        settings = Defaults.defaultSettings ++ Common.settings ++ settings)
-
-  lazy val root =
-    Project("root",
-            file("."),
-            settings = Defaults.defaultSettings ++ Common.settings
-    ).aggregate(
-            domain, services, servicesJdbc, cache, 
-            oauth2Server, httpPlay2, util, cli)
+object ScholaBuild extends Build {
+  
+  lazy val root = 
+    project.in(
+      file(".")
+    )
+     .settings(Common.settings: _*)
+     .aggregate(
+        domain, services, `services-jdbc`, cache, 
+        `oauth2-server`, `http-play2`, util, cli
+      )
 
   // Common
 
-  lazy val cache = module("cache")().dependsOn(util)
+  lazy val cache = project.settings(Common.settings: _*).dependsOn(util)
 
-  lazy val util = module("util")()
+  lazy val util = project.settings(Common.settings: _*)
 
- lazy val oauth2Server = 
-    module("oauth2-server")(
-      ).dependsOn(domain, servicesJdbc, util)  
+  lazy val `oauth2-server` = project.settings(Common.settings: _*).dependsOn(domain, `services-jdbc`, util)
 
   // Base
 
-  lazy val domain =
-    module("domain")(
-   ).dependsOn(util)
+  lazy val domain = project.settings(Common.settings: _*).dependsOn(util)
 
-  lazy val services =
-    module("services")().dependsOn(domain)
+  lazy val services = project.settings(Common.settings: _*).dependsOn(domain)
 
-  lazy val servicesJdbc =
-    module("services-jdbc")(
-    ).dependsOn(services, util, cache)
+  lazy val `services-jdbc` = project.settings(Common.settings: _*).dependsOn(services, util, cache)
 
   // Admin module
 
   // API access projects
 
-  val httpPlay2 =
-    module("http-play2")(
-      ).dependsOn(domain, servicesJdbc, util, common, admin)
+  val `http-play2` = 
+    project//.enablePlugins(play.PlayScala)
+           .settings(Common.settings: _*)
+           .settings(playScalaSettings: _*)
+           .aggregate(domain, `services-jdbc`, util, common, admin, school)
+           .dependsOn(domain, `services-jdbc`, util, common, admin, school)
 
-  lazy val common =
-    project.in(
+  lazy val common = project.in(
       file("http-play2/modules/common")
-    ).settings(Defaults.defaultSettings ++ Common.settings: _*)
-     .dependsOn(domain, servicesJdbc, util)
+    ).settings(Common.settings: _*)
+     .dependsOn(domain, `services-jdbc`, util)
 
-  lazy val admin =
-    project.in(
+  lazy val admin = project.in(
       file("http-play2/modules/admin")
-    ).settings(Defaults.defaultSettings ++ Common.settings: _*)
+    )//.enablePlugins(play.PlayScala)
+     .settings(Common.settings: _*)
+     .settings(playScalaSettings: _*)
      .dependsOn(common)
+
+  lazy val school = project.in(
+      file("http-play2/modules/school")
+    )//.enablePlugins(play.PlayScala)
+     .settings(Common.settings: _*)
+     .settings(playScalaSettings: _*)
+     .dependsOn(common)     
 
   // Web-client access modules
 
   val cli = 
-    module("cli")(
-      ).dependsOn(domain, util, `cli-admin`)
-       .settings(
-          libraryDependencies := libraryDependencies.value map(_ excludeAll ExclusionRule(name = "avsl")))
+    project.aggregate(domain, util, `cli-admin`, `cli-school`)
+           .dependsOn(domain, util, `cli-admin`, `cli-school`)
+           // .enablePlugins(play.PlayScala)
+           .settings(Common.settings: _*)
+           .settings(playScalaSettings: _*)
+           .settings(playDefaultPort := 9999)      
+           .settings(
+              libraryDependencies := libraryDependencies.value map(_ excludeAll ExclusionRule(name = "avsl")))
 
-  lazy val `cli-admin` =
-    project.in(
+  lazy val `cli-admin` = project.in(
       file("cli/modules/admin")
-    ).settings(Defaults.defaultSettings ++ Common.settings: _*)
+    )
+    // .enablePlugins(play.PlayScala)
+    .settings(Common.settings: _*)
+    .settings(playScalaSettings: _*)
+
+  lazy val `cli-school` = project.in(
+      file("cli/modules/school")
+    )
+    // .enablePlugins(play.PlayScala)
+    .settings(Common.settings: _*)
+    .settings(playScalaSettings: _*)
 }

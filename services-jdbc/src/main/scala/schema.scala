@@ -37,6 +37,8 @@ object `package` {
 
     val lastModifiedBy = column[Option[java.util.UUID]]("last_modified_by", O.DBType("uuid"))
 
+    val stars = column[Int]("stars", O.Default(0))
+
     val gender = column[Gender]("gender", O.NotNull, O.Default(Gender.Male))
 
     val homeAddress = column[Option[AddressInfo]]("home_address", O.DBType("text"))
@@ -53,7 +55,7 @@ object `package` {
 
     val changePasswordAtNextLogin = column[Boolean]("change_password_at_next_login", O.NotNull, O.Default(false))
 
-    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <> ({ t: (String, Option[String], String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], Gender, Option[AddressInfo], Option[AddressInfo], Option[Contacts], Option[String], Boolean, Boolean, Boolean, Option[java.util.UUID]) =>
+    def * = (primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, stars, gender, homeAddress, workAddress, contacts, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <> ({ t: (String, Option[String], String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], Int, Gender, Option[AddressInfo], Option[AddressInfo], Option[Contacts], Option[String], Boolean, Boolean, Boolean, Option[java.util.UUID]) =>
       t match {
         case (
           primaryEmail,
@@ -65,6 +67,7 @@ object `package` {
           lastLoginTime,
           lastModifiedAt,
           lastModifiedBy,
+          stars,
           gender,
           homeAddress,
           workAddress,
@@ -83,6 +86,7 @@ object `package` {
             lastLoginTime,
             lastModifiedAt,
             lastModifiedBy,
+            stars,
             gender,
             homeAddress,
             workAddress,
@@ -93,7 +97,7 @@ object `package` {
             changePasswordAtNextLogin,
             id)
       }
-    }, (user: User) => Some(user.primaryEmail, user.password, user.givenName, user.familyName, user.createdAt, user.createdBy, user.lastLoginTime, user.lastModifiedAt, user.lastModifiedBy, user.gender, user.homeAddress, user.workAddress, user.contacts, user.activationKey, user._deleted, user.suspended, user.changePasswordAtNextLogin, user.id))
+    }, (user: User) => Some(user.primaryEmail, user.password, user.givenName, user.familyName, user.createdAt, user.createdBy, user.lastLoginTime, user.lastModifiedAt, user.lastModifiedBy, user.stars, user.gender, user.homeAddress, user.workAddress, user.contacts, user.activationKey, user._deleted, user.suspended, user.changePasswordAtNextLogin, user.id))
 
     lazy val _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
 
@@ -120,10 +124,12 @@ object `package` {
               None,
               newUser.lastModifiedAt,
               newUser.lastModifiedBy,
+              newUser.stars,
               newUser.gender,
               newUser.homeAddress,
               newUser.workAddress,
               newUser.contacts,
+              suspended = newUser.suspended,
               changePasswordAtNextLogin = newUser.changePasswordAtNextLogin, id = Some(id))
         }
 
@@ -139,8 +145,8 @@ object `package` {
       Compiled(getDeleted _)
     }
 
-    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: Option[domain.Contacts] = None, changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
-      insertInvoker insert User(email, Some(password), givenName, familyName, createdAt, createdBy, lastModifiedAt, lastModifiedBy = lastModifiedBy, gender = gender, homeAddress = homeAddress, workAddress = workAddress, contacts = contacts, changePasswordAtNextLogin = changePasswordAtNextLogin)
+    def insert(email: String, password: String, givenName: String, familyName: String, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[Long] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: Option[domain.Contacts] = None, suspended: Boolean = false, changePasswordAtNextLogin: Boolean = false)(implicit session: Q.Session): User =
+      insertInvoker insert User(email, Some(password), givenName, familyName, createdAt, createdBy, lastModifiedAt, lastModifiedBy = lastModifiedBy, gender = gender, homeAddress = homeAddress, workAddress = workAddress, contacts = contacts, suspended = suspended, changePasswordAtNextLogin = changePasswordAtNextLogin)
 
     def delete(id: String)(implicit session: Q.Session) =
       forDeletion(uuid(id)).update(true) == 1
@@ -230,92 +236,6 @@ object `package` {
     def insert(accessToken: String, clientId: String, redirectUri: String, userId: java.util.UUID, refreshToken: Option[String], macKey: String, uA: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], createdAt: Long, lastAccessTime: Long, tokenType: String, accessRights: Set[AccessRight])(implicit session: Q.Session): OAuthToken =
       insertInvoker insert OAuthToken(accessToken, clientId, redirectUri, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, accessRights)
   }
-
-  /*  class Roles(tag: Tag) extends Table[Role](tag, "roles") {
-
-    def name = column[String]("name", O.PrimaryKey)
-
-    def parent = column[Option[String]]("parent")
-
-    def createdAt = column[Long]("created_at", O.NotNull)
-
-    def createdBy = column[Option[java.util.UUID]]("created_by", O.DBType("uuid"))
-
-    def publiq = column[Boolean]("public", O.NotNull, O.Default(true))
-
-    def * = (name, parent, createdAt, createdBy, publiq) <> (Role.tupled, Role.unapply)
-
-    def idx = index("ROLE_NAME_INDEX", name, unique = true)
-
-    def _createdBy = foreignKey("ROLE_USER_FK", createdBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
-
-    def _parent = foreignKey("ROLE_PARENT_ROLE_FK", parent, Roles)(_.name, ForeignKeyAction.Cascade)
-  }
-
-  val Roles = TableQuery[Roles]
-
-  class Permissions(tag: Tag) extends Table[Permission](tag, "permissions") {
-
-    def name = column[String]("name", O.PrimaryKey)
-
-    def clientId = column[String]("client_id", O.NotNull)
-
-    def client = foreignKey("PERMISSION_CLIENT_FK", clientId, OAuthClients)(_.id, ForeignKeyAction.Cascade)
-
-    def * = (name, clientId) <> (Permission.tupled, Permission.unapply)
-
-    def idx = index("PERMISSION_NAME_INDEX", name, unique = true)
-  }
-
-  val Permissions = TableQuery[Permissions]
-
-  class RolesPermissions(tag: Tag) extends Table[RolePermission](tag, "roles_permissions") {
-
-    def role = column[String]("role", O.NotNull)
-
-    def permission = column[String]("permission", O.NotNull)
-
-    def grantedAt = column[Long]("granted_at", O.NotNull)
-
-    def grantedBy = column[Option[java.util.UUID]]("granted_by", O.DBType("uuid"))
-
-    def * = (role, permission, grantedAt, grantedBy) <> (RolePermission.tupled, RolePermission.unapply)
-
-    def _role = foreignKey("ROLE_PERMISSION_ROLE_FK", role, Roles)(_.name, ForeignKeyAction.Cascade, ForeignKeyAction.Restrict)
-
-    def user = foreignKey("ROLE_PERMISSION_GRANTOR_FK", grantedBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
-
-    def _permission = foreignKey("ROLE_PERMISSION_PERMISSION_FK", permission, Permissions)(_.name)
-
-    def pk = primaryKey("ROLE_PERMISSION_PK", (role, permission))
-  }
-
-  val RolesPermissions = TableQuery[RolesPermissions]
-
-  private[this] val userRole = (userId: java.util.UUID, role: String, grantedAt: Long, grantedBy: Option[java.util.UUID]) => UserRole(userId, role, grantedAt, grantedBy)
-
-  class UsersRoles(tag: Tag) extends Table[UserRole](tag, "users_roles") {
-
-    def userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
-
-    def role = column[String]("role", O.NotNull)
-
-    def grantedAt = column[Long]("granted_at", O.NotNull)
-
-    def grantedBy = column[Option[java.util.UUID]]("granted_by", O.DBType("uuid"))
-
-    def * = (userId, role, grantedAt, grantedBy) <> (userRole.tupled, (ur: UserRole) => Some(ur.userId, ur.role, ur.grantedAt, ur.grantedBy))
-
-    def user = foreignKey("USER_ROLE_USER_FK", userId, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.Restrict)
-
-    def _user = foreignKey("USER_ROLE_USER_GRANTOR_FK", grantedBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
-
-    def _role = foreignKey("USER_ROLE_ROLE_FK", role, Roles)(_.name, ForeignKeyAction.Cascade, ForeignKeyAction.Cascade)
-
-    def pk = primaryKey("USER_ROLE_PK", (userId, role))
-  }
-
-  val UsersRoles = TableQuery[UsersRoles]*/
 
   class Apps(tag: Tag) extends Table[App](tag, "apps") {
 

@@ -1,7 +1,4 @@
-Spine  = require('spine')
-$      = require('jqueryify')
-
-Mac = require('lib/mac')
+Mac = require('js/lib/mac')
 
 class Session extends Spine.Module
   @include Spine.Events
@@ -9,7 +6,7 @@ class Session extends Spine.Module
 
   logPrefix: '(Session)'
 
-  getAccessScope: (name) ->
+  getScopeAccess: (name) ->
     ;
 
   constructor: (@app) ->
@@ -40,14 +37,15 @@ class Session extends Spine.Module
               res.push "/api/v1/#{x.name}/javascriptRoutes"
 
             for y in apps when isAllowedAccess(session, y)
-              res.push "/assets/#{y.name}.js"
+              res.push "/#{y.name}/assets/javascripts/#{y.name}/tmpl.js"
+              res.push "/#{y.name}/assets/#{y.name}.js"
               clbks["#{y.name}.js"] = => 
-                Admin = require("#{y.name}")
+                Module = require("js/#{y.name}")
                 setTimeout =>
-                  @app.modules["#{y.name}"] = new Admin(app: @app)
+                  @app.modules["#{y.name}"] = new Module({@app})
 
             for z in apps when isAllowedAccess(session, z)
-              res.push "/assets/#{z.name}.css"
+              res.push "/#{z.name}/assets/#{z.name}.css"
 
               setTimeout =>
                 yepnope

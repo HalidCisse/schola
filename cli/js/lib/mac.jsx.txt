@@ -1,0 +1,26 @@
+/*
+
+class Mac {
+
+  static _genNonce(issuedAt) {
+    return `${Date.now() - issuedAt}:${Crypto.util.bytesToHex(Crypto.util.randomBytes(128/32))}`; 
+  }
+
+  static sign(secret, rs){
+    return Crypto.util.bytesToBase64(Crypto.HMAC(Crypto.SHA1, rs, secret, { asBytes: yes }));
+  }
+
+  static toReqString(nonce, method, uri, hostname, port, bodyHash, ext) {
+    return [nonce, method, uri, hostname, port, bodyHash || "", ext || ""].join("\n") + "\n";
+  }
+
+  static createHeader(session, xhr, req) {
+    var nonce = Mac._genNonce(parseInt(session.issuedTime));
+    var rs    = Mac.toReqString(nonce, req.type, req.url, app.hostname || 'localhost', app.port || 80);
+    var mac   = Mac.sign(session.secret, rs);
+
+    return `MAC id="${session.access_token || session.key}",nonce="${nonce}",mac="${mac}"`;
+  }
+}
+
+module.exports = Mac*/

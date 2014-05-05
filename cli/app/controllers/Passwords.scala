@@ -143,7 +143,7 @@ object Passwords extends Controller with Helpers {
                         .flashing("error" -> "Unknown username.")
 
                 } recover {
-                  case _: Throwable =>
+                  case scala.util.control.NonFatal(_) =>
 
                     Redirect(routes.Passwords.lostPage)
                       .flashing("error" -> "An error occured. Please try again.")
@@ -156,7 +156,7 @@ object Passwords extends Controller with Helpers {
               }
 
           } recover {
-            case _: Throwable =>
+            case scala.util.control.NonFatal(_) =>
 
               Redirect(routes.Passwords.lostPage)
                 .flashing("error" -> "Invalid captcha. Please try again.")

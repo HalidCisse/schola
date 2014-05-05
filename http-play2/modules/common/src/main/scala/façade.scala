@@ -94,10 +94,6 @@ class DefaultFaçade(app: Application) extends Façade {
 
       T.updateNA(
         """
-          | alter table if exists "users_labels" drop constraint "USER_LABEL_USER_FK";
-          | alter table if exists "users_labels" drop constraint "USER_LABEL_LABEL_FK";
-          | alter table if exists "labels" drop constraint "LABEL_PK";
-          | alter table if exists "users_labels" drop constraint "USER_LABEL_PK";        
           | alter table if exists "users" drop constraint "USER_MODIFIER_FK";
           | alter table if exists "users" drop constraint "USER_CREATOR_FK";
           | alter table if exists "oauth_tokens" drop constraint "TOKEN_USER_FK";
@@ -118,7 +114,11 @@ class DefaultFaçade(app: Application) extends Façade {
           | drop table if exists "access_rights";
           | alter table if exists "users_access_rights" drop constraint "USER_ACCESS_RIGHT_PK";
           | drop table if exists "users_access_rights";
+          | alter table if exists "users_labels" drop constraint "USER_LABEL_USER_FK";
+          | alter table if exists "users_labels" drop constraint "USER_LABEL_LABEL_FK";
+          | alter table if exists "labels" drop constraint "LABEL_PK";
           | drop table if exists "labels";
+          | alter table if exists "users_labels" drop constraint "USER_LABEL_PK";
           | drop table if exists "users_labels";
           | DROP EXTENSION if exists "uuid-ossp";
         """.stripMargin).execute()
@@ -134,7 +134,7 @@ class DefaultFaçade(app: Application) extends Façade {
         T.updateNA(
           """
             | CREATE EXTENSION "uuid-ossp";
-            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text,"user_activation_key" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4());
+            | create table "users" ("primary_email" VARCHAR(254) NOT NULL,"password" text NOT NULL,"given_name" VARCHAR(254) NOT NULL,"family_name" VARCHAR(254) NOT NULL,"created_at" BIGINT NOT NULL,"created_by" uuid,"last_login_time" BIGINT,"last_modified_at" BIGINT,"last_modified_by" uuid, "stars" INTEGER DEFAULT 0,"gender" VARCHAR(254) DEFAULT 'Male' NOT NULL,"home_address" text,"work_address" text,"contacts" text,"user_activation_key" text,"_deleted" BOOLEAN DEFAULT false NOT NULL,"suspended" BOOLEAN DEFAULT false NOT NULL,"change_password_at_next_login" BOOLEAN DEFAULT false NOT NULL,"id" uuid NOT NULL DEFAULT uuid_generate_v4());
             | alter table "users" add constraint "USER_PK" primary key("id");
             | create unique index "USER_USERNAME_INDEX" on "users" ("primary_email");
             | create table "oauth_tokens" ("access_token" VARCHAR(254) NOT NULL,"client_id" VARCHAR(254) NOT NULL,"redirect_uri" VARCHAR(254) NOT NULL,"user_id" uuid NOT NULL,"refresh_token" VARCHAR(254),"secret" VARCHAR(254) NOT NULL,"user_agent" text NOT NULL,"expires_in" BIGINT,"refresh_expires_in" BIGINT,"created_at" BIGINT NOT NULL,"last_access_time" BIGINT NOT NULL,"token_type" VARCHAR(254) DEFAULT 'mac' NOT NULL,"access_rights" text DEFAULT '[]' NOT NULL);
@@ -159,6 +159,12 @@ class DefaultFaçade(app: Application) extends Façade {
             | alter table "users_access_rights" add constraint "USER_ACCESS_RIGHT_ACCESS_RIGHT_FK" foreign key("access_right_id") references "access_rights"("id") on update CASCADE on delete CASCADE;
             | alter table "users_access_rights" add constraint "USER_ACCESS_RIGHT_USER_GRANTOR_FK" foreign key("granted_by") references "users"("id") on update CASCADE on delete SET NULL;
             | alter table "users_access_rights" add constraint "USER_ACCESS_RIGHT_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete CASCADE;
+            | create table "labels" ("name" VARCHAR(254) NOT NULL,"color" VARCHAR(254) NOT NULL);
+            | alter table "labels" add constraint "LABEL_PK" primary key("name");
+            | create table "users_labels" ("user_id" uuid NOT NULL,"label" VARCHAR(254) NOT NULL);
+            | alter table "users_labels" add constraint "USER_LABEL_PK" primary key("user_id","label");
+            | alter table "users_labels" add constraint "USER_LABEL_USER_FK" foreign key("user_id") references "users"("id") on update CASCADE on delete CASCADE;
+            | alter table "users_labels" add constraint "USER_LABEL_LABEL_FK" foreign key("label") references "labels"("name") on update CASCADE on delete CASCADE;
           """.stripMargin).execute()
 
         // Add a client - oadmin:oadmin
@@ -221,6 +227,8 @@ class DefaultFaçade(app: Application) extends Façade {
         val accessRights = List(
           adminReadonlyRight, adminRight, adminSettingsRight)
 
+        val schoolApp = Apps insert ("school", List("stats.school", "settings.school"))
+
         // UsersAccessRights insert UserAccessRight(U.SuperUser.id.get, adminSettingsRight.id.get)
 
         Cache.clearAll()
@@ -246,50 +254,6 @@ class DefaultFaçade(app: Application) extends Façade {
     def rndPhone = Rnd.randomNumeric(9)
     def rndPostalCode = Rnd.randomNumeric(5)
     def rndStreetAddress = s"${rndString(7)} ${rndString(2)} ${rndString(7)} ${rndString(4)}"
-
-    /*    def rndRole =
-      Role(rndString(6), None, createdBy = U.SuperUser.id)
-
-    def createRndRoles = {
-
-      val rndName1 = rndString(6)
-      val rndName2 = rndString(6)
-      val rndName3 = rndString(6)
-      val rndName4 = rndString(6)
-      val rndName5 = rndString(6)
-      val rndName6 = rndString(6)
-      val rndName7 = rndString(6)
-      val rndName8 = rndString(6)
-      val rndName9 = rndString(6)
-      val rndName10 = rndString(6)
-      val rndName11 = rndString(6)
-
-      Seq(
-        Role(rndName1, Some("Role One"), createdBy = U.SuperUser.id),
-        Role(rndName2, Some("Role Two"), createdBy = U.SuperUser.id),
-        Role(rndName3, Some("Role X"), createdBy = U.SuperUser.id),
-        Role(rndName4, Some(rndName2), createdBy = U.SuperUser.id),
-        Role(rndName5, Some(rndName2), createdBy = U.SuperUser.id),
-        Role(rndName6, Some("Role X"), createdBy = U.SuperUser.id),
-        Role(rndName7, Some(rndName4), createdBy = U.SuperUser.id),
-        Role(rndName8, Some("Administrator"), createdBy = U.SuperUser.id),
-        Role(rndName9, Some("Administrator"), createdBy = U.SuperUser.id),
-        Role(rndName10, Some("Role X"), createdBy = U.SuperUser.id),
-        Role(rndName11, Some("Role X"), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some("Administrator"), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some("Administrator"), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some(rndName1), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some(rndName1), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some(rndName1), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some(rndName1), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some("Administrator"), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some("Role One"), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some("Role One"), createdBy = U.SuperUser.id),
-        Role(rndString(6), Some("Role One"), createdBy = U.SuperUser.id))
-    }
-
-    def rndPermission =
-      Permission(s"${rndString(4).toLowerCase}.${rndString(6).toLowerCase}", "oadmin") */
 
     val amadouEpsilon =      
       User(
@@ -369,6 +333,7 @@ class DefaultFaçade(app: Application) extends Façade {
           u.homeAddress,
           u.workAddress,
           u.contacts,
+          u.suspended,
           u.changePasswordAtNextLogin,
           Nil)
 
@@ -396,45 +361,6 @@ class DefaultFaçade(app: Application) extends Façade {
         }
     }
 
-
-    //    log.info("Creating roles . . . ");
-    //    val roles = rndRoles.seq map {r => accessControlService.saveRole(r.name, r.parent, r.createdBy map (_.toString)); r}
-
-    //    val permissions = withTransaction { implicit s => log.info("Creating permissions . . . "); rndPermissions map (p => { Permissions.insert(p); p }) }
-
-    /*{
-      log.info("Creating users grants . . . ")
-
-      for (u <- users) try
-        accessControlService.grantUserRoles(u.id.get.toString, roles.seq.map(_.name).toSet, None)
-      catch {
-        case e: java.sql.SQLException =>
-          var cur = e
-          while (cur ne null) {
-            cur.printStackTrace()
-            cur = cur.getNextException
-          }
-
-          throw e
-      }
-    }
-
-    {
-      log.info("Creating roles grants . . . ")
-
-      for (r <- roles) try
-        accessControlService.grantRolePermissions(r.name, permissions.seq.map(_.name).toSet, None)
-      catch {
-        case e: java.sql.SQLException =>
-          var cur = e
-          while (cur ne null) {
-            cur.printStackTrace()
-            cur = cur.getNextException
-          }
-
-          throw e
-      }
-    }*/
 
     log.info("Creating labels . . .")
     val labels = rndLabels flatMap { label =>
@@ -569,15 +495,7 @@ class DefaultFaçade(app: Application) extends Façade {
         }
       }*/
 
-      //      users foreach { u => accessControlService.revokeUserRoles(u.id.get.toString, roles.seq.map(_.name).toSet) }
-      //      roles foreach { r => accessControlService.revokeRolePermission(r.name, permissions.seq.map(_.name).toSet) }
-
       users foreach (u => userService.purgeUsers(Set(u.id.get.toString)))
-      //      roles foreach (r => accessControlService.purgeRoles(Set(r.name)))
-
-      //      withTransaction { implicit s =>
-      //        Permissions where (_.name inSet permissions.seq.map(_.name)) delete
-      //      }
 
       withTransaction { implicit s =>
         labelService.remove(labels.map(_.name).seq.toSet)
@@ -669,7 +587,7 @@ trait MailingComponentImpl extends MailingComponent {
 
 /*
 
-import ma.epsilon.schola._, schema._, domain._, http._
+import ma.epsilon.schola._, schema._, Q._, domain._, http._
 
 //import com.mchange.v2.c3p0.ComboPooledDataSource
 import com.jolbox.bonecp.BoneCPDataSource

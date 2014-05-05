@@ -37,7 +37,7 @@ object `package` {
   case class OAuthClient(id: String, secret: String, redirectUri: String)
 
   object Clients {
-    val OAdmin = "oadmin"
+    val OAdmin = "schola"
   }
 
   object Gender extends Enumeration {
@@ -83,6 +83,7 @@ object `package` {
     lastLoginTime: Option[Long] = None,
     lastModifiedAt: Option[Long] = None,
     lastModifiedBy: Option[java.util.UUID] = None,
+    stars: Int = 0,
     gender: Gender = Gender.Male,
     homeAddress: Option[AddressInfo] = None,
     workAddress: Option[AddressInfo] = None,
@@ -106,57 +107,6 @@ object `package` {
   }
 
   case class Response(success: Boolean)
-
-  /*  case class Role(name: String, parent: Option[String] = None, createdAt: Long = System.currentTimeMillis, createdBy: Option[java.util.UUID] = None, publiq: Boolean = true)
-
-  case class Permission(name: String, clientId: String)
-
-  object P {
-    val ChangeUser = Permission("user.modify", Clients.OADMIN)
-    val ViewUser = Permission("user.view", Clients.OADMIN)
-    val DeleteUser = Permission("user.remove", Clients.OADMIN)
-    val PurgeUser = Permission("user.purge", Clients.OADMIN)
-    val UnPurgeUser = Permission("user.undelete", Clients.OADMIN)
-
-    val ChangeRole = Permission("role.modify", Clients.OADMIN)
-    val ViewRole = Permission("role.view", Clients.OADMIN)
-    val PurgeRole = Permission("role.purge", Clients.OADMIN)
-
-    val GrantRole = Permission("role.grant", Clients.OADMIN)
-    val RevokeRole = Permission("role.revoke", Clients.OADMIN)
-
-    val GrantPermission = Permission("permission.grant", Clients.OADMIN)
-    val RevokePermission = Permission("permission.revoke", Clients.OADMIN)
-
-    val all = Set(
-      ChangeUser,
-      ViewUser,
-      DeleteUser,
-      PurgeUser,
-      UnPurgeUser,
-
-      ChangeRole,
-      ViewRole,
-      PurgeRole,
-
-      GrantRole,
-      RevokeRole,
-
-      GrantPermission,
-      RevokePermission)
-  }
-
-  object R {
-    val SuperUserR = Role(config.getString("oauth2.super-user-role-name"), publiq = false)
-
-    val AdministratorR = Role(config.getString("oauth2.administrator-role-name"), publiq = false)
-
-    val all = Set(SuperUserR, AdministratorR)
-  }
-
-  case class RolePermission(role: String, permission: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None)
-
-  case class UserRole(userId: java.util.UUID, role: String, grantedAt: Long = System.currentTimeMillis, grantedBy: Option[java.util.UUID] = None, delegated: Boolean = false)*/
 
   case class Label(name: String, color: String)
 

@@ -46,7 +46,7 @@ trait UserServicesComponent {
     
     def suspendUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
 
     def updateUser(id: String, spec: domain.UserSpec): Boolean
 
@@ -92,7 +92,7 @@ trait UserServicesRepoComponent {
 
     def suspendUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
 
     def updateUser(id: String, spec: domain.UserSpec): Boolean
 

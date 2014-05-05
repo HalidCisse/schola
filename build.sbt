@@ -1,1 +1,1 @@
-name := "Schola"
+name := "schola"

@@ -48,11 +48,6 @@ object `package` {
   implicit val sessionFormat = Json.format[Session]
   implicit val responseFormat = Json.format[Response]
 
-  /*implicit val rolePermissionFormat = Json.format[RolePermission]
-  implicit val roleFormat = Json.format[Role]
-  implicit val permissionFormat = Json.format[Permission]
-  implicit val userRoleFormat = Json.format[UserRole]*/
-
   implicit val labelFormat = Json.format[Label]
   implicit val userLabelFormat = Json.format[UserLabel]
 }

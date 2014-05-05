@@ -1,0 +1,9 @@
+{
+  "name": "libs",
+  "version": "0.0.1",
+  "main": [
+    "countries.js",        
+    "jquery.upload.js",
+    "jquery.event.destroyed.js"     
+  ]
+}

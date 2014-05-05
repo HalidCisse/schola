@@ -1,10 +1,18 @@
 {
-  "name": "schola",
+  "name": "cli",
+  "description": "Play! client",
+  "author": "Amadou Cisse <cisse.amadou.9@gmail.com>",
   "version": "0.8.0",
+  "scripts": {
+    "start": "brunch watch"
+  },
   "dependencies": {
-    "es5-shimify": "~2.0.5",
-    "json2ify": "~0.0.3",
-    "jqueryify": "~2.0.3",
-    "spine": "~1.3.0"
+    "coffee-script-brunch": "^1.7.3",
+    "stylus-brunch": "^1.7.0",
+    "uglify-js-brunch": ">= 1.0 < 1.8",
+    "clean-css-brunch": ">= 1.0 < 1.8",
+    "css-brunch": "^1.7.0",
+    "jade-brunch": "^1.8.1",
+    "javascript-brunch": "^1.7.1"
   }
 }

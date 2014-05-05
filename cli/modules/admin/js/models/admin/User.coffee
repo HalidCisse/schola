@@ -1,7 +1,3 @@
-Spine = require('spine')
-$     = require('jqueryify')
-
-admin = require('admin')
 
 class User extends Spine.Model
 

@@ -64,8 +64,8 @@ trait CachingUserServicesComponentImpl extends CachingServicesComponent with Use
     abstract override def getUser(id: String) =
       cachingServices.get[Option[UserLike]](Params(id)) { super.getUser(id) } flatten
 
-    abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, accessRights: List[String]) = {
-      val my = super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin, accessRights)
+    abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]) = {
+      val my = super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, suspended, changePasswordAtNextLogin, accessRights)
       cachingServices.evict(Params(my.id.get.toString))
       cachingServices.evict(UserParams(calcPage = pageOf(my.id.get.toString)))
       my

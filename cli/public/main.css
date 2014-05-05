@@ -45,6 +45,10 @@ textarea,
 select {
   font-family: arial, sans-serif;
 }
+.btn-default,
+.tr {
+  background-color: #f8f8f8;
+}
 .navbar[role=navigation] {
   zoom: 0.96;
   border-bottom: 1px solid #ebebeb;
@@ -115,8 +119,6 @@ footer {
 }
 #main {
   height: 100%;
-  margin: auto 70px;
-  margin-right: 0;
 }
 #main .row {
   height: 100%;
@@ -124,7 +126,7 @@ footer {
 #sidebar {
   margin: 0;
   padding: 0;
-/*padding-left: 15px;*/
+  padding-left: 15px;
 /*position: absolute;*/
   left: 0;
 /*width: 14.8033924441%;*/
@@ -165,6 +167,10 @@ footer {
 }
 .menus button.new-user {
   font-weight: bolder;
+}
+.menu .btn-group {
+  margin: auto 2.5em;
+  margin-bottom: 7px;
 }
 .menu {
   margin-top: 20px;
@@ -260,7 +266,7 @@ ul.menuItems .title {
   margin-right: 45px;
 }
 .toolbar .paging .btn-group {
-  float: right;
+  float: none;
 }
 .toolbar .more {
   margin-left: 45px;
@@ -272,8 +278,6 @@ ul.menuItems .title {
   font-weight: bolder;
 }
 .toolbar .paging-info {
-  position: relative;
-  top: 6.5px;
   font-size: 16px;
 }
 .toolbar .selection {
@@ -287,6 +291,8 @@ ul.menuItems .title {
 }
 .toolbar.needs-paging .paging {
   display: inline-block;
+  right: 30px;
+  position: absolute;
 }
 .toolbar button.select .select-toggle-wrapper {
   display: inline-block;
@@ -332,14 +338,12 @@ ul.menuItems .title {
   background: url("images/checkmark.png") no-repeat -5px -3px;
 }
 .users-trash .body,
-.users .body,
-.roles .tree {
+.users .body {
   padding: 0;
   margin: 0;
 }
 .users-trash .list,
-.users .list,
-.roles .tree {
+.users .list {
   display: table;
   vertical-align: baseline;
   width: 100%;
@@ -348,10 +352,6 @@ ul.menuItems .title {
   overflow-y: auto;
   zoom: 1;
   -webkit-overflow-scrolling: touch;
-}
-.users-trash .body .scrollable,
-.users .body .scrollable {
-  padding-left: 10px;
 }
 .users-trash .body,
 .users .body {
@@ -751,7 +751,7 @@ z-index: 999;*/
   font-size: 18px;
 }
 [role=navigation] .container-fluid {
-  margin: auto 100px;
+  margin: auto 36px;
 }
 .labels {
   position: absolute;
@@ -1010,3 +1010,13 @@ ul.color-chooser li {
   border-right: 1px solid transparent;
   background-clip: padding-box;
 }
+
+
+/* Vertical Background Gradient */
+/* Horizontal Background Gradient */
+
+
+
+
+
+/*# sourceMappingURL=main.css.map*/

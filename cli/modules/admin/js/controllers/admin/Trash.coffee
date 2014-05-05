@@ -1,12 +1,9 @@
-Spine   = require('spine')
-Manager = require('spine/lib/manager')
+TrashM = require('js/models/admin/DeletedUser')
+Menu   = require('js/controllers/Menu')
 
-TrashM = require('models/admin/DeletedUser')
-Menu   = require('controllers/Menu')
+SelectionMgr = require('js/lib/selection')
 
-SelectionMgr = require('lib/selection')
-
-position = require('lib/position')
+position = require('js/lib/position')
 
 class Trash
 
@@ -78,10 +75,10 @@ class Trash.List extends Spine.Controller
     
     @contextmenu.on 'purge', (user) => @Purge([user])
 
-  @tmpl: require('views/admin/trash/list')({perPage: TrashM.MaxResults})
-  @rowTmpl: require('views/admin/trash/row')()
-  @toolbarTmpl: require('views/admin/trash/list.toolbar')()
-  @contextmenuTmpl: require('views/admin/trash/contextmenu')()
+  @tmpl: require('js/views/admin/trash/list')({perPage: TrashM.MaxResults})
+  @rowTmpl: require('js/views/admin/trash/row')()
+  @toolbarTmpl: require('js/views/admin/trash/list.toolbar')()
+  @contextmenuTmpl: require('js/views/admin/trash/contextmenu')()
 
   start: 0
 
@@ -502,7 +499,7 @@ class Trash.List extends Spine.Controller
 
     getSelectedUsers: -> @selMgr.getSelection()
     
-class Trash.Stack extends Manager.Stack
+class Trash.Stack extends Spine.Stack
 
   logPrefix: '(Trash.Stack)'
 

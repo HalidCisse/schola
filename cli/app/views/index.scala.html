@@ -9,10 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href='@routes.Assets.at("ico/favicon.png")'>
     <title>Schola</title>
-    <link href='@routes.Assets.at("css/bootstrap.css")' rel="stylesheet">
-    <!--<link href='@routes.Assets.at("css/bootstrap-theme.css")' rel="stylesheet">-->
-    <link href='@routes.Assets.at("css/chosen.min.css")' rel="stylesheet">
-    <link href='@routes.Assets.at("css/nprogress.css")' rel="stylesheet">
+    <link href='@routes.Assets.at("css/vendor.css")' rel="stylesheet">
     <link href='@routes.Assets.at("main.css")' rel="stylesheet">
     <script type="text/javascript" charset="utf-8" src="/api/@ma.epsilon.schola.API_VERSION/javascriptRoutes"></script>
   </head>
@@ -61,8 +58,10 @@
         </div>
       </div> -->
     </div>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/runtime.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/tmpl.js")'></script>
+    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/vendor.js")'></script>
     <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("main.js")'></script>
-    <script type='text/javascript' charset='utf-8' src='@routes.Assets.at("javascripts/nprogress.js")'></script>
     <script type="text/javascript">
       //<![CDATA[    
       var sGeobytesLocationCode="MACACASA";var sGeobytesIsLocationMatch=false;var sGeobytesCountry="Morocco";var sGeobytesIso2="MA";var sGeobytesCity="Casablanca";
@@ -99,7 +98,7 @@
       
       jQuery(function($){          
       
-        var App = require("index");
+        var App = require("js/index");
         
         exports.app = new App;
 

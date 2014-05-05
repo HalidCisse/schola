@@ -1,12 +1,9 @@
-Spine   = require('spine')
-Manager = require('spine/lib/manager')
+UserM = require('js/models/admin/User')
+TagM  = require('js/models/Tag')
 
-UserM = require('models/admin/User')
-TagM  = require('models/Tag')
-
-User  = require('controllers/admin/User')
-Trash = require('controllers/admin/Trash')
-Menu  = require('controllers/Menu')
+User  = require('js/controllers/admin/User')
+Trash = require('js/controllers/admin/Trash')
+Menu  = require('js/conjs/trollers/Menu')
 
 class Admin extends Spine.Controller
 
@@ -62,10 +59,10 @@ class Admin extends Spine.Controller
 
   menu: (id, clbk) -> Admin.mgr.activate(id, clbk)
 
-  users: require('lib/admin/users')
+  users: require('js/lib/admin/users')
 
-  @labelTmpl: require('views/admin/menu/tag')
-  @stateTmpl: require('views/menu/link')  
+  @labelTmpl: require('js/views/admin/menu/tag')
+  @stateTmpl: require('js/views/menu/link')  
 
   defaultUrl: '/users'
 
@@ -197,7 +194,7 @@ class Admin extends Spine.Controller
 
   class @NewButton extends Spine.Controller
 
-    @tmpl: require('views/admin/menu/new')()
+    @tmpl: require('js/views/admin/menu/new')()
 
     className: 'admin menu new-user'
 

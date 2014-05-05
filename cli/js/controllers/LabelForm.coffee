@@ -1,4 +1,3 @@
-Spine   = require('spine')
 
 class LabelForm extends Spine.Controller
 
@@ -10,7 +9,7 @@ class LabelForm extends Spine.Controller
     'submit form' : 'save'
 
   constructor: ->
-    @el = require('views/label/form')()
+    @el = require('js/views/label/form')()
 
     super
 

@@ -25,7 +25,7 @@ trait UserServicesComponentImpl extends UserServicesComponent {
 
     def suspendUsers(users: Set[String]) = userServiceRepo.suspendUsers(users)
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, accessRights: List[String]) = userServiceRepo.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin, accessRights)
+    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]) = userServiceRepo.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, suspended, changePasswordAtNextLogin, accessRights)
 
     def updateUser(id: String, spec: domain.UserSpec) = userServiceRepo.updateUser(id, spec)
 
@@ -86,27 +86,28 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
         import Convs._
 
-        type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], domain.Gender, Option[domain.AddressInfo], Option[domain.AddressInfo], Option[domain.Contacts], Boolean, Boolean, Option[String], Option[java.util.UUID], Option[String], Option[java.util.UUID], Option[Seq[Scope]])
+        type Result = (Option[java.util.UUID], String, String, String, Long, Option[java.util.UUID], Option[Long], Option[Long], Option[java.util.UUID], Int, domain.Gender, Option[domain.AddressInfo], Option[domain.AddressInfo], Option[domain.Contacts], Boolean, Boolean, Option[String], Option[java.util.UUID], Option[String], Option[java.util.UUID], Option[Seq[Scope]])
 
         sql"""select
-                x5.x3, x5.x4, x5.x5, x5.x6, x5.x7, x5.x8, x5.x9, x5.x10, x5.x11, x5.x12, x5.x13, x5.x14, x5.x15, x5.x16, x5.x17, x3.label, x5.access_right_id, x5.access_right_name, x5.access_right_app_id, x5.access_right_scopes
+                x5.x3, x5.x4, x5.x5, x5.x6, x5.x7, x5.x8, x5.x9, x5.x10, x5.x11, x5.x12, x5.x13, x5.x14, x5.x15, x5.x16, x5.x17, x5.18, x3.label, x5.access_right_id, x5.access_right_name, x5.access_right_app_id, x5.access_right_scopes
               from ((
-                  select x18."id" as x3,
-                    x18."primary_email" as x4,
-                    x18."given_name" as x5,
-                    x18."family_name" as x6,
-                    x18."created_at" as x7,
-                    x18."created_by" as x8,
-                    x18."last_login_time" as x9,
-                    x18."last_modified_at" as x10,
-                    x18."last_modified_by" as x11,
-                    x18."gender" as x12,
-                    x18."home_address" as x13,
-                    x18."work_address" as x14,
-                    x18."contacts" as x15,
-                    x18."suspended" as x16,
-                    x18."change_password_at_next_login" as x17
-                  from "users" x18 where not x18."_deleted" and x18."id" <> ${U.SuperUser.id}
+                  select x19."id" as x3,
+                    x19."primary_email" as x4,
+                    x19."given_name" as x5,
+                    x19."family_name" as x6,
+                    x19."created_at" as x7,
+                    x19."created_by" as x8,
+                    x19."last_login_time" as x9,
+                    x19."last_modified_at" as x10,
+                    x19."last_modified_by" as x11,
+                    x19."stars" as x12,
+                    x19."gender" as x13,
+                    x19."home_address" as x14,
+                    x19."work_address" as x15,
+                    x19."contacts" as x16,
+                    x19."suspended" as x17,
+                    x19."change_password_at_next_login" as x18
+                  from "users" x19 where not x19."_deleted" and x19."id" <> ${U.SuperUser.id}
                   /* order by last_login_time desc nulls last, order by last_modified_at desc nulls last, created_at desc */
                   limit $MaxResults offset ${page * MaxResults}
                 ) x2 left join (
@@ -131,6 +132,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
         u.lastLoginTime,
         u.lastModifiedAt,
         u.lastModifiedBy,
+        u.stars,
         u.gender,
         u.homeAddress,
         u.workAddress,
@@ -153,6 +155,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
             u.lastLoginTime,
             u.lastModifiedAt,
             u.lastModifiedBy,
+            u.stars,
             u.gender,
             u.homeAddress,
             u.workAddress,
@@ -213,8 +216,14 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
         def forLN(id: Column[java.util.UUID]) =
           Users where (_.id is id) map (o => (o.familyName, o.lastModifiedAt, o.lastModifiedBy))
 
+        def forStars(id: Column[java.util.UUID]) =
+          Users where (_.id is id) map (o => (o.stars, o.lastModifiedAt, o.lastModifiedBy))
+
         def forGender(id: Column[java.util.UUID]) =
           Users where (_.id is id) map (o => (o.gender, o.lastModifiedAt, o.lastModifiedBy))
+
+        def forSuspended(id: Column[java.util.UUID]) =
+          Users where (_.id is id) map (o => (o.suspended, o.lastModifiedAt, o.lastModifiedBy))
 
         def forHomeAddress(id: Column[java.util.UUID]) =
           Users where (_.id is id) map (o => (o.homeAddress, o.lastModifiedAt, o.lastModifiedBy))
@@ -230,7 +239,9 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
           val password = Compiled(forPasswd _)
           val givenName = Compiled(forFN _)
           val familyName = Compiled(forLN _)
+          val stars = Compiled(forStars _)
           val gender = Compiled(forGender _)
+          val suspended = Compiled(forSuspended _)
           val homeAddress = Compiled(forHomeAddress _)
           val workAddress = Compiled(forWorkAddress _)
           val contacts = Compiled(forContacts _)
@@ -254,25 +265,51 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
 
       result.groupBy(_._1).flatMap {
         case (id, user :: rest) =>
-          User(
-            user._2,
-            None,
-            user._3,
-            user._4,
-            user._5,
-            user._6,
-            user._7,
-            user._8,
-            user._9,
-            user._10,
-            user._11,
-            user._12,
-            user._13,
-            suspended = user._14,
-            changePasswordAtNextLogin = user._15,
-            id = user._1,
-            labels = if (user._16.isDefined) user._16.get :: rest.filter(_._16.isDefined).map(_._16.get) else rest.filter(_._16.isDefined).map(_._16.get),
-            accessRights = if (user._17.isDefined) AccessRight(user._18.get, user._19.get, user._20.get, id = user._17) :: rest.filter(_._17.isDefined).map(o => AccessRight(o._18.get, o._19.get, o._20.get, id = o._17)) else rest.filter(_._17.isDefined).map(o => AccessRight(o._18.get, o._19.get, o._20.get, id = o._17))) :: Nil
+        user match {
+          case (
+            _,
+            primaryEmail,
+            givenName,
+            familyName,
+            createdAt,
+            createdBy,
+            lastLoginTime,
+            lastModifiedAt,
+            lastModifiedBy,
+            stars,
+            gender,
+            homeAddress,
+            workAddress,
+            contacts,
+            suspended,
+            changePasswordAtNextLogin,
+            label,
+            accessRightId,
+            accessRightName,
+            accessRightAppId,
+            scopes) =>
+
+            User(
+              primaryEmail,
+              None,
+              givenName,
+              familyName,
+              createdAt,
+              createdBy,
+              lastLoginTime,
+              lastModifiedAt,
+              lastModifiedBy,
+              stars,
+              gender,
+              homeAddress,
+              workAddress,
+              contacts,
+              suspended = suspended,
+              changePasswordAtNextLogin = changePasswordAtNextLogin,
+              id = id,
+              labels = if (label.isDefined) label.get :: rest.filter(_._17.isDefined).map(_._17.get) else rest.filter(_._17.isDefined).map(_._17.get),
+              accessRights = if (accessRightId.isDefined) AccessRight(accessRightName.get, accessRightAppId.get, scopes.get, id = accessRightId) :: rest.filter(_._18.isDefined).map(o => AccessRight(o._19.get, o._20.get, o._21.get, id = o._18)) else rest.filter(_._18.isDefined).map(o => AccessRight(o._19.get, o._20.get, o._21.get, id = o._18))) :: Nil
+        }
       }.toList
     }
 
@@ -286,8 +323,8 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
       }
 
       result map {
-        case (sId, primaryEmail, _, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) =>
-          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(sId), labels = getUserLabels(sId.toString))
+        case (sId, primaryEmail, _, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, stars, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) =>
+          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, stars, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(sId), labels = getUserLabels(sId.toString))
       }
     }
 
@@ -314,8 +351,8 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
       }
 
       result map {
-        case (id, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) =>
-          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(id))
+        case (id, primaryEmail, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, stars, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin) =>
+          User(primaryEmail, None, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, stars, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin = changePasswordAtNextLogin, id = Some(id))
       }
     }
 
@@ -349,7 +386,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
       }      
     }
 
-    def saveUser(primaryEmail: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], changePasswordAtNextLogin: Boolean, sAccessRights: List[String]) =
+    def saveUser(primaryEmail: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, sAccessRights: List[String]) =
       db.withTransaction { implicit session =>
         val currentTimestamp = System.currentTimeMillis
 
@@ -367,12 +404,13 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
               homeAddress = homeAddress,
               workAddress = workAddress,
               contacts = contacts,
+              suspended = suspended,
               changePasswordAtNextLogin = changePasswordAtNextLogin)
 
           mailer.sendWelcomeEmail(primaryEmail, password)
 
           sAccessRights match {
-            case Nil =>
+            case Nil => {}
             case rights => utils.tryo {
 
               updateUser(user.id.get.toString, new DefaultUserSpec {
@@ -404,7 +442,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
         implicit session => user.firstOption
       } match {
 
-        case Some((_, sUsername, sPassword, _, _, _, _, _, _, _, _, sHomeAddress, sWorkAddress, sContacts, _)) =>
+        case Some((_, sUsername, sPassword, _, _, _, _, _, _, _, _, _, sHomeAddress, sWorkAddress, sContacts, _)) =>
           db.withTransaction {
             implicit session =>
 
@@ -433,12 +471,22 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
                   oq.userUpdates.familyName(uid).update(familyName, currentTimestamp, updatedBy) == 1
               } getOrElse true)
 
-              val _5 = _4 && (spec.gender map {
+              val _5 = _4 && (spec.stars map {
+                stars =>
+                  oq.userUpdates.stars(uid).update(stars, currentTimestamp, updatedBy) == 1
+              } getOrElse true)
+
+              val _6 = _5 && (spec.gender map {
                 gender =>
                   oq.userUpdates.gender(uid).update(gender, currentTimestamp, updatedBy) == 1
               } getOrElse true)
 
-              val _6 = _5 && (spec.homeAddress foreach {
+              val _7 = _6 && (spec.suspended map {
+                case suspended =>
+                  oq.userUpdates.suspended(uid).update(suspended, currentTimestamp, updatedBy) == 1
+                } getOrElse true)
+
+              val _8 = _7 && (spec.homeAddress foreach {
                 case Some(s) =>
 
                   sHomeAddress match {
@@ -475,7 +523,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
                   oq.userUpdates.homeAddress(uid).update(None, currentTimestamp, updatedBy) == 1
               })
 
-              val _7 = _6 && (spec.workAddress foreach {
+              val _9 = _8 && (spec.workAddress foreach {
                 case Some(s) =>
 
                   sWorkAddress match {
@@ -510,7 +558,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
                   oq.userUpdates.workAddress(uid).update(None, currentTimestamp, updatedBy) == 1
               })
 
-              val _8 = _7 && (spec.accessRights map { rights =>
+              val _10 = _9 && (spec.accessRights map { rights =>
 
                 try {
 
@@ -526,7 +574,7 @@ trait UserServicesRepoComponentImpl extends UserServicesRepoComponent {
                 }
               } getOrElse true)
 
-              _8 && {
+              _10 && {
 
                 val qContacts = oq.userUpdates.contacts(uid)
 

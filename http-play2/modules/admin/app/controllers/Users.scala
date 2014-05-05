@@ -47,6 +47,13 @@ object Users extends Controller with Secured with HttpHelpers {
           import play.api.libs.json._, Reads._
           import play.api.libs.functional.syntax._
 
+          implicit object BooleanReads extends Reads[Boolean] {
+            def reads(json: JsValue) = json match {
+              case JsBoolean(b) => JsSuccess(b)
+              case _ => JsSuccess(true)
+            }
+          }
+
           case class UserIn(
             primaryEmail: String,
             password: Option[String],
@@ -56,6 +63,7 @@ object Users extends Controller with Secured with HttpHelpers {
             homeAddress: Option[AddressInfo],
             workAddress: Option[AddressInfo],
             contacts: Option[Contacts],
+            active: Boolean,
             changePasswordAtNextLogin: Boolean,
             accessRights: Option[List[String]])
 
@@ -74,18 +82,19 @@ object Users extends Controller with Secured with HttpHelpers {
             (__ \ "homeAddress").readNullable[AddressInfo] ~
             (__ \ "workAddress").readNullable[AddressInfo] ~
             (__ \ "contacts").readNullable[Contacts] ~
+            (__ \ "active").read[Boolean] ~
             (__ \ "changePasswordAtNextLogin").read[Boolean] ~
             (__ \ "accessRights").readNullable[List[String]])(UserIn)
 
           request.body.validate[UserIn].map {
-            case UserIn(primaryEmail, password, givenName, familyName, gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin, accessRights) =>
+            case UserIn(primaryEmail, password, givenName, familyName, gender, homeAddress, workAddress, contacts, active, changePasswordAtNextLogin, accessRights) =>
 
               try
 
                 render {
                   case Accepts.Json() =>
                     json[User](
-                      use[Façade].userService.saveUser(primaryEmail, password getOrElse randomString(4), givenName, familyName, Some(resourceOwner.id), gender, homeAddress, workAddress, contacts, changePasswordAtNextLogin, accessRights getOrElse Nil))
+                      use[Façade].userService.saveUser(primaryEmail, password getOrElse randomString(4), givenName, familyName, Some(resourceOwner.id), gender, homeAddress, workAddress, contacts, suspended = !active, changePasswordAtNextLogin, accessRights getOrElse Nil))
                 }
               catch {
 
@@ -113,10 +122,12 @@ object Users extends Controller with Secured with HttpHelpers {
             password: Option[String],
             givenName: Option[String],
             familyName: Option[String],
+            stars: Option[Int],
             gender: Option[Gender],
             homeAddress: Option[AddressInfo],
             workAddress: Option[AddressInfo],
             contacts: Option[Contacts],
+            active: Option[Boolean],
             changePasswordAtNextLogin: Option[Boolean],
             accessRights: Option[List[String]])
 
@@ -132,15 +143,17 @@ object Users extends Controller with Secured with HttpHelpers {
             (__ \ "password").readNullable(minLength[String](ma.epsilon.schola.PasswordMinLength)) ~
             (__ \ "givenName").readNullable[String] ~
             (__ \ "familyName").readNullable[String] ~
+            (__ \ "stars").readNullable[Int] ~
             (__ \ "gender").readNullable[Gender] ~
             (__ \ "homeAddress").readNullable[AddressInfo] ~
             (__ \ "workAddress").readNullable[AddressInfo] ~
             (__ \ "contacts").readNullable[Contacts] ~
+            (__ \ "active").readNullable[Boolean] ~
             (__ \ "changePasswordAtNextLogin").readNullable[Boolean] ~
             (__ \ "accessRights").readNullable[List[String]])(UserIn)
 
           request.body.validate[UserIn].map {
-            case UserIn(sPrimaryEmail, sOldPassword, sPassword, sGivenName, sFamilyName, sGender, sHomeAddress, sWorkAddress, sContacts, changePasswordAtNextLogin, sAccessRights) =>
+            case UserIn(sPrimaryEmail, sOldPassword, sPassword, sGivenName, sFamilyName, sStars, sGender, sHomeAddress, sWorkAddress, sContacts, sActive, changePasswordAtNextLogin, sAccessRights) =>
 
               if (use[Façade].userService.updateUser(id, new DefaultUserSpec {
 
@@ -202,7 +215,11 @@ object Users extends Controller with Secured with HttpHelpers {
 
                 override lazy val familyName = sFamilyName
 
+                override lazy val stars = sStars
+
                 override lazy val gender = sGender
+
+                override lazy val suspended = sActive map(!_)
 
                 override lazy val password = sPassword
 

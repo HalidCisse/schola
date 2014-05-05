@@ -1,4 +1,3 @@
-Spine = require('spine')
 
 class Menu extends Spine.Controller
 
@@ -15,8 +14,8 @@ class Menu extends Spine.Controller
 
     @render()
 
-  @tmpl: require('views/menu/single')()
-  @itemTmpl: require('views/menu/item')()
+  @tmpl: require('js/views/menu/single')()
+  @itemTmpl: require('js/views/menu/item')()
 
   render: ->
     @html Menu.tmpl
@@ -121,7 +120,7 @@ class Menu extends Spine.Controller
 
       @navigate @item.href
 
-    @linkTmpl: require('views/menu/link')
+    @linkTmpl: require('js/views/menu/link')
 
     add: (item) ->
       @manager.add(item)

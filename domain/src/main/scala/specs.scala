@@ -49,11 +49,15 @@ trait UserSpec {
 
   def familyName: Option[String]
 
+  def stars: Option[Int]
+
   def gender: Option[Gender]
 
   def avatar: UpdateSpec[String]
 
   def accessRights: Option[Set[String]]
+
+  def suspended: Option[Boolean]
 
   def updatedBy: Option[String]
 }
@@ -76,11 +80,15 @@ class DefaultUserSpec extends UserSpec {
 
   lazy val familyName: Option[String] = None
 
+  lazy val stars: Option[Int] = None
+
   lazy val gender: Option[Gender.Value] = None
 
   lazy val avatar = UpdateSpecImpl[String]()
 
   lazy val accessRights: Option[Set[String]] = None
+  
+  lazy val suspended: Option[Boolean] = None
 
   lazy val updatedBy: Option[String] = None
 }

@@ -1,0 +1,86 @@
+
+LabelForm = React.createClass({
+
+  getInitialState: function() {
+    return {
+      label: undefined,
+      color: '#fff'
+    }
+  },
+
+  save: function(e) {
+    e.preventDefault();
+
+    console.log('Label', this.state.label)
+    console.log('Color', this.state.color)
+  },
+
+  render: function() {
+    return (
+      <div className="LabelForm">
+        
+        <AutoField
+          fieldInfo={{type: 'text'}}
+          value={this.state.label}
+          onChange={_.partial(this.onFieldChange, 'label')}
+          isValid={this.isLabelValid()} />
+
+        <AutoField
+          fieldInfo={{type: 'text'}}
+          value={this.state.color}
+          onChange={_.partial(this.onFieldChange, 'color')} />
+
+        <div className={"btns pull-left"}>
+          <Button onClick={this.save}> Create
+          </Button>
+
+          <Button onClick={this.close}> Cancel
+          </Button>
+        </div>
+
+      </div>
+    );    
+  },
+
+  componentDidMount: function() {
+    var $el = $(this.getDOMNode());
+
+    $el.kendoComboBox({
+        width: "600px",
+        title: this.state.label ? 'Edit Label' : 'New Label',
+        actions: [
+            "Close"
+        ]
+    });
+  },
+
+  componentWillUnmount: function() {
+    var kendoWidget = $(this.getDOMNode()).data('kendoWindow');
+
+    if (kendoWidget) {
+      kendoWidget.destroy();
+    }
+  },
+
+  close: function() {
+    var kendoWidget = $(this.getDOMNode()).data('kendoWindow');
+
+    if (kendoWidget) {
+      kendoWidget.hide();
+    }
+  },  
+
+  onFieldChange: function (fieldName, value) {
+    this.setState(_.object([[fieldName, value]]));
+  },
+
+  isLabelValid: function() {
+    var val = this.state.label;
+
+    return val !== null && val !== ''
+        ? [true, '']
+        : [false, 'This field is required.'];
+  }  
+});
+
+module.exports = LabelForm

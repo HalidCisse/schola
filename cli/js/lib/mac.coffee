@@ -2,12 +2,10 @@
 class Mac
 
   @_genNonce: (issuedAt) ->
-    secs = Date.now() - issuedAt
-    rnd = CryptoJS.lib.WordArray.random(128/32)
-    "#{secs}:#{rnd}" 
+    "#{Date.now() - issuedAt}:#{Crypto.util.bytesToHex(Crypto.util.randomBytes(128/32))}" 
 
   @sign: (secret, rs) ->
-    CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA1(rs, secret))
+    Crypto.util.bytesToBase64(Crypto.HMAC(Crypto.SHA1, rs, secret, { asBytes: yes }))
 
   @toReqString: (nonce, method, uri, hostname, port, bodyHash, ext) ->
     [nonce, method, uri, hostname, port, bodyHash or "", ext or ""].join("\n") + "\n"

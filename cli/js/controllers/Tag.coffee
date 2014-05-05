@@ -1,9 +1,6 @@
-Spine   = require('spine')
-Manager = require('spine/lib/manager')
+TagM = require('js/models/Tag')
 
-TagM = require('models/Tag')
-
-LabelForm = require('controllers/LabelForm')
+LabelForm = require('js/controllers/LabelForm')
 
 class Tag
 
@@ -75,8 +72,8 @@ class Tag.Mgr extends Spine.Controller
   render: ->
     @html Mgr.tmpl    
 
-  @tmpl: require('views/label/tags')()  
-  @rowTmpl: require('views/label/single')()
+  @tmpl: require('js/views/label/tags')()  
+  @rowTmpl: require('js/views/label/single')()
 
   New: (e) ->
     e.preventDefault()
@@ -145,7 +142,7 @@ class Tag.Mgr extends Spine.Controller
 
   @form: new LabelForm  
 
-class Tag.Stack extends Manager.Stack
+class Tag.Stack extends Spine.Stack
 
   logPrefix: '(Tag.Stack)'
 

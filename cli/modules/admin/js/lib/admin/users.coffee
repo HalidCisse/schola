@@ -1,4 +1,3 @@
-$ = require('jqueryify')
 
 R = adminRoutes.controllers.admin.Users
 

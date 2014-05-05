@@ -5,7 +5,6 @@ target
 .idea_modules
 schola.sublime-project
 schola.sublime-workspace
-node_modules
 activator-*.sbt
 templates
 README.html
@@ -20,3 +19,49 @@ dist/
 cli/test
 logs
 Tools
+
+# Numerous always-ignore extensions
+*.diff
+*.err
+*.orig
+*.log
+*.rej
+*.swo
+*.swp
+*.vi
+*~
+*.sass-cache
+
+# OS or Editor folders
+.DS_Store
+.cache
+.project
+.settings
+.tmproj
+nbproject
+Thumbs.db
+
+# NPM packages folder.
+node_modules/
+
+# Brunch folder for temporary files.
+tmp/
+
+# Brunch output folder.
+public/main.js
+public/main.css
+
+# Brunch output folder.
+public/admin.js
+public/admin.css
+
+# Brunch output folder.
+public/archives.js
+public/archives.css
+
+# Brunch output folder.
+public/schools.js
+public/schools.css
+
+# Bower stuff.
+bower_components/

@@ -1,0 +1,7 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Utils
+
+GET				/javascriptRoutes								controllers.school.Utils.javascriptRoutes

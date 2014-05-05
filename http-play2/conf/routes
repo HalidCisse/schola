@@ -18,6 +18,8 @@ GET     /apps                       controllers.Utils.getApps
 GET     /logout                     controllers.Utils.logout(token: String)
 GET     /javascriptRoutes           controllers.Utils.javascriptRoutes
 
-# Admin Module routes
+# Module routes
 
 ->      /admin                      admin.Routes
+
+->      /school                     school.Routes
