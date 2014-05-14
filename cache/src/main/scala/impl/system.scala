@@ -33,7 +33,7 @@ class CacheSystem(val TTL: Int, updateIntervalMin: Int = 30)(implicit system: Ac
                             default: () => T): Option[T] = {
     val obj = default()
 
-    if (obj != None) {
+    if (obj.asInstanceOf[AnyRef] ne None) {
       Cache.set(key, obj, TTL)
       Some(obj)
     } else None

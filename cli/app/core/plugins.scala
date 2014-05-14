@@ -69,13 +69,10 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
     Logger.info("[schola-cli] loaded session plugin: %s".format(getClass.getName))
   }
 
-  val hostname = "localhost"
-
   val client = OAuthClient(
-    "schola", "schola",
-    s"http://$hostname")
+    OAUTH_CLIENT, OAUTH_CLIENT_SECRET, OAUTH_REDIRECT_URI)
 
-  private val apiHost = host(hostname)
+  private val apiHost = url(OAUTH_REDIRECT_URI)
 
   private val token = apiHost / "oauth" / "token"
   private val api = apiHost / "api" / API_VERSION
@@ -88,7 +85,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
         json.asOpt[Session].fold[scala.concurrent.Future[Session]](scala.concurrent.Future.failed(new ScholaException(s"Invalid session [$sessionKey]"))) {
           s =>
 
-            def isExpired(s: Session) = s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
+            def isExpired(s: Session) = s.expiresIn exists (expiration => s.issuedTime.plusSeconds(expiration.getSeconds) isBefore java.time.Instant.now) // s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
 
             if (isExpired(s)) {
 
@@ -143,7 +140,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
     }
 
   def mac(session: Session, method: String, uri: String, userAgent: String) = {
-    def _genNonce(issuedAt: Long) = s"${System.currentTimeMillis - issuedAt}:${utils.randomString(4)}"
+    def _genNonce(issuedTime: java.time.Instant) = s"${System.currentTimeMillis - issuedTime.getEpochSecond}:${utils.randomString(4)}"
 
     val nonce = _genNonce(session.issuedTime)
 

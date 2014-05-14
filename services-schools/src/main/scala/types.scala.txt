@@ -1,0 +1,9 @@
+package ma.epsilon.schola
+package school
+
+import domain._, school.domain._
+
+object Types {
+
+
+}

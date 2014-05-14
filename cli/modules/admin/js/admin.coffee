@@ -3,7 +3,7 @@ TagM  = require('js/models/Tag')
 
 User  = require('js/controllers/admin/User')
 Trash = require('js/controllers/admin/Trash')
-Menu  = require('js/conjs/trollers/Menu')
+Menu  = require('js/controllers/Menu')
 
 class Admin extends Spine.Controller
 

@@ -1,13 +1,14 @@
 package ma.epsilon.schola
 
-import Types._
-
 trait Apps {
   val appService: AppServices
 
   trait AppServices {
+
     def getApps: List[domain.App]
-    def addApp(name: String, scopes: Seq[String]): domain.App
+
+    def addApp(name: String, scopes: List[String]): domain.App
+
     def removeApp(id: String)
   }
 }
@@ -16,8 +17,11 @@ trait AppsRepo {
   protected val appsServiceRepo: AppServicesRepo
 
   trait AppServicesRepo {
+
     def getApps: List[domain.App]
-    def addApp(name: String, scopes: Seq[String]): domain.App
+
+    def addApp(name: String, scopes: List[String]): domain.App
+
     def removeApp(id: String)
   }
 }
@@ -28,25 +32,40 @@ trait UserServicesComponent {
 
   trait UserServices {
 
-    def getUsersStats: StatsLike
+    def getUsersStats: domain.UsersStats
 
-    def getUsers(page: Int): List[UserLike]
+    def getUsers(page: Int): List[domain.User]
 
-    def getUser(id: String): Option[UserLike]
+    def getUser(id: String): Option[domain.User]
+
+    def getUserByCIN(cin: String): Option[domain.User]
 
     def removeUser(id: String): Boolean
 
     def removeUsers(users: Set[String])
 
-    def getPurgedUsers: List[UserLike]
+    def getPurgedUsers: List[domain.User]
 
     def purgeUsers(users: Set[String])
 
     def undeleteUsers(users: Set[String])
-    
+
     def suspendUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
+    def saveUser(
+      cin: String, 
+      username: String, 
+      password: String, 
+      givenName: String, 
+      familyName: String, 
+      createdBy: Option[String], 
+      gender: domain.Gender, 
+      homeAddress: Option[domain.AddressInfo], 
+      workAddress: Option[domain.AddressInfo], 
+      contacts: Option[domain.Contacts], 
+      suspended: Boolean, 
+      changePasswordAtNextLogin: Boolean, 
+      accessRights: List[String]): domain.User
 
     def updateUser(id: String, spec: domain.UserSpec): Boolean
 
@@ -74,17 +93,19 @@ trait UserServicesRepoComponent {
 
   trait UserServicesRepo {
 
-    def getUsersStats: StatsLike
+    def getUsersStats: domain.UsersStats
 
-    def getUsers(page: Int): List[UserLike]
+    def getUsers(page: Int): List[domain.User]
 
-    def getUser(id: String): Option[UserLike]
+    def getUser(id: String): Option[domain.User]
+
+    def getUserByCIN(cin: String): Option[domain.User]
 
     def removeUser(id: String): Boolean
 
     def removeUsers(users: Set[String])
 
-    def getPurgedUsers: List[UserLike]
+    def getPurgedUsers: List[domain.User]
 
     def purgeUsers(users: Set[String])
 
@@ -92,7 +113,20 @@ trait UserServicesRepoComponent {
 
     def suspendUsers(users: Set[String])
 
-    def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]): UserLike
+    def saveUser(
+      cin: String, 
+      username: String, 
+      password: String, 
+      givenName: String, 
+      familyName: String, 
+      createdBy: Option[String], 
+      gender: domain.Gender, 
+      homeAddress: Option[domain.AddressInfo], 
+      workAddress: Option[domain.AddressInfo], 
+      contacts: Option[domain.Contacts], 
+      suspended: Boolean, 
+      changePasswordAtNextLogin: Boolean, 
+      accessRights: List[String]): domain.User
 
     def updateUser(id: String, spec: domain.UserSpec): Boolean
 
@@ -122,22 +156,32 @@ trait OAuthServicesComponent {
 
     def getTokenSecret(accessToken: String): Option[String]
 
-    def getRefreshToken(refreshToken: String): Option[TokenLike]
+    def getRefreshToken(refreshToken: String): Option[domain.OAuthToken]
 
-    def exchangeRefreshToken(refreshToken: String): Option[TokenLike]
+    def exchangeRefreshToken(refreshToken: String): Option[domain.OAuthToken]
 
     def revokeToken(accessToken: String)
 
-    def getUserTokens(userId: String): List[TokenLike]
+    def getUserTokens(userId: String): List[domain.OAuthToken]
 
-    def getUserSession(params: Map[String, String]): Option[SessionLike]
+    def getUserSession(params: Map[String, String]): Option[domain.Session]
 
-    def getClient(id: String, secret: String): Option[ClientLike]
+    def getClient(id: String, secret: String): Option[domain.OAuthClient]
 
     def authUser(username: String, password: String): Option[String]
 
-    @throws(classOf[Exception])
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], accessRights: Set[domain.AccessRight]): TokenLike
+    def saveToken(
+      accessToken: String, 
+      refreshToken: Option[String], 
+      macKey: String, 
+      uA: String, 
+      userId: String, 
+      expiresIn: Option[java.time.Duration], 
+      refreshExpiresIn: Option[java.time.Duration], 
+      accessRights: Set[domain.AccessRight],
+      activeAccessRight: Option[String]): domain.OAuthToken
+
+    def setUserAccessRight(accessToken: String, accessRightId: String)
 
     def getUserAccessRights(userId: String): List[domain.AccessRight]
   }
@@ -151,52 +195,62 @@ trait OAuthServicesRepoComponent {
 
     def getTokenSecret(accessToken: String): Option[String]
 
-    def getRefreshToken(refreshToken: String): Option[TokenLike]
+    def getRefreshToken(refreshToken: String): Option[domain.OAuthToken]
 
-    def exchangeRefreshToken(refreshToken: String): Option[TokenLike]
+    def exchangeRefreshToken(refreshToken: String): Option[domain.OAuthToken]
 
     def revokeToken(accessToken: String)
 
-    def getUserTokens(userId: String): List[TokenLike]
+    def getUserTokens(userId: String): List[domain.OAuthToken]
 
-    def getUserSession(params: Map[String, String]): Option[SessionLike]
+    def getUserSession(params: Map[String, String]): Option[domain.Session]
 
-    def getClient(id: String, secret: String): Option[ClientLike]
+    // def getClient(id: String, secret: String): Option[OAuthClient]
 
     def authUser(username: String, password: String): Option[String]
 
-    @throws(classOf[Exception])
-    def saveToken(accessToken: String, refreshToken: Option[String], macKey: String, uA: String, clientId: String, redirectUri: String, userId: String, expiresIn: Option[Long], refreshExpiresIn: Option[Long], accessRights: Set[domain.AccessRight]): TokenLike
+    def saveToken(
+      accessToken: String, 
+      refreshToken: Option[String], 
+      macKey: String, 
+      uA: String, 
+      userId: String, 
+      expiresIn: Option[java.time.Duration], 
+      refreshExpiresIn: Option[java.time.Duration], 
+      accessRights: Set[domain.AccessRight],
+      activeAccessRight: Option[String]): domain.OAuthToken
+
+    def setUserAccessRight(accessToken: String, accessRightId: String)
 
     def getUserAccessRights(userId: String): List[domain.AccessRight]
   }
 }
 
-trait AvatarServicesComponent {
+trait UploadServicesComponent {
 
-  val avatarServices: AvatarServices
+  val uploadServices: UploadServices
 
-  trait AvatarServices {
+  trait UploadServices {
 
-    def getAvatar(id: String): scala.concurrent.Future[(String, Option[String], Array[Byte])]
+    def getUpload(id: String): scala.concurrent.Future[domain.Upload]
 
-    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte])
+    def upload(id: String, filename: String, contentType: Option[String], bytes: Array[Byte], attributes: (String, String)*)
 
-    def purgeAvatar(userId: String)
+    def purgeUpload(id: String)
   }
 }
 
-trait AvatarServicesRepoComponent {
+trait UploadServicesRepoComponent {
 
-  protected val avatarServicesRepo: AvatarServicesRepo
+  protected val uploadServicesRepo: UploadServicesRepo
 
-  trait AvatarServicesRepo {
+  trait UploadServicesRepo {
 
-    def getAvatar(id: String): scala.concurrent.Future[(String, Option[String], Array[Byte])]
+    def getUpload(id: String): scala.concurrent.Future[domain.Upload]
 
-    def uploadAvatar(userId: String, filename: String, contentType: Option[String], bytes: Array[Byte])
+    def upload(id: String, filename: String, contentType: Option[String], bytes: Array[Byte], attributes: (String, String)*)
 
-    def purgeAvatar(userId: String)
+    def purgeUpload(id: String)
   }
 }
 
@@ -206,11 +260,11 @@ trait LabelServicesComponent {
 
   trait LabelServices {
 
-    def getLabels: List[LabelLike]
+    def getLabels: List[domain.Label]
 
     def updateLabel(label: String, newName: String): Boolean
 
-    def findOrNew(label: String, color: Option[String]): Option[LabelLike]
+    def findOrNew(label: String, color: Option[String]): Option[domain.Label]
 
     def remove(labels: Set[String])
   }
@@ -222,11 +276,11 @@ trait LabelServicesRepoComponent {
 
   trait LabelServicesRepo {
 
-    def getLabels: List[LabelLike]
+    def getLabels: List[domain.Label]
 
     def updateLabel(label: String, newName: String): Boolean
 
-    def findOrNew(label: String, color: Option[String]): Option[LabelLike]
+    def findOrNew(label: String, color: Option[String]): Option[domain.Label]
 
     def remove(labels: Set[String])
   }

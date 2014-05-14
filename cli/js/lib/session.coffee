@@ -9,7 +9,7 @@ class Session extends Spine.Module
   getScopeAccess: (name) ->
     ;
 
-  constructor: (@app) ->
+  constructor: ->
     super
 
     isAllowedAccess = (s, application) =>
@@ -18,34 +18,49 @@ class Session extends Spine.Module
         return yes
       no
 
-    $.getJSON('/session')
-       .done (session) =>
+    setTimeout =>
+    
+      $.getJSON('/session')
+         .done (session) =>
 
-          return console.log('Error loading session!') if session.error
+            return console.log('Error loading session!') if session.error
 
-          if session.suspended or session.changePasswordAtNextLogin
-            return setTimeout(-> @redirect '/')
+            if session.suspended or session.changePasswordAtNextLogin
+              return setTimeout(-> @redirect '/')
 
-          @app.session = session         
+            app.session = session         
 
-          @app.getApps().done (apps) =>
+            app.getApps().done (apps) =>
 
-            res = []
-            clbks = []
+              res = []
+              clbks = []
 
-            for x in apps when isAllowedAccess(session, x)
-              res.push "/api/v1/#{x.name}/javascriptRoutes"
+              for x in apps when isAllowedAccess(session, x)
+                res.push "/api/v1/#{x.name}/javascriptRoutes"
+                # yepnope.injectJs "/api/v1/#{x.name}/javascriptRoutes"
 
-            for y in apps when isAllowedAccess(session, y)
-              res.push "/#{y.name}/assets/javascripts/#{y.name}/tmpl.js"
-              res.push "/#{y.name}/assets/#{y.name}.js"
-              clbks["#{y.name}.js"] = => 
-                Module = require("js/#{y.name}")
-                setTimeout =>
-                  @app.modules["#{y.name}"] = new Module({@app})
+              for y in apps when isAllowedAccess(session, y)
+                res.push "/#{y.name}/assets/javascripts/#{y.name}/tmpl.js"
+                res.push "/#{y.name}/assets/#{y.name}.js"
+                clbks["#{y.name}.js"] = =>                 
+                  setTimeout =>
+                    Module = require("js/#{y.name}")
+                    app.modules["#{y.name}"] = new Module({app})
 
-            for z in apps when isAllowedAccess(session, z)
-              res.push "/#{z.name}/assets/#{z.name}.css"
+                # setTimeout =>
+                #   yepnope.injectCss "/#{z.name}/assets/#{z.name}.css"
+                
+                # setTimeout =>
+
+                #   yepnope.injectJs "/#{y.name}/assets/javascripts/#{y.name}/tmpl.js"
+                #   yepnope.injectJs "/#{y.name}/assets/#{y.name}.js", => 
+                #     Module = require("js/#{y.name}")
+                #     setTimeout =>
+                #       @app.modules["#{y.name}"] = new Module({@app})
+
+              for z in apps when isAllowedAccess(session, z)
+                res.push "/#{z.name}/assets/#{z.name}.css"
+                # yepnope.injectCss "/#{z.name}/assets/#{z.name}.css"
 
               setTimeout =>
                 yepnope
@@ -61,19 +76,19 @@ class Session extends Spine.Module
 
                           xhr.setRequestHeader('Authorization', hdr)
 
-                          req.url = "#{@app.server}#{req.url}"
+                          req.url = "#{app.server}#{req.url}"
                           req.crossDomain = yes        
 
                           req.xhrFields =
                             withCredentials: yes
 
-                    setTimeout (=> @app.trigger 'loaded'), 0
+                    setTimeout (=> app.trigger 'loaded'), 0
 
                     do @setUpLoginStatusChecks
                 , 0
 
-       .fail ->
-          console.log 'No session found!'
+         .fail ->
+            console.log 'No session found!'
 
   setUpLoginStatusChecks: (interval=30000) ->
 
@@ -84,15 +99,15 @@ class Session extends Spine.Module
 
           @log("getLoginStatus success:#{arguments}")
 
-          return @app.trigger('session.error') if s.error
+          return app.trigger('session.error') if s.error
 
-          @app.trigger 'session.loggedin', s
+          app.trigger 'session.loggedin', s
 
        .fail =>
 
           @log("getLoginStatus error:#{arguments}")
 
-          @app.trigger 'session.error'
+          app.trigger 'session.error'
 
     do doCheckSession
 

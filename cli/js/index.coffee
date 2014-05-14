@@ -88,6 +88,11 @@ class App extends Spine.Module
 
     Spine.Route.setup(redirect: => @navigate('/'))
 
+    if Spine.Route.getPath() in [ '/', '' ]
+      for _, _app of @modules
+        @menu.delay -> @navigate(_app.defaultUrl)
+        break
+
     @menu.delay -> 
       $('.scrollable').on 'scroll', ->
         $(@).siblings('.shadow')
@@ -102,7 +107,7 @@ class App extends Spine.Module
 
     @on 'loaded', @onLoad
 
-    @sessionMgr = new Session(@)
+    @sessionMgr = new Session
     
     @view    = new App.Stack
     @menu    = new App.Menu

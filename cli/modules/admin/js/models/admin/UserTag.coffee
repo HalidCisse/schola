@@ -1,4 +1,3 @@
-UserTag = require('models/admin/UserTag')
 
 class UserTag extends Spine.Model
 
@@ -18,6 +17,6 @@ class UserTag extends Spine.Model
          .done d.resolve
 
   @getUserTags: (userId) ->
-    UserTag.select (userTag) => userTag.userId is userId
+    @select (userTag) => userTag.userId is userId
   
 module.exports = UserTag

@@ -1,0 +1,61 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Users
+
+GET					/users												controllers.admin.Users.getUsers(page: Int ?= 0)
+
+POST				/users												controllers.admin.Users.addUser
+
+DELETE			/users												controllers.admin.Users.deleteUsers(users: List[String])
+DELETE			/users/_purge									controllers.admin.Users.purgeUsers(users: List[String])
+DELETE			/users/_suspend								controllers.admin.Users.suspendUsers(users: List[String])
+
+GET					/users/stats									controllers.admin.Users.getUsersStats
+GET					/users/_trash									controllers.admin.Users.getPurgedUsers
+PUT					/users/_undelete							controllers.admin.Users.undeleteUsers(users: List[String])
+
+GET					/users/userexists							controllers.admin.Users.userExists(username: String)
+
+GET					/user/:id/access_rights				controllers.admin.Users.getUserAccessRights(id: String)
+
+GET					/user/:id/labels							controllers.admin.Users.getUserTags(id: String)
+PUT					/user/:id/labels							controllers.admin.Users.addUserTags(id: String, labels: List[String])
+DELETE			/user/:id/labels							controllers.admin.Users.purgeUserTags(id: String, labels: List[String])
+
+GET					/cin/:cin											controllers.admin.Users.getUserByCIN(cin: String)
+
+GET					/user/:id											controllers.admin.Users.getUser(id: String)
+PUT					/user/:id											controllers.admin.Users.updateUser(id: String)
+
+# GET     /user/:id/roles                     controllers.admin.Users.getUserRoles(id: String)
+# PUT     /user/:id/roles                     controllers.admin.Users.grantUserRoles(id: String, roles: List[String])
+# DELETE  /user/:id/roles                     controllers.admin.Users.revokeUserRoles(id: String, roles: List[String])
+
+GET				/avatar/:userId									controllers.admin.Users.downloadAvatar(userId: String)
+PUT				/user/:id/avatar								controllers.admin.Users.uploadAvatar(id: String, filename: String)
+DELETE		/user/:id/avatar								controllers.admin.Users.purgeAvatar(id: String)
+
+GET				/users/check_activation_req			controllers.admin.Users.checkActivationReq(username: String, key: String)
+POST			/users/lostpassword							controllers.admin.Users.lostPasswd(username: String)
+POST			/users/resetpassword						controllers.admin.Users.resetPasswd(username: String, key: String, newPassword: String)
+
+# Roles
+
+# GET     /roles                              controllers.admin.Roles.getRoles
+# GET     /role/:name                         controllers.admin.Roles.getRole(name: String)
+# POST    /roles                              controllers.admin.Roles.addRole(name: String, parent: Option[String])
+# PUT     /role/:name                         controllers.admin.Roles.updateRole(name: String, newName: String, parent: Option[String])
+# DELETE  /roles                              controllers.admin.Roles.purgeRoles(roles: List[String])
+
+# GET     /permissions                        controllers.admin.Roles.getPermissions
+# GET     /role/:name/permissions             controllers.admin.Roles.getRolePermissions(name: String)
+# PUT     /role/:name/permissions             controllers.admin.Roles.grantPermissions(name: String, permissions: List[String])
+# DELETE  /role/:name/permissions             controllers.admin.Roles.revokePermissions(name: String, permissions: List[String])
+
+# GET     /roles/roleexists                   controllers.admin.Roles.roleExists(name: String)
+
+# Utils
+
+GET				/javascriptRoutes								controllers.admin.Utils.javascriptRoutes

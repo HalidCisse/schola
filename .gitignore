@@ -31,6 +31,7 @@ Tools
 *.vi
 *~
 *.sass-cache
+*.map
 
 # OS or Editor folders
 .DS_Store
@@ -48,20 +49,20 @@ node_modules/
 tmp/
 
 # Brunch output folder.
-public/main.js
-public/main.css
+main.js
+main.css
 
 # Brunch output folder.
-public/admin.js
-public/admin.css
+admin.js
+admin.css
 
 # Brunch output folder.
-public/archives.js
-public/archives.css
+schools.js
+schools.css
 
 # Brunch output folder.
-public/schools.js
-public/schools.css
+tmpl.js
+vendor.js
 
 # Bower stuff.
 bower_components/

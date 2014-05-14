@@ -17,7 +17,7 @@ libraryDependencies ++= Seq(
   // "group" % "artifact" % "version"
   // "com.typesafe.akka" %% "akka-actor" % "2.2.1",
   // "com.typesafe.akka" %% "akka-slf4j" % "2.2.1",
-  "com.typesafe" %% "play-plugins-util" % "2.2.0",
+  "com.typesafe" %% "play-plugins-util" % Common.playVersion,
   "commons-io" % "commons-io" % "2.4"
 )
 

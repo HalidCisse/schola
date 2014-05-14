@@ -1,7 +1,7 @@
 package ma.epsilon.schola
 package domain
 
-trait UpdateSpec[T] {
+sealed trait UpdateSpec[T] {
   def set: Option[Option[T]]
 
   @inline final def foreach(f: Option[T] => Boolean) = set map f getOrElse true
@@ -9,35 +9,40 @@ trait UpdateSpec[T] {
   @inline final def isEmpty = set eq None
 }
 
-trait UserSpec {
+case class UpdateSpecImpl[T](set: Option[Option[T]] = None) extends UpdateSpec[T]
 
-  case class UpdateSpecImpl[T](set: Option[Option[T]] = None) extends UpdateSpec[T]
+case class ContactInfoSpec(
+  email: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+  fax: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+  phoneNumber: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
+
+case class AddressInfoSpec(
+  city: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+  country: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+  postalCode: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
+  streetAddress: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
+
+
+trait UserSpec {  
 
   case class MobileNumbersSpec(
     mobile1: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
     mobile2: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
-
-  case class ContactInfoSpec(
-    email: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
-    fax: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
-    phoneNumber: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
 
   case class ContactsSpec(
     mobiles: UpdateSpecImpl[MobileNumbersSpec] = UpdateSpecImpl[MobileNumbersSpec](),
     home: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec](),
     work: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec]())
 
-  case class AddressInfoSpec(
-    city: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
-    country: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
-    postalCode: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
-    streetAddress: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
-
   def contacts: UpdateSpec[ContactsSpec]
 
   def homeAddress: UpdateSpec[AddressInfoSpec]
 
   def workAddress: UpdateSpec[AddressInfoSpec]
+
+  def cin: Option[String]
+
+  def stars: Option[Int]
 
   def primaryEmail: Option[String]
 
@@ -48,8 +53,6 @@ trait UserSpec {
   def givenName: Option[String]
 
   def familyName: Option[String]
-
-  def stars: Option[Int]
 
   def gender: Option[Gender]
 
@@ -70,6 +73,8 @@ class DefaultUserSpec extends UserSpec {
 
   lazy val workAddress = UpdateSpecImpl[AddressInfoSpec]()
 
+  lazy val cin: Option[String] = None
+
   lazy val primaryEmail: Option[String] = None
 
   lazy val password: Option[String] = None
@@ -87,7 +92,7 @@ class DefaultUserSpec extends UserSpec {
   lazy val avatar = UpdateSpecImpl[String]()
 
   lazy val accessRights: Option[Set[String]] = None
-  
+
   lazy val suspended: Option[Boolean] = None
 
   lazy val updatedBy: Option[String] = None

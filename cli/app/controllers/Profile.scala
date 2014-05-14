@@ -14,6 +14,8 @@ import com.typesafe.plugin._
 import ma.epsilon.schola._, domain._, cli.SessionSupport, conversions.json._
 import play.api.libs.iteratee.{ Iteratee, Enumerator }
 
+import scala.util.control.NonFatal
+
 /**
  * A controller to handle user registration.
  *
@@ -218,7 +220,7 @@ object Profile extends Controller with Helpers {
           use[SessionSupport].downloadAvatar(sessionKey, userAgent) map {
             json[domain.AvatarInfo]
           } recover {
-            case scala.util.control.NonFatal(_) => NotFound
+            case NonFatal(_) => NotFound
           }
 
         case _ =>
@@ -237,7 +239,7 @@ object Profile extends Controller with Helpers {
           use[SessionSupport].purgeAvatar(sessionKey, userAgent) map {
             success => json[domain.Response](Response(success = success))
           } recover {
-            case scala.util.control.NonFatal(_) => json[domain.Response](Response(success = false))
+            case NonFatal(_) => json[domain.Response](Response(success = false))
           }
 
         case _ =>

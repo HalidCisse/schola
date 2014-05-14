@@ -10,6 +10,8 @@ import ma.epsilon.schola._, cli.SessionSupport
 
 import com.typesafe.plugin._
 
+import scala.util.control.NonFatal
+
 /**
  * A controller to provide password change functionality
  */
@@ -143,7 +145,7 @@ object Passwords extends Controller with Helpers {
                         .flashing("error" -> "Unknown username.")
 
                 } recover {
-                  case scala.util.control.NonFatal(_) =>
+                  case NonFatal(_) =>
 
                     Redirect(routes.Passwords.lostPage)
                       .flashing("error" -> "An error occured. Please try again.")
@@ -156,7 +158,7 @@ object Passwords extends Controller with Helpers {
               }
 
           } recover {
-            case scala.util.control.NonFatal(_) =>
+            case NonFatal(_) =>
 
               Redirect(routes.Passwords.lostPage)
                 .flashing("error" -> "Invalid captcha. Please try again.")
@@ -210,7 +212,7 @@ object Passwords extends Controller with Helpers {
                   .flashing("error" -> """Please try again or visit <a href="/LostPasswd">Forgot Password</a> for another password reset email.""")
 
           } recover {
-            case _: Throwable =>
+            case NonFatal(_) =>
 
               Redirect(routes.Passwords.resetPage(username, key))
                 .flashing("error" -> """Please try again or visit <a href="/LostPasswd">Forgot Password</a> for another password reset email.""")

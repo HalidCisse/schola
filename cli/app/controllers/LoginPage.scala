@@ -13,6 +13,8 @@ import play.api.data.Forms._
 
 import scala.concurrent.Future
 
+import scala.util.control.NonFatal
+
 /**
  * The Login page controller
  */
@@ -85,7 +87,7 @@ object LoginPage extends Controller with Helpers {
                   Cookie(
                     SESSION_KEY,
                     utils.Crypto.signToken(session.key),
-                    maxAge = if (rememberMe.isDefined) session.refreshExpiresIn map (_.toInt) else None,
+                    maxAge = if (rememberMe.isDefined) session.refreshExpiresIn map (_.getSeconds.toInt) else None,
                     httpOnly = true),
                   Cookie(
                     "_session_rememberMe",
@@ -93,7 +95,9 @@ object LoginPage extends Controller with Helpers {
                     httpOnly = true))
 
           } recover {
-            case scala.util.control.NonFatal(_) =>
+            case NonFatal(e) =>
+
+              println(s"[$e]")
 
               Redirect(routes.LoginPage.index)
                 .flashing("error" -> "Login failed; invalid username or password.")
@@ -122,7 +126,7 @@ object LoginPage extends Controller with Helpers {
           use[SessionSupport].logout(sessionKey)
             .map(_ => result)
             .recover {
-              case scala.util.control.NonFatal(_) => result
+              case NonFatal(_) => result
             }
 
         case _ =>

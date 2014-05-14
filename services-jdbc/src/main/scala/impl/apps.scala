@@ -9,7 +9,7 @@ trait AppsImpl extends Apps {
 
     def getApps = appsServiceRepo.getApps
 
-    def addApp(name: String, scopes: Seq[String]) = appsServiceRepo.addApp(name, scopes)
+    def addApp(name: String, scopes: List[String]) = appsServiceRepo.addApp(name, scopes)
 
     def removeApp(id: String) = appsServiceRepo.removeApp(id)
   }
@@ -18,7 +18,7 @@ trait AppsImpl extends Apps {
 trait AppsRepoImpl extends AppsRepo {
 
   import schema._
-  import Q._
+  import jdbc.Q._
 
   protected val db: Database
 
@@ -26,18 +26,18 @@ trait AppsRepoImpl extends AppsRepo {
 
   class AppServicesRepoImpl extends AppServicesRepo {
 
-    import conversions.jdbc.scopeSeqTypeMapper
+    import conversions.jdbc.scopesTypeMapper
 
     private[this] object oq {
       val apps =
         Compiled {
           for {
-            (app, accessRight) <- Apps leftJoin AccessRights on (_.id is _.appId)
-          } yield (app.id, app.name, app.scopes, accessRight.id?, accessRight.name?, accessRight.scopes?)
+            (app, accessRight) <- Apps leftJoin AccessRights on (_.id === _.appId)
+          } yield (app.id, app.name, app.scopes, accessRight.id?, accessRight.alias?, accessRight.displayName?, accessRight.redirectUri?, accessRight.scopes?, accessRight.grantOptions?)
         }
 
       val app = {
-        def getApp(id: Column[java.util.UUID]) = Apps where (_.id is id)
+        def getApp(id: Column[java.util.UUID]) = Apps filter (_.id === id)
         Compiled(getApp _)
       }
     }
@@ -55,13 +55,23 @@ trait AppsRepoImpl extends AppsRepo {
           domain.App(
             app._2,
             app._3,
-            accessRights = if (app._4.isDefined) domain.AccessRight(app._5.get, app._1, app._6.get, id = app._4) :: rest.filter(_._4.isDefined).map(o => domain.AccessRight(o._5.get, o._1, o._6.get, id = o._4)) else rest.filter(_._4.isDefined).map(o => domain.AccessRight(o._5.get, o._1, o._6.get, id = o._4)),
+            accessRights = 
+              if (app._4.isDefined) 
+                domain.AccessRight(
+                  app._5.get, 
+                  app._6.get, 
+                  app._7.get, 
+                  app._1, 
+                  app._8.get, 
+                  app._9.get, 
+                  id = app._4) :: rest.filter(_._4.isDefined).map(o => domain.AccessRight(o._5.get, o._6.get, o._7.get, o._1, o._8.get, o._9.get, id = o._4)) 
+              else rest.filter(_._4.isDefined).map(o => domain.AccessRight(o._5.get, o._6.get, o._7.get, o._1, o._8.get, o._9.get, id = o._4)),
             id = Some(app._1)) :: Nil
 
       }.toList
     }
 
-    def addApp(name: String, scopes: Seq[String]) =
+    def addApp(name: String, scopes: List[String]) =
       db.withTransaction {
         implicit session =>
           Apps insert (name, scopes)

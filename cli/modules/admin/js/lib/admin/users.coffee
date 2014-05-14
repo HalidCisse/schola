@@ -6,6 +6,9 @@ class users
   @getUser: (id) ->
     $.getJSON R.getUser(id).url
 
+  @getUserByCIN: (cin) ->
+    $.getJSON R.getUserByCIN(cin).url
+
   @getUsersStats: ->
     $.getJSON R.getUsersStats().url
 

@@ -12,12 +12,17 @@ import scala.concurrent.Future
 import play.api.Play.current
 import play.api.libs.json.{ Json, Writes }
 
+import scala.util.control.NonFatal
+
 trait Helpers {
   this: Controller =>
 
   @inline def json[C: Writes](content: Any) = Ok(Json.toJson(content.asInstanceOf[C]))
 
   def userAgent(implicit request: RequestHeader) = request.headers.get("User-Agent").getOrElse("")
+
+  def getActiveRightCookie(implicit request: RequestHeader) =
+    request.cookies.get(ACTIVE_RIGHT_KEY) map (_.value)
 
   def getToken(implicit request: RequestHeader) =
     request.cookies.get(SESSION_KEY)
@@ -52,11 +57,11 @@ object Application extends Controller with Helpers {
                   Cookie(
                     SESSION_KEY,
                     utils.Crypto.signToken(session.key),
-                    maxAge = if (request.cookies.get("_session_rememberMe").exists(_.value == "remember-me")) session.refreshExpiresIn map (_.toInt) else None,
+                    maxAge = if (request.cookies.get("_session_rememberMe").exists(_.value == "remember-me")) session.refreshExpiresIn map (_.getSeconds.toInt) else None,
                     httpOnly = true))
 
           } recover {
-            case scala.util.control.NonFatal(_) =>
+            case NonFatal(_) =>
 
               Ok(Json.obj("error" -> true))
                 .discardingCookies(DiscardingCookie(SESSION_KEY))
@@ -88,10 +93,16 @@ object Application extends Controller with Helpers {
               if (session.changePasswordAtNextLogin)
                 Redirect(routes.Passwords.changePage(required = true))
 
-              else Ok(views.html.index())
+              else session.activeAccessRight match { // Ok(views.html.index())
+                case Some(accessRight) => Redirect(accessRight.redirectUri).withCookies(Cookie(ACTIVE_RIGHT_KEY, accessRight.id.toString, maxAge = Some(31536000) /* 1 year in seconds */))
+                case _ => getActiveRightCookie match {
+                  case Some(activeApp) => Redirect(s"/api/$API_VERSION/apps/${session.key}/set:$activeApp")
+                  case _               => Ok(views.html.selectapp())
+                }
+              }
 
           } recover {
-            case scala.util.control.NonFatal(_) =>
+            case NonFatal(_) =>
 
               Redirect(routes.LoginPage.index)
                 .discardingCookies(DiscardingCookie(SESSION_KEY))

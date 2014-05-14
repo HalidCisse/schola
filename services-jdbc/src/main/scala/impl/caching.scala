@@ -3,7 +3,6 @@ package ma.epsilon.schola
 package impl
 
 import caching.impl._
-import Types._
 
 /*trait CachingAccessControlServicesComponentImpl extends CachingServicesComponent with AccessControlServicesComponent {
   this: CacheSystemProvider =>
@@ -15,10 +14,10 @@ import Types._
     }
 
     abstract override def getRoles =
-      cachingServices.get[List[RoleLike]](RoleParams) { super.getRoles } getOrElse Nil
+      cachingServices.get[List[Role]](RoleParams) { super.getRoles } getOrElse Nil
 
     abstract override def getRole(roleName: String) =
-      cachingServices.get[Option[RoleLike]](Params(roleName)) { super.getRole(roleName) } flatten
+      cachingServices.get[Option[Role]](Params(roleName)) { super.getRole(roleName) } flatten
 
     abstract override def saveRole(name: String, parent: Option[String], createdBy: Option[String]) = {
       super.saveRole(name, parent, createdBy)
@@ -59,13 +58,13 @@ trait CachingUserServicesComponentImpl extends CachingServicesComponent with Use
       () => userService.getPage(userId)
 
     abstract override def getUsers(page: Int) =
-      cachingServices.get[List[UserLike]](UserParams(page)) { super.getUsers(page) } getOrElse Nil
+      cachingServices.get[List[domain.User]](UserParams(page)) { super.getUsers(page) } getOrElse Nil
 
     abstract override def getUser(id: String) =
-      cachingServices.get[Option[UserLike]](Params(id)) { super.getUser(id) } flatten
+      cachingServices.get[Option[domain.User]](Params(id)) { super.getUser(id) } flatten
 
-    abstract override def saveUser(username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]) = {
-      val my = super.saveUser(username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, suspended, changePasswordAtNextLogin, accessRights)
+    abstract override def saveUser(cin: String, username: String, password: String, givenName: String, familyName: String, createdBy: Option[String], gender: domain.Gender, homeAddress: Option[domain.AddressInfo], workAddress: Option[domain.AddressInfo], contacts: Option[domain.Contacts], suspended: Boolean, changePasswordAtNextLogin: Boolean, accessRights: List[String]) = {
+      val my = super.saveUser(cin, username, password, givenName, familyName, createdBy, gender, homeAddress, workAddress, contacts, suspended, changePasswordAtNextLogin, accessRights)
       cachingServices.evict(Params(my.id.get.toString))
       cachingServices.evict(UserParams(calcPage = pageOf(my.id.get.toString)))
       my

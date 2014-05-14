@@ -23,7 +23,7 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
 
   import schema._
   import domain._
-  import Q._
+  import jdbc.Q._
 
   private[this] val log = Logger("oadmin.LabelServicesRepoComponentImpl")
 
@@ -39,14 +39,14 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
 
       val labelled = {
         def getLabel(label: Column[String]) =
-          Labels where (_.name is label)
+          Labels filter (_.name === label)
 
         Compiled(getLabel _)
       }
 
       val forUpdate = {
         def getLabelName(label: Column[String]) =
-          Labels where (_.name is label) map (_.name)
+          Labels filter (_.name === label) map (_.name)
 
         Compiled(getLabelName _)
       }
@@ -100,7 +100,7 @@ trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
 
     def remove(labels: Set[String]) =
       db.withTransaction { implicit session =>
-        val labelsInDB = Labels where (_.name inSet labels)
+        val labelsInDB = Labels filter (_.name inSet labels)
 
         labelsInDB.delete
       }

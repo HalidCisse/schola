@@ -789,6 +789,7 @@ App = (function(_super) {
   };
 
   App.prototype.onLoad = function() {
+    var _, _app, _ref, _ref1;
     this.topMenu.addApp('archives', '#/archives');
     this.topMenu.addApp('schools', '#/schools');
     this.topMenu.render();
@@ -822,6 +823,16 @@ App = (function(_super) {
         };
       })(this)
     });
+    if ((_ref = Spine.Route.getPath()) === '/' || _ref === '') {
+      _ref1 = this.modules;
+      for (_ in _ref1) {
+        _app = _ref1[_];
+        this.menu.delay(function() {
+          return this.navigate(_app.defaultUrl);
+        });
+        break;
+      }
+    }
     this.menu.delay(function() {
       return $('.scrollable').on('scroll', function() {
         return $(this).siblings('.shadow').css({
@@ -837,7 +848,7 @@ App = (function(_super) {
     this.onLoad = __bind(this.onLoad, this);
     App.__super__.constructor.apply(this, arguments);
     this.on('loaded', this.onLoad);
-    this.sessionMgr = new Session(this);
+    this.sessionMgr = new Session;
     this.view = new App.Stack;
     this.menu = new App.Menu;
     this.topMenu = new App.TopMenu;
@@ -1490,10 +1501,9 @@ Session = (function(_super) {
 
   Session.prototype.getScopeAccess = function(name) {};
 
-  function Session(app) {
-    var isAllowedAccess;
-    this.app = app;
+  function Session() {
     this.doLogout = __bind(this.doLogout, this);
+    var isAllowedAccess;
     Session.__super__.constructor.apply(this, arguments);
     isAllowedAccess = (function(_this) {
       return function(s, application) {
@@ -1513,52 +1523,52 @@ Session = (function(_super) {
         return false;
       };
     })(this);
-    $.getJSON('/session').done((function(_this) {
-      return function(session) {
-        if (session.error) {
-          return console.log('Error loading session!');
-        }
-        if (session.suspended || session.changePasswordAtNextLogin) {
-          return setTimeout(function() {
-            return this.redirect('/');
-          });
-        }
-        _this.app.session = session;
-        return _this.app.getApps().done(function(apps) {
-          var clbks, res, x, y, z, _i, _j, _k, _len, _len1, _len2, _results;
-          res = [];
-          clbks = [];
-          for (_i = 0, _len = apps.length; _i < _len; _i++) {
-            x = apps[_i];
-            if (isAllowedAccess(session, x)) {
-              res.push("/api/v1/" + x.name + "/javascriptRoutes");
-            }
+    setTimeout((function(_this) {
+      return function() {
+        return $.getJSON('/session').done(function(session) {
+          if (session.error) {
+            return console.log('Error loading session!');
           }
-          for (_j = 0, _len1 = apps.length; _j < _len1; _j++) {
-            y = apps[_j];
-            if (!(isAllowedAccess(session, y))) {
-              continue;
+          if (session.suspended || session.changePasswordAtNextLogin) {
+            return setTimeout(function() {
+              return this.redirect('/');
+            });
+          }
+          app.session = session;
+          return app.getApps().done(function(apps) {
+            var clbks, res, x, y, z, _i, _j, _k, _len, _len1, _len2;
+            res = [];
+            clbks = [];
+            for (_i = 0, _len = apps.length; _i < _len; _i++) {
+              x = apps[_i];
+              if (isAllowedAccess(session, x)) {
+                res.push("/api/v1/" + x.name + "/javascriptRoutes");
+              }
             }
-            res.push("/" + y.name + "/assets/javascripts/" + y.name + "/tmpl.js");
-            res.push("/" + y.name + "/assets/" + y.name + ".js");
-            clbks["" + y.name + ".js"] = function() {
-              var Module;
-              Module = require("js/" + y.name);
-              return setTimeout(function() {
-                return _this.app.modules["" + y.name] = new Module({
-                  app: _this.app
+            for (_j = 0, _len1 = apps.length; _j < _len1; _j++) {
+              y = apps[_j];
+              if (!(isAllowedAccess(session, y))) {
+                continue;
+              }
+              res.push("/" + y.name + "/assets/javascripts/" + y.name + "/tmpl.js");
+              res.push("/" + y.name + "/assets/" + y.name + ".js");
+              clbks["" + y.name + ".js"] = function() {
+                return setTimeout(function() {
+                  var Module;
+                  Module = require("js/" + y.name);
+                  return app.modules["" + y.name] = new Module({
+                    app: app
+                  });
                 });
-              });
-            };
-          }
-          _results = [];
-          for (_k = 0, _len2 = apps.length; _k < _len2; _k++) {
-            z = apps[_k];
-            if (!(isAllowedAccess(session, z))) {
-              continue;
+              };
             }
-            res.push("/" + z.name + "/assets/" + z.name + ".css");
-            _results.push(setTimeout(function() {
+            for (_k = 0, _len2 = apps.length; _k < _len2; _k++) {
+              z = apps[_k];
+              if (isAllowedAccess(session, z)) {
+                res.push("/" + z.name + "/assets/" + z.name + ".css");
+              }
+            }
+            return setTimeout(function() {
               return yepnope({
                 load: res,
                 callback: clbks,
@@ -1569,7 +1579,7 @@ Session = (function(_super) {
                       if (req.url.search('/api/v1') === 0) {
                         hdr = Mac.createHeader(session, xhr, req);
                         xhr.setRequestHeader('Authorization', hdr);
-                        req.url = "" + _this.app.server + req.url;
+                        req.url = "" + app.server + req.url;
                         req.crossDomain = true;
                         return req.xhrFields = {
                           withCredentials: true
@@ -1578,19 +1588,18 @@ Session = (function(_super) {
                     }
                   });
                   setTimeout((function() {
-                    return _this.app.trigger('loaded');
+                    return app.trigger('loaded');
                   }), 0);
                   return _this.setUpLoginStatusChecks();
                 }
               }, 0);
-            }));
-          }
-          return _results;
+            });
+          });
+        }).fail(function() {
+          return console.log('No session found!');
         });
       };
-    })(this)).fail(function() {
-      return console.log('No session found!');
-    });
+    })(this));
   }
 
   Session.prototype.setUpLoginStatusChecks = function(interval) {
@@ -1603,12 +1612,12 @@ Session = (function(_super) {
         return $.getJSON('/session').done(function(s) {
           _this.log("getLoginStatus success:" + arguments);
           if (s.error) {
-            return _this.app.trigger('session.error');
+            return app.trigger('session.error');
           }
-          return _this.app.trigger('session.loggedin', s);
+          return app.trigger('session.loggedin', s);
         }).fail(function() {
           _this.log("getLoginStatus error:" + arguments);
-          return _this.app.trigger('session.error');
+          return app.trigger('session.error');
         });
       };
     })(this);

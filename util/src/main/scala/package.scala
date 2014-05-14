@@ -16,6 +16,12 @@ object `package` {
     root getConfig "schola"
   }
 
+  val OAUTH_CLIENT = "schola"
+
+  val OAUTH_CLIENT_SECRET = "schola"
+
+  val OAUTH_REDIRECT_URI = "http://localhost/"
+
   val passwords = webcrank.password.Passwords.scrypt(n = 4096) // TODO: register bouncycastle provider and use {digest = SHA512} . . .
 
   val MaxResults = 100
@@ -27,6 +33,8 @@ object `package` {
   val PasswordMinLength = config.getInt("password-min-length")
 
   val SESSION_KEY = "_session_key"
+  
+  val ACTIVE_RIGHT_KEY = "_active_right_key"
 
   val AccessTokenSessionLifeTime = config.getInt("oauth2.access-token-session-lifetime")
 
