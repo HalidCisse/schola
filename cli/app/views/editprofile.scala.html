@@ -12,6 +12,10 @@
   form("familyName").value.getOrElse("")
 }
 
+@jobTitle = @{
+  form("jobTitle").value.getOrElse("")
+}
+
 @gender = @{
   form("gender")
     .value
@@ -158,6 +162,9 @@
               </div>
               <div class="form-group">
                 <input type="password" name="new_password.password2" placeholder="Confirm Password" class="form-control">
+              </div>
+              <div class="form-group">
+                <input type="text" name="jobTitle" value='@jobTitle' placeholder="Job title" required class="form-control">
               </div>
               <div id="gender" class="form-group">
                 <label class="radio-inline">

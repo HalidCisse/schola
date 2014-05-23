@@ -7,81 +7,122 @@ object `package` {
 
   import _root_.ma.epsilon.schola.domain._
 
+  import java.time.{ LocalDate, LocalDateTime, LocalTime, Duration, MonthDay, Instant }
+
+  object ModuleType extends Enumeration {
+    val MODULE, SUBJECT = Value
+  }
+
+  type ModuleType = ModuleType.Value
+
+  case class Compaign(
+    org: Uuid,
+    during: Range[Instant],
+    moduleType: ModuleType,
+    id: Option[Uuid] = None)
+
   case class University(
     name: String,
+    website: Option[String],
     contacts: ContactInfo,
     address: AddressInfo,
-    id: Option[Long] = None)
+    id: Option[Uuid] = None)
 
   case class Org(
     name: String,
+    acronyms: Option[String],
+    website: Option[String],
     contacts: ContactInfo,
     address: AddressInfo,
-    universityId: Option[Long],
+    universityId: Option[Uuid],
     _deleted: Boolean = false,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],
-    id: Option[Long] = None)
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
+
+  case class WeekDays(
+    Monday: Boolean    = true,
+    Tuesday: Boolean   = true,
+    Wednesday: Boolean = true,
+    Thursday: Boolean  = true,
+    Friday: Boolean    = true,
+    Saturday: Boolean  = false,
+    Sunday: Boolean    = false)
+
+  case class OrgSetting(
+    org: Uuid,
+    sessionDuration: Duration,
+    weekDays: WeekDays,
+    startOfInscription: Option[LocalDate],
+    endOfInscription: Option[LocalDate],
+    attendanceEnabled: Boolean)
+
+  case class Range[T](start: T, end: T)
+
+  case class OrgComposition(
+    compaignId: Uuid,
+    name: String,
+    during: Range[Instant],
+    coefficient: Option[Double],
+    id: Option[Uuid] = None)
 
   case class Dept(
     name: String,
-    org: Long,
-    departmentChefId: Option[java.util.UUID],
-    id: Option[Long] = None)
+    org: Uuid,
+    departmentChefId: Option[Uuid],
+    id: Option[Uuid] = None)
 
   case class Course(
     name: String,
-    code: String,
-    id: Option[Long] = None)
+    code: Option[String],
+    id: Option[Uuid] = None)
 
   case class OrgCourse(
-    org: Long,
-    courseId: Long)
-
-  case class Subject(
-    name: String,
-    id: Option[Long] = None)
+    org: Uuid,    
+    levels: Int,
+    deptId: Option[Uuid],
+    desc: Option[String],
+    courseId: Uuid)
 
   case class OrgSubject(
-    org: Long,
-    subjectId: Long)
-
-  case class Batch(
-    org: Long,
+    org: Uuid,
     name: String,
-    courseId: Long,
-    empId: java.util.UUID,
-    subjectId: Long,    
-    startDate: java.time.LocalDate,
-    endDate: java.time.LocalDate,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],     
-    id: Option[Long] = None)  
+    desc: Option[String],
+    id: Option[Uuid] = None)
+
+/*  case class Batch(
+    name: String,
+    empId: Option[Uuid],
+    courseId: Uuid,
+    subjectId: Uuid,
+    compositionId: Uuid,
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)*/
 
   case class Employee(
     empNo: String,
-    joinDate: java.time.LocalDate,
-    jobTitle: String,
-    userId: java.util.UUID,
-    deptId: Option[Long],
-    id: Option[java.util.UUID] = None)
+    userId: Uuid,
+    id: Option[Uuid] = None)
 
-  case class OrgEmployee(
-    org: Long,
-    empId: java.util.UUID,
-    startDate: java.time.LocalDate,
-    endDate: Option[java.time.LocalDateTime] = None,
+  case class OrgEmployment(
+    org: Uuid,
+    empId: Uuid,
+    deptId: Option[Uuid],
+    joinDate: LocalDate,
+    endDate: Option[LocalDateTime] = None,
     endStatus: Option[ClosureStatus] = None,
     endRemarques: Option[String] = None,
-    createdBy: Option[java.util.UUID])
+    createdBy: Option[Uuid])
 
-  case class EmployeeSubject(
-    empId: java.util.UUID,
-    batchId: Long,
-    startDate: java.time.LocalDate,
-    endDate: Option[java.time.LocalDateTime] = None,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID])
+  case class TeachingHistory(
+    empId: Uuid,
+    batchId: Uuid,
+    startDate: LocalDate,
+    endDate: LocalDateTime,
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
 
   object GuardianRelation extends Enumeration {
     val Parent, Child, Sibling, Spouse, Relative, Other = Value
@@ -90,18 +131,17 @@ object `package` {
   type GuardianRelation = GuardianRelation.Value
 
   case class Guardian(
-    occupation: Option[String],
     relation: GuardianRelation = GuardianRelation.Other,
-    userId: java.util.UUID,
-    id: Option[java.util.UUID] = None)
+    userId: Uuid,
+    id: Option[Uuid] = None)
 
   case class Student(
-    regNo: String,    
-    dateOB: java.time.LocalDate,
+    regNo: String,
+    dateOB: LocalDate,
     nationality: String,
-    userId: java.util.UUID,
-    guardianId: Option[java.util.UUID],
-    id: Option[java.util.UUID] = None)
+    userId: Uuid,
+    guardianId: Option[Uuid],
+    id: Option[Uuid] = None)
 
   object InscriptionStatus extends Enumeration {
     val PendingApproval, Approved, Rejected = Value
@@ -116,226 +156,218 @@ object `package` {
   type ClosureStatus = ClosureStatus.Value
 
   case class Admission(
-    org: Long,
-    studentId: java.util.UUID,
-    courseId: Long,
+    org: Uuid,
+    studentId: Uuid,
+    courseId: Uuid,
     status: InscriptionStatus = InscriptionStatus.PendingApproval,
     endStatus: Option[ClosureStatus] = None,
     endRemarques: Option[String] = None,
-    admDate: java.time.LocalDate,
-    endDate: Option[java.time.LocalDateTime] = None,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],
-    id: Option[java.util.UUID] = None)
+    admDate: LocalDate,
+    endDate: Option[LocalDateTime] = None,
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
 
   case class Inscription(
-    admissionId: java.util.UUID,  
-    batchId: Long,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],
-    id: Option[java.util.UUID] = None)
+    admissionId: Uuid,
+    compaignId: Uuid,
+    level: Int,
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
 
-  case class ExamCategory(
+  case class ControlCategory(
     name: String,
-    startDate: java.time.MonthDay,
-    endDate: java.time.MonthDay,
-    id: Option[Long] = None)
+    during: Range[Instant],
+    compositionId: Uuid,
+    coefficient: Option[Double],
+    id: Option[Uuid] = None)
 
-  case class Exam(
-    eventId: Long,
-    org: Long,
+  case class Control(
+    eventId: Uuid,
     name: String,
-    subjectId: Long,
-    batchId: Long,
-    staffs: List[Long],
-    `type`: Long,
-    date: java.time.LocalDate,
-    startTime: java.time.LocalTime,
-    duration: java.time.Duration,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],
-    id: Option[Long] = None)
+    batchId: Uuid,
+    supervisors: List[Uuid],
+    `type`: Uuid,
+    coefficient: Option[Double],
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
 
   case class Mark(
-    studentId: java.util.UUID,
-    empId: java.util.UUID,
-    examId: Long,
+    studentId: Uuid,
+    empId: Uuid,
+    controlId: Uuid,
     marks: Double,
-    status: Boolean,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    id: Option[Long] = None)
+    createdAt: LocalDateTime = now,
+    id: Option[Uuid] = None)
 
   object TimetableEventType extends Enumeration {
-    val Lecture, Break, Exam, Quiz, EmployeeGuardianMeeting, Unspecified = Value    
+    val Lecture, Lab, Assignment, Seminar, Sports, Break, Exam, Quiz, EmployeeGuardianMeeting, Unspecified = Value
   }
 
   type TimetableEventType = TimetableEventType.Value
 
-  case class Timetable(
-    org: Long,
-    courseId: Long,
-    subjectId: Long,
-    batchId: Long,
-    dayOfWeek: java.time.DayOfWeek,
-    `type`: TimetableEventType = TimetableEventType.Lecture,  
-    startTime: java.time.LocalTime,
-    endTime: java.time.LocalTime,
-    id: Option[java.util.UUID] = None)
+  object Recurrence extends Enumeration {
+    val None, Daily, Weekly, Monthly, Yearly = Value
+  }
 
-  case class TimetableEvent(
-    org: Long,
-    courseId: Long,
-    subjectId: Long,
-    batchId: Long,
-    `type`: TimetableEventType = TimetableEventType.Lecture,  
-    date: java.time.LocalDate,
-    startTime: java.time.LocalTime,
-    endTime: java.time.LocalTime,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],
-    id: Option[Long] = None)
+  type Recurrence = Recurrence.Value
+
+  case class Timetable(
+    batchId: Uuid,
+    `type`: TimetableEventType = TimetableEventType.Lecture,
+    `class`: String,
+    during: Range[Instant],
+    recurrence: Recurrence = Recurrence.None,
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
 
   case class Attendance(
-    userId: java.util.UUID,
-    eventId: Long,
-    present: Boolean,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID])
+    userId: Uuid,
+    eventId: Uuid,
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid])
+
+  // ##########################################################################################################
+  
+  /*case class OrgCourseSubject(
+    empId: Option[Uuid],
+    compaignId: Uuid,
+    compositionId: Uuid,
+    courseId: Uuid,
+    subjectId: Uuid,
+    level: Int,
+    coefficient: Option[Double],
+    id: Option[Uuid] = None)*/
+
+  case class Module(
+    org: Uuid,
+    name: String,
+    id: Option[Uuid] = None)
+
+  case class OrgCourseModule(
+    compaignId: Uuid,
+    compositionId: Uuid,    
+    courseId: Uuid,
+    moduleId: Uuid,
+    level: Int,
+    coefficient: Option[Double],
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
+
+  case class Batch(
+    empId: Option[Uuid],
+    compaignId: Uuid,
+    compositionId: Uuid,
+    courseId: Uuid,
+    moduleId: Uuid,
+    subjectId: Uuid,
+    level: Int,
+    coefficient: Option[Double],
+    createdAt: LocalDateTime = now,
+    createdBy: Option[Uuid],
+    id: Option[Uuid] = None)
 
   // ##########################################################################################################
 
-  case class OrgInfo(
-    id: Long,
-    name: String,
-    address: AddressInfo,
-    contacts: ContactInfo,
-    numOfAdmissions: Int,
-    courses: List[Long])
+  case class InscriptionInfo(
+    admissionId: Uuid,
+    compaignId: Uuid,
+    createdAt: LocalDateTime,
+    createdBy: Option[Uuid])
 
   case class AdmissionInfo(
-    id: Long,
-    org: Long,
-    course: Long,
-    student: java.util.UUID,
-    status: InscriptionStatus = InscriptionStatus.PendingApproval,
-    endStatus: Option[ClosureStatus] = None,
-    endRemarques: Option[String] = None,
-    admDate: java.time.LocalDate,
-    endDate: Option[java.time.LocalDateTime] = None,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],
-    inscriptions: List[TeachingRecord])
-
-  case class GuardianInfo(
-    id: java.util.UUID,
-    cin: String,
-    primaryEmail: String,
-    givenName: String,
-    familyName: String,
-    gender: Gender,
-    homeAddress: Option[AddressInfo],
-    workAddress: Option[AddressInfo],
-    contacts: Option[Contacts],
-    occupation: Option[String],
-    relation: GuardianRelation = GuardianRelation.Other)  
-
-  case class StudentInfo(
-    id: java.util.UUID,
-    cin: String,
-    regNo: String,
-    courseId: Long,
-    dateOB: java.time.LocalDate,
-    userId: java.util.UUID,
-    primaryEmail: String,
-    givenName: String,
-    familyName: String,
-    createdAt: java.time.LocalDateTime,
-    createdBy: Option[java.util.UUID],
-    lastModifiedAt: Option[java.time.LocalDateTime],
-    lastModifiedBy: Option[java.util.UUID],
-    stars: Int = 0,
-    gender: Gender,
-    homeAddress: Option[AddressInfo],
-    contacts: Option[MobileNumbers],
-    admissions: Seq[AdmissionInfo],
-    guardianInfo: Option[GuardianInfo])  
-
-  case class ScheduledEventSpec(
-    id: Option[String],
-    org: Long,
-    subject: Long,
-    `type`: TimetableEventType,
-    dayOfWeek: java.time.DayOfWeek,
-    startTime: java.time.LocalTime,
-    endTime: java.time.LocalTime,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID])  
-
-  case class EmployeeInfo(
-    id: java.util.UUID,
-    cin: String,
-    empNo: String,
-    joinDate: java.time.LocalDate,
-    jobTitle: String,
-    userId: java.util.UUID,
-    org: Option[Long],
-    deptId: Option[Long],
-    primaryEmail: String,
-    givenName: String,
-    familyName: String,
-    createdAt: java.time.LocalDateTime,
-    createdBy: Option[java.util.UUID],
-    lastModifiedAt: Option[java.time.LocalDateTime],
-    lastModifiedBy: Option[java.util.UUID],
-    stars: Int = 0,
-    gender: Gender,
-    homeAddress: Option[AddressInfo],
-    workAddress: Option[AddressInfo],
-    contacts: Option[Contacts],
-    employmentHistory: List[Employment])
-
-  case class Employment(
-    id: java.util.UUID,
-    org: Long,
-    startDate: java.time.LocalDate,
-    endDate: Option[java.time.LocalDateTime],
+    id: Uuid,
+    org: Uuid,
+    course: Uuid,
+    student: Uuid,
+    status: InscriptionStatus,
     endStatus: Option[ClosureStatus],
     endRemarques: Option[String],
-    createdAt: java.time.LocalDateTime,
-    createdBy: Option[java.util.UUID],
-    teachingHistory: List[TeachingRecord])
+    admDate: LocalDate,
+    endDate: Option[LocalDateTime],
+    createdAt: LocalDateTime,
+    createdBy: Option[Uuid])
 
-  case class TeachingRecord(
-    id: Long,
-    course: String,
-    subject: String,
-    startDate: java.time.LocalDate,
-    endDate: Option[java.time.LocalDateTime],
-    createdAt: java.time.LocalDateTime,
-    createdBy: Option[java.util.UUID])  
+  case class GuardianInfo(
+    id: Uuid,
+    cin: String,
+    userId: Uuid,
+    primaryEmail: String,
+    givenName: String,
+    familyName: String,
+    jobTitle: String,
+    relation: GuardianRelation,
+    createdAt: LocalDateTime,
+    createdBy: Option[Uuid],
+    lastLoginTime: Option[LocalDateTime],
+    lastModifiedAt: Option[LocalDateTime],
+    lastModifiedBy: Option[Uuid],
+    stars: Int,
+    gender: Gender,
+    homeAddress: Option[AddressInfo],
+    workAddress: Option[AddressInfo],
+    contacts: Option[Contacts],
+    suspended: Boolean)
 
-  case class StudentMarkInfo(student: StudentInfo, mark: Option[MarkInfo])
-  
-  case class ExamInfo(
-    event: EventInfo,
-    org: Long,
+  case class StudentInfo(
+    id: Uuid,
+    regNo: String,
+    dateOB: LocalDate,
+    nationality: String,
+    userId: Uuid,
+    cin: String,
+    primaryEmail: String,
+    givenName: String,
+    familyName: String,
+    jobTitle: String,
+    createdAt: LocalDateTime,
+    createdBy: Option[Uuid],
+    lastLoginTime: Option[LocalDateTime],
+    lastModifiedAt: Option[LocalDateTime],
+    lastModifiedBy: Option[Uuid],
+    stars: Int,
+    gender: Gender,
+    homeAddress: Option[AddressInfo],
+    contacts: Option[Contacts],
+    suspended: Boolean)
+
+  case class EmployeeInfo(
+    id: Uuid,
+    empNo: String,
+    userId: Uuid,
+    cin: String,
+    primaryEmail: String,
+    givenName: String,
+    familyName: String,
+    jobTitle: String,
+    createdAt: LocalDateTime,
+    createdBy: Option[Uuid],
+    lastLoginTime: Option[LocalDateTime],
+    lastModifiedAt: Option[LocalDateTime],
+    lastModifiedBy: Option[Uuid],
+    stars: Int,
+    gender: Gender,
+    homeAddress: Option[AddressInfo],
+    workAddress: Option[AddressInfo],
+    contacts: Option[Contacts],
+    suspended: Boolean,
+    org: Option[Uuid],
+    deptId: Option[Uuid])
+
+  case class Employment(
+    id: Uuid,
+    org: Uuid,
     name: String,
-    subjectId: Long,
-    batchId: Long,
-    staffs: List[EmployeeInfo],
-    `type`: Long,
-    date: java.time.LocalDate,
-    startTime: java.time.LocalTime,
-    duration: java.time.Duration,
-    createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now,
-    createdBy: Option[java.util.UUID],
-    marks: List[MarkInfo],
-    id: Long)
-  
-  case class MarkInfo(
-    marks: Double,
-    status: Boolean,
-    createdAt: java.time.LocalDateTime)  
-
-  case class EventInfo()
+    empId: Option[Uuid],
+    courseId: Uuid,
+    subjectId: Uuid,
+    historyId: Option[Uuid],
+    startDate: LocalDate,
+    endDate: Option[LocalDateTime],
+    createdAt: LocalDateTime,
+    createdBy: Option[Uuid])
 }

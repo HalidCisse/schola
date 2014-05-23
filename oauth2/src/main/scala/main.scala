@@ -7,7 +7,8 @@ import com.jolbox.bonecp.BoneCPDataSource
 object main extends App
     with OAuth2Component
     with impl.OAuthServicesRepoComponentImpl
-    with impl.OAuthServicesComponentImpl {
+    with impl.OAuthServicesComponentImpl
+    with jdbc.WithDatabase {
 
   import unfiltered.jetty.Http
   import unfiltered.response.Pass

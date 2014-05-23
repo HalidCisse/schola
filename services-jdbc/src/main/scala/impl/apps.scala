@@ -11,16 +11,15 @@ trait AppsImpl extends Apps {
 
     def addApp(name: String, scopes: List[String]) = appsServiceRepo.addApp(name, scopes)
 
-    def removeApp(id: String) = appsServiceRepo.removeApp(id)
+    def removeApp(id: Uuid) = appsServiceRepo.removeApp(id)
   }
 }
 
 trait AppsRepoImpl extends AppsRepo {
+  this: jdbc.WithDatabase =>
 
   import schema._
   import jdbc.Q._
-
-  protected val db: Database
 
   protected val appsServiceRepo = new AppServicesRepoImpl
 
@@ -33,11 +32,20 @@ trait AppsRepoImpl extends AppsRepo {
         Compiled {
           for {
             (app, accessRight) <- Apps leftJoin AccessRights on (_.id === _.appId)
-          } yield (app.id, app.name, app.scopes, accessRight.id?, accessRight.alias?, accessRight.displayName?, accessRight.redirectUri?, accessRight.scopes?, accessRight.grantOptions?)
+          } yield (
+            app.id,
+            app.name,
+            app.scopes,
+            accessRight.id?,
+            accessRight.alias?,
+            accessRight.displayName?,
+            accessRight.redirectUri?,
+            accessRight.scopes?,
+            accessRight.grantOptions?)
         }
 
       val app = {
-        def getApp(id: Column[java.util.UUID]) = Apps filter (_.id === id)
+        def getApp(id: Column[Uuid]) = Apps filter (_.id === id)
         Compiled(getApp _)
       }
     }
@@ -55,16 +63,16 @@ trait AppsRepoImpl extends AppsRepo {
           domain.App(
             app._2,
             app._3,
-            accessRights = 
-              if (app._4.isDefined) 
+            accessRights =
+              if (app._4.isDefined)
                 domain.AccessRight(
-                  app._5.get, 
-                  app._6.get, 
-                  app._7.get, 
-                  app._1, 
-                  app._8.get, 
-                  app._9.get, 
-                  id = app._4) :: rest.filter(_._4.isDefined).map(o => domain.AccessRight(o._5.get, o._6.get, o._7.get, o._1, o._8.get, o._9.get, id = o._4)) 
+                app._5.get,
+                app._6.get,
+                app._7.get,
+                app._1,
+                app._8.get,
+                app._9.get,
+                id = app._4) :: rest.filter(_._4.isDefined).map(o => domain.AccessRight(o._5.get, o._6.get, o._7.get, o._1, o._8.get, o._9.get, id = o._4))
               else rest.filter(_._4.isDefined).map(o => domain.AccessRight(o._5.get, o._6.get, o._7.get, o._1, o._8.get, o._9.get, id = o._4)),
             id = Some(app._1)) :: Nil
 
@@ -77,6 +85,6 @@ trait AppsRepoImpl extends AppsRepo {
           Apps insert (name, scopes)
       }
 
-    def removeApp(id: String) = db.withTransaction { implicit session => oq.app(uuid(id)).delete }
+    def removeApp(id: Uuid) = db.withTransaction { implicit session => oq.app(id).delete }
   }
 }

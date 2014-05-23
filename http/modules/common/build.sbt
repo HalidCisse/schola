@@ -21,6 +21,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play" % Common.playVersion
 )
 
-libraryDependencies += Common.unfilteredMac
+// libraryDependencies += Common.unfilteredMac
+libraryDependencies += Common.unfilteredCore
 
 resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"

@@ -1,6 +1,31 @@
 package ma.epsilon.schola
 package domain
 
+sealed trait SetSpec[T] {
+  import SetSpec.Cmd
+
+  def value: Option[Cmd[T]]
+
+  final def map(f: Cmd[T] => Boolean) = value.map(f).getOrElse(true)
+}
+
+object SetSpec {
+
+  sealed trait Cmd[T] {
+    def values: Set[T]
+  }
+
+  case class Only[T](values: Set[T]) extends Cmd[T]
+  case class Add[T](values: Set[T]) extends Cmd[T]
+  case class Remove[T](values: Set[T]) extends Cmd[T]
+
+  @inline def empty[T] = new SetSpec[T] { val value = None }
+
+  def apply[T](v: Cmd[T]) = new SetSpec[T] { val value = Some(v) }
+
+  def only[T](values: Set[T]) = SetSpec(Only(values))
+}
+
 sealed trait UpdateSpec[T] {
   def set: Option[Option[T]]
 
@@ -22,8 +47,7 @@ case class AddressInfoSpec(
   postalCode: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
   streetAddress: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
 
-
-trait UserSpec {  
+trait UserSpec {
 
   case class MobileNumbersSpec(
     mobile1: UpdateSpecImpl[String] = UpdateSpecImpl[String](),
@@ -32,7 +56,8 @@ trait UserSpec {
   case class ContactsSpec(
     mobiles: UpdateSpecImpl[MobileNumbersSpec] = UpdateSpecImpl[MobileNumbersSpec](),
     home: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec](),
-    work: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec]())
+    work: UpdateSpecImpl[ContactInfoSpec] = UpdateSpecImpl[ContactInfoSpec](),
+    site: UpdateSpecImpl[String] = UpdateSpecImpl[String]())
 
   def contacts: UpdateSpec[ContactsSpec]
 
@@ -54,15 +79,18 @@ trait UserSpec {
 
   def familyName: Option[String]
 
+  def jobTitle: Option[String]
+
   def gender: Option[Gender]
 
-  def avatar: UpdateSpec[String]
+  // def avatar: UpdateSpec[String]
 
-  def accessRights: Option[Set[String]]
+  // def accessRights: Option[Set[Uuid]]
+  def accessRights: SetSpec[Uuid]
 
   def suspended: Option[Boolean]
 
-  def updatedBy: Option[String]
+  def updatedBy: Option[Uuid]
 }
 
 class DefaultUserSpec extends UserSpec {
@@ -85,15 +113,18 @@ class DefaultUserSpec extends UserSpec {
 
   lazy val familyName: Option[String] = None
 
+  lazy val jobTitle: Option[String] = None
+
   lazy val stars: Option[Int] = None
 
   lazy val gender: Option[Gender.Value] = None
 
-  lazy val avatar = UpdateSpecImpl[String]()
+  // lazy val avatar = UpdateSpecImpl[String]()
 
-  lazy val accessRights: Option[Set[String]] = None
+  // lazy val accessRights: Option[Set[Uuid]] = None
+  lazy val accessRights: SetSpec[Uuid] = SetSpec.empty[Uuid]
 
   lazy val suspended: Option[Boolean] = None
 
-  lazy val updatedBy: Option[String] = None
+  lazy val updatedBy: Option[Uuid] = None
 }

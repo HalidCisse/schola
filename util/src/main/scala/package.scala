@@ -1,5 +1,14 @@
 package ma.epsilon.schola
 
+import java.time.{ Instant, LocalDateTime, LocalDate, Clock, ZoneOffset }
+
+import scala.util.{ DynamicVariable, Try }
+import scala.util.control.Exception.allCatch
+
+import java.util.{ Locale, UUID }
+
+import webcrank.password.{ Passwords, SHA512 }
+
 /**
  * Schola base Exception.
  */
@@ -7,6 +16,9 @@ package ma.epsilon.schola
 class ScholaException(message: String, cause: Throwable) extends RuntimeException(message, cause) with Serializable {
   def this(msg: String) = this(msg, null)
 }
+
+@SerialVersionUID(1L)
+case object InvalidUuidException extends ScholaException("invalid.uuid")
 
 object `package` {
   import com.typesafe.config._
@@ -22,9 +34,7 @@ object `package` {
 
   val OAUTH_REDIRECT_URI = "http://localhost/"
 
-  val passwords = webcrank.password.Passwords.scrypt(n = 4096) // TODO: register bouncycastle provider and use {digest = SHA512} . . .
-
-  val MaxResults = 100
+  val passwords = Passwords.pbkdf2(digest = SHA512)
 
   val API_VERSION = config.getString("api-version")
 
@@ -33,7 +43,7 @@ object `package` {
   val PasswordMinLength = config.getInt("password-min-length")
 
   val SESSION_KEY = "_session_key"
-  
+
   val ACTIVE_RIGHT_KEY = "_active_right_key"
 
   val AccessTokenSessionLifeTime = config.getInt("oauth2.access-token-session-lifetime")
@@ -44,7 +54,29 @@ object `package` {
 
   @inline def Logger(name: String) = org.slf4j.LoggerFactory.getLogger(name)
 
-  @inline def uuid(s: String) = scala.util.control.Exception.allCatch.opt { java.util.UUID.fromString(s) } getOrElse java.util.UUID.fromString("00000000-0000-0000-0000-000000000000")
+  type Uuid = java.util.UUID
+
+  object Uuid {
+    def apply(s: String) = allCatch.opt { UUID.fromString(s) } getOrElse { throw InvalidUuidException } // java.util.UUID.fromString("00000000-0000-0000-0000-000000000000")
+    def unapply(s: String) = Try(UUID.fromString(s)).toOption
+    def unapply(uuid: Uuid) = Try(uuid.toString).toOption
+  }
+
+  val locale = new DynamicVariable[Locale](Locale.getDefault)
+  implicit def _locale = locale.value
+
+  val clock = new DynamicVariable[Clock](Clock.systemUTC())
+  implicit def _clock = clock.value
+
+  @inline def dateNow(implicit clock: Clock) = LocalDate.now(_clock)
+
+  @inline def now(implicit clock: Clock) = Instant.now(_clock)
+
+  @inline implicit def asDateTime(time: Instant) = LocalDateTime.ofInstant(time, ZoneOffset.UTC)
+
+  // ------------------------------------------------------------------------
+
+  case class Page(offset: Int, fetch: Int)
 }
 
 // ------------------------------------------------------------------------------------------------------------

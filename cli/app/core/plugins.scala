@@ -6,25 +6,28 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import play.api.libs.json.{ JsValue, Json => PlayJson }
 
+import scala.concurrent.{ Future => F }
+import scala.util.control.NonFatal
+
 import domain._
 
 trait SessionSupport extends Plugin {
 
-  def session(sessionKey: String, userAgent: String): scala.concurrent.Future[Session]
+  def session(sessionKey: String, userAgent: String): F[Session]
 
-  def login(username: String, passwd: String, userAgent: String): scala.concurrent.Future[Session]
+  def login(username: String, passwd: String, userAgent: String): F[Session]
 
-  def logout(sessionKey: String): scala.concurrent.Future[Boolean]
+  def logout(sessionKey: String): F[Boolean]
 
-  def mac(session: Session, method: String, uri: String, userAgent: String): scala.concurrent.Future[Map[String, String]]
+  def mac(session: Session, method: String, uri: String, userAgent: String): F[Map[String, String]]
 
   // Profile management
 
-  def downloadAvatar(sessionKey: String, userAgent: String): scala.concurrent.Future[AvatarInfo]
+  def downloadAvatar(sessionKey: String, userAgent: String): F[AvatarInfo]
 
-  def purgeAvatar(sessionKey: String, userAgent: String): scala.concurrent.Future[Boolean]
+  def purgeAvatar(sessionKey: String, userAgent: String): F[Boolean]
 
-  def uploadAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]): scala.concurrent.Future[Boolean]
+  def uploadAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]): F[Boolean]
 
   def updateAccount(
     sessionKey: String,
@@ -34,24 +37,25 @@ trait SessionSupport extends Plugin {
     password: Option[String],
     givenName: String,
     familyName: String,
+    jobTitle: String,
     gender: Gender,
     homeAddress: Option[AddressInfo],
     workAddress: Option[AddressInfo],
-    contacts: Option[Contacts]): scala.concurrent.Future[Boolean]
+    contacts: Option[Contacts]): F[Boolean]
 
-  def changePasswd(sessionKey: String, userAgent: String, passwd: String, newPasswd: String): scala.concurrent.Future[Boolean]
+  def changePasswd(sessionKey: String, userAgent: String, passwd: String, newPasswd: String): F[Boolean]
 
-  def checkActivationReq(username: String, ky: String): scala.concurrent.Future[Boolean]
+  def checkActivationReq(username: String, ky: String): F[Boolean]
 
-  def createPasswdResetReq(username: String): scala.concurrent.Future[Boolean]
+  def createPasswdResetReq(username: String): F[Boolean]
 
-  def resetPasswd(username: String, key: String, newPasswd: String): scala.concurrent.Future[Boolean]
+  def resetPasswd(username: String, key: String, newPasswd: String): F[Boolean]
 
   def PublicKey: String
 
   def PrivateKey: String
 
-  def reCaptchaVerify(challenge: String, response: String, remoteAddr: String): scala.concurrent.Future[Boolean]
+  def reCaptchaVerify(challenge: String, response: String, remoteAddr: String): F[Boolean]
 }
 
 class DefaultSessionSupport(app: Application) extends SessionSupport {
@@ -78,14 +82,14 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
   private val api = apiHost / "api" / API_VERSION
   private val session = api / "session"
 
-  def session(sessionKey: String, userAgent: String): scala.concurrent.Future[Session] =
+  def session(sessionKey: String, userAgent: String): F[Session] =
     Http(session <<? Map("token" -> sessionKey) <:< Map("User-Agent" -> userAgent) OK Json) flatMap {
       json =>
 
-        json.asOpt[Session].fold[scala.concurrent.Future[Session]](scala.concurrent.Future.failed(new ScholaException(s"Invalid session [$sessionKey]"))) {
+        json.asOpt[Session].fold[F[Session]](F.failed(new ScholaException(s"Invalid session [$sessionKey]"))) {
           s =>
 
-            def isExpired(s: Session) = s.expiresIn exists (expiration => s.issuedTime.plusSeconds(expiration.getSeconds) isBefore java.time.Instant.now) // s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
+            def isExpired(s: Session) = s.expiresIn exists (expiration => s.issuedTime.plusSeconds(expiration.getSeconds) isBefore now) // s.expiresIn exists (s.issuedTime + _ * 1000 < System.currentTimeMillis)
 
             if (isExpired(s)) {
 
@@ -99,15 +103,15 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
                   (info \ "access_token")
                     .asOpt[String]
-                    .fold[scala.concurrent.Future[String]](scala.concurrent.Future.failed(new ScholaException(s"Could not refresh token [$sessionKey]"))) { accessToken => scala.concurrent.Future.successful(accessToken) }
+                    .fold[F[String]](F.failed(new ScholaException(s"Could not refresh token [$sessionKey]"))) { accessToken => F.successful(accessToken) }
 
                 } flatMap { accessToken =>
                   session(accessToken, userAgent)
                 }
 
-              } else scala.concurrent.Future.failed(new ScholaException(s"No refresh token for expired session [$sessionKey]"))
+              } else F.failed(new ScholaException(s"No refresh token for expired session [$sessionKey]"))
 
-            } else scala.concurrent.Future.successful(s)
+            } else F.successful(s)
         }
 
     }
@@ -122,7 +126,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
       (info \ "access_token")
         .asOpt[String]
-        .fold[scala.concurrent.Future[String]](scala.concurrent.Future.failed(new ScholaException("Login failed"))) { sessionKey => scala.concurrent.Future.successful(sessionKey) }
+        .fold[F[String]](F.failed(new ScholaException("Login failed"))) { sessionKey => F.successful(sessionKey) }
 
     } flatMap { accessToken =>
       session(accessToken, userAgent)
@@ -140,13 +144,13 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
     }
 
   def mac(session: Session, method: String, uri: String, userAgent: String) = {
-    def _genNonce(issuedTime: java.time.Instant) = s"${System.currentTimeMillis - issuedTime.getEpochSecond}:${utils.randomString(4)}"
+    def _genNonce(issuedTime: java.time.Instant) = s"${now.getEpochSecond - issuedTime.getEpochSecond}:${utils.randomString(4)}"
 
     val nonce = _genNonce(session.issuedTime)
 
-    val normalizedRequest = unfiltered.mac.Mac.requestString(nonce, method, uri, "localhost", 80, "", "")
-    unfiltered.mac.Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
-      errMsg => scala.concurrent.Future.failed(new ScholaException(s"Invalid request: $errMsg"))
+    val normalizedRequest = Mac.requestString(nonce, method, uri, "localhost", 80, "", "")
+    Mac.macHash(MACAlgorithm, session.secret)(normalizedRequest).fold({
+      errMsg => F.failed(new ScholaException(s"Invalid request: $errMsg"))
     }, {
       mac =>
 
@@ -154,7 +158,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
           "Authorization" -> s"""MAC id="${session.key}",nonce="$nonce",mac="$mac" """,
           "User-Agent" -> userAgent)
 
-        scala.concurrent.Future.successful(auth)
+        F.successful(auth)
     })
   }
 
@@ -168,7 +172,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
         Http(api / "avatar" / session.user.id.toString <:< auth + ("Accept" -> "application/json") OK Json) flatMap { json =>
 
           json.asOpt[AvatarInfo]
-            .fold[scala.concurrent.Future[AvatarInfo]](scala.concurrent.Future.failed(new ScholaException("Avatar not found."))) { avatarInfo => scala.concurrent.Future.successful(avatarInfo) }
+            .fold[F[AvatarInfo]](F.failed(new ScholaException("Avatar not found."))) { avatarInfo => F.successful(avatarInfo) }
         }
       }
     }
@@ -183,13 +187,13 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
           Http(api.DELETE / "user" / session.user.id.toString / "avatar" <:< auth OK Json) flatMap { json =>
 
             json.asOpt[Response]
-              .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
+              .fold[F[Boolean]](F.successful(false)) { response => F.successful(response.success) }
           }
         }
       }
 
     catch {
-      case scala.util.control.NonFatal(ex) => scala.concurrent.Future.failed(ex)
+      case NonFatal(ex) => F.failed(ex)
     }
 
   def uploadAvatar(sessionKey: String, userAgent: String, filename: String, contentType: Option[String], bytes: Array[Byte]) =
@@ -200,7 +204,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
         Http(api.PUT / "user" / session.user.id.toString / "avatar" <<? Map("filename" -> filename) <:< auth + ("Content-Type" -> contentType.getOrElse("application/octet-stream; charset=UTF-8")) setBody (bytes) OK Json) flatMap { json =>
 
           json.asOpt[Response]
-            .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
+            .fold[F[Boolean]](F.successful(false)) { response => F.successful(response.success) }
         }
       }
     }
@@ -213,6 +217,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
     password: Option[String],
     givenName: String,
     familyName: String,
+    jobTitle: String,
     gender: Gender,
     homeAddress: Option[AddressInfo],
     workAddress: Option[AddressInfo],
@@ -223,6 +228,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
         "primaryEmail" -> primaryEmail,
         "givenName" -> givenName,
         "familyName" -> familyName,
+        "jobTitle" -> jobTitle,
         "oldPassword" -> oldPassword,
         "password" -> password,
         "gender" -> gender,
@@ -236,7 +242,7 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
         Http(api.PUT / "user" / session.user.id.toString << PlayJson.stringify(payload) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
           true
-        } recover { case scala.util.control.NonFatal(_) => false }
+        } recover { case NonFatal(_) => false }
       }
     }
   }
@@ -249,30 +255,30 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
 
         Http(api.PUT / "user" / session.user.id.toString << PlayJson.stringify(PlayJson.obj("oldPassword" -> passwd, "password" -> newPasswd)) <:< auth + ("Content-Type" -> "application/json; charset=UTF-8") OK Json) map { _ =>
           true
-        } recover { case scala.util.control.NonFatal(_) => false }
+        } recover { case NonFatal(_) => false }
       }
     }
   }
 
-  def checkActivationReq(username: String, ky: String): scala.concurrent.Future[Boolean] =
+  def checkActivationReq(username: String, ky: String): F[Boolean] =
     Http(api / "users" / "check_activation_req" <<? Map("username" -> username, "key" -> ky) OK Json) flatMap { json =>
 
       json.asOpt[domain.Response]
-        .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
+        .fold[F[Boolean]](F.successful(false)) { response => F.successful(response.success) }
     }
 
   def createPasswdResetReq(username: String) =
     Http(api / "users" / "lostpassword" << Map("username" -> username) OK Json) flatMap { json =>
 
       json.asOpt[domain.Response]
-        .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
+        .fold[F[Boolean]](F.successful(false)) { response => F.successful(response.success) }
     }
 
   def resetPasswd(username: String, key: String, newPasswd: String) =
     Http(api / "users" / "resetpassword" << Map("username" -> username, "key" -> key, "newPassword" -> newPasswd) OK Json) flatMap { json =>
 
       json.asOpt[domain.Response]
-        .fold[scala.concurrent.Future[Boolean]](scala.concurrent.Future.successful(false)) { response => scala.concurrent.Future.successful(response.success) }
+        .fold[F[Boolean]](F.successful(false)) { response => F.successful(response.success) }
     }
 
   private val gCapcha = url("http://www.google.com/recaptcha/api/verify")
@@ -303,3 +309,5 @@ class DefaultSessionSupport(app: Application) extends SessionSupport {
     }
   }
 }
+
+object Mac extends utils.Signing

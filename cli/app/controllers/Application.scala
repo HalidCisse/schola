@@ -94,7 +94,7 @@ object Application extends Controller with Helpers {
                 Redirect(routes.Passwords.changePage(required = true))
 
               else session.activeAccessRight match { // Ok(views.html.index())
-                case Some(accessRight) => Redirect(accessRight.redirectUri).withCookies(Cookie(ACTIVE_RIGHT_KEY, accessRight.id.toString, maxAge = Some(31536000) /* 1 year in seconds */))
+                case Some(accessRight) => Redirect(accessRight.redirectUri).withCookies(Cookie(ACTIVE_RIGHT_KEY, accessRight.id.toString, maxAge = Some(31536000) /* 1 year in seconds */ ))
                 case _ => getActiveRightCookie match {
                   case Some(activeApp) => Redirect(s"/api/$API_VERSION/apps/${session.key}/set:$activeApp")
                   case _               => Ok(views.html.selectapp())

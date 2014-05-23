@@ -8,13 +8,13 @@ object `package` {
   import domain._
   import conversions.jdbc._
 
-  import java.time.{LocalDateTime, Duration}
+  import java.time.{ LocalDateTime, Duration }
 
   import scala.slick.model.ForeignKeyAction
 
   class Users(tag: Tag) extends Table[User](tag, "users") {
 
-    val id = column[java.util.UUID]("id", O.DBType("uuid"), O.AutoInc, O.NotNull)
+    val id = column[Uuid]("id", O.DBType("uuid"), O.AutoInc)
 
     val cin = column[String]("cin", O.NotNull)
 
@@ -26,15 +26,17 @@ object `package` {
 
     val familyName = column[String]("family_name", O.NotNull)
 
+    val jobTitle = column[String]("job_title", O.NotNull)
+
     val createdAt = column[LocalDateTime]("created_at", O.NotNull)
 
-    val createdBy = column[Option[java.util.UUID]]("created_by", O.DBType("uuid"))
+    val createdBy = column[Option[Uuid]]("created_by")
 
     val lastLoginTime = column[Option[LocalDateTime]]("last_login_time")
 
     val lastModifiedAt = column[Option[LocalDateTime]]("last_modified_at")
 
-    val lastModifiedBy = column[Option[java.util.UUID]]("last_modified_by", O.DBType("uuid"))
+    val lastModifiedBy = column[Option[Uuid]]("last_modified_by")
 
     val stars = column[Int]("stars", O.Default(0))
 
@@ -54,7 +56,7 @@ object `package` {
 
     val changePasswordAtNextLogin = column[Boolean]("change_password_at_next_login", O.NotNull, O.Default(false))
 
-    def * = (cin, primaryEmail, password?, givenName, familyName, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, stars, gender, homeAddress, workAddress, contacts, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <> ({ t: (String, String, Option[String], String, String, LocalDateTime, Option[java.util.UUID], Option[LocalDateTime], Option[LocalDateTime], Option[java.util.UUID], Int, Gender, Option[AddressInfo], Option[AddressInfo], Option[Contacts], Option[String], Boolean, Boolean, Boolean, Option[java.util.UUID]) =>
+    def * = (cin, primaryEmail, password?, givenName, familyName, jobTitle, createdAt, createdBy, lastLoginTime, lastModifiedAt, lastModifiedBy, stars, gender, homeAddress, workAddress, contacts, activationKey, _deleted, suspended, changePasswordAtNextLogin, id?) <> ({ t: (String, String, Option[String], String, String, String, LocalDateTime, Option[Uuid], Option[LocalDateTime], Option[LocalDateTime], Option[Uuid], Int, Gender, Option[AddressInfo], Option[AddressInfo], Option[Contacts], Option[String], Boolean, Boolean, Boolean, Option[Uuid]) =>
       t match {
         case (
           cin,
@@ -62,6 +64,7 @@ object `package` {
           password,
           givenName,
           familyName,
+          jobTitle,
           createdAt,
           createdBy,
           lastLoginTime,
@@ -83,6 +86,7 @@ object `package` {
             password,
             givenName,
             familyName,
+            jobTitle,
             createdAt,
             createdBy,
             lastLoginTime,
@@ -99,7 +103,7 @@ object `package` {
             changePasswordAtNextLogin,
             id)
       }
-    }, (user: User) => Some(user.cin, user.primaryEmail, user.password, user.givenName, user.familyName, user.createdAt, user.createdBy, user.lastLoginTime, user.lastModifiedAt, user.lastModifiedBy, user.stars, user.gender, user.homeAddress, user.workAddress, user.contacts, user.activationKey, user._deleted, user.suspended, user.changePasswordAtNextLogin, user.id))
+    }, (user: User) => Some(user.cin, user.primaryEmail, user.password, user.givenName, user.familyName, user.jobTitle, user.createdAt, user.createdBy, user.lastLoginTime, user.lastModifiedAt, user.lastModifiedBy, user.stars, user.gender, user.homeAddress, user.workAddress, user.contacts, user.activationKey, user._deleted, user.suspended, user.changePasswordAtNextLogin, user.id))
 
     lazy val _createdBy = foreignKey("USER_CREATOR_FK", createdBy, Users)(_.id, ForeignKeyAction.Cascade, ForeignKeyAction.SetNull)
 
@@ -117,32 +121,14 @@ object `package` {
     private val insertInvoker = {
       val usersInserts =
         this returning this.map(_.id) into {
-          case (newUser, id) =>
-            User(
-              newUser.cin,
-              newUser.primaryEmail,
-              newUser.password,
-              newUser.givenName,
-              newUser.familyName,
-              newUser.createdAt,
-              newUser.createdBy,
-              None,
-              newUser.lastModifiedAt,
-              newUser.lastModifiedBy,
-              newUser.stars,
-              newUser.gender,
-              newUser.homeAddress,
-              newUser.workAddress,
-              newUser.contacts,
-              suspended = newUser.suspended,
-              changePasswordAtNextLogin = newUser.changePasswordAtNextLogin, id = Some(id))
+          case (newUser, id) => newUser copy (password = None, id = Some(id))
         }
 
       usersInserts.insertInvoker
     }
 
     private val forDeletion = {
-      def getDeleted(id: Column[java.util.UUID]) =
+      def getDeleted(id: Column[Uuid]) =
         this
           .filter(user => (user.id =!= U.SuperUser.id) && (user.id === id))
           .map(_._deleted)
@@ -150,14 +136,14 @@ object `package` {
       Compiled(getDeleted _)
     }
 
-    def insert(cin: String, email: String, password: String, givenName: String, familyName: String, createdAt: LocalDateTime = LocalDateTime.now, createdBy: Option[java.util.UUID] = None, lastModifiedAt: Option[LocalDateTime] = None, lastModifiedBy: Option[java.util.UUID] = None, gender: Gender = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: Option[domain.Contacts] = None, suspended: Boolean = false, changePasswordAtNextLogin: Boolean = false)(implicit session: jdbc.Q.Session): User =
-      insertInvoker insert User(cin, email, Some(password), givenName, familyName, createdAt, createdBy, lastModifiedAt, lastModifiedBy = lastModifiedBy, gender = gender, homeAddress = homeAddress, workAddress = workAddress, contacts = contacts, suspended = suspended, changePasswordAtNextLogin = changePasswordAtNextLogin)
+    def insert(cin: String, email: String, password: String, givenName: String, familyName: String, jobTitle: String, createdAt: LocalDateTime = now, createdBy: Option[Uuid] = None, lastModifiedAt: Option[LocalDateTime] = None, lastModifiedBy: Option[Uuid] = None, gender: Gender = Gender.Male, homeAddress: Option[domain.AddressInfo] = None, workAddress: Option[domain.AddressInfo] = None, contacts: Option[domain.Contacts] = None, suspended: Boolean = false, changePasswordAtNextLogin: Boolean = false)(implicit session: jdbc.Q.Session): User =
+      insertInvoker insert User(cin, email, Some(password), givenName, familyName, jobTitle, createdAt, createdBy, lastModifiedAt, lastModifiedBy = lastModifiedBy, gender = gender, homeAddress = homeAddress, workAddress = workAddress, contacts = contacts, suspended = suspended, changePasswordAtNextLogin = changePasswordAtNextLogin)
 
-    def delete(id: String)(implicit session: jdbc.Q.Session) =
-      forDeletion(uuid(id)).update(true) == 1
+    def delete(id: Uuid)(implicit session: jdbc.Q.Session) =
+      forDeletion(id).update(true) == 1
   }
 
-/*  class OAuthClients(tag: Tag) extends Table[OAuthClient](tag, "oauth_clients") {
+  /*  class OAuthClients(tag: Tag) extends Table[OAuthClient](tag, "oauth_clients") {
 
     val id = column[String]("client_id")
 
@@ -182,7 +168,7 @@ object `package` {
 
     // val redirectUri = column[String]("redirect_uri", O.NotNull)
 
-    val userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
+    val userId = column[Uuid]("user_id", O.NotNull)
 
     val refreshToken = column[Option[String]]("refresh_token")
 
@@ -201,8 +187,8 @@ object `package` {
     val tokenType = column[String]("token_type", O.NotNull, O.Default("mac"))
 
     val accessRights = column[Set[AccessRight]]("access_rights", O.NotNull, O.Default(Set()), O.DBType("json"))
-    
-    val activeAccessRightId = column[Option[java.util.UUID]]("active_access_right_id", O.DBType("uuid"))
+
+    val activeAccessRightId = column[Option[Uuid]]("active_access_right_id")
 
     def * = (accessToken, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, accessRights, activeAccessRightId) <> (OAuthToken.tupled, OAuthToken.unapply)
 
@@ -219,38 +205,24 @@ object `package` {
 
     private val insertInvoker = {
       val oauthTokensInserts =
-        this returning this.map(_.accessToken) into {
-          case (token, _) =>
-            OAuthToken(
-              token.accessToken,
-              token.userId,
-              token.refreshToken,
-              token.macKey,
-              token.uA,
-              token.expiresIn,
-              token.refreshExpiresIn,
-              token.createdAt,
-              token.lastAccessTime,
-              token.tokenType,
-              token.accessRights)
-        }
+        this returning this
 
       oauthTokensInserts.insertInvoker
     }
 
-    def insert(accessToken: String, userId: java.util.UUID, refreshToken: Option[String], macKey: String, uA: String, expiresIn: Option[Duration], refreshExpiresIn: Option[Duration], createdAt: LocalDateTime, lastAccessTime: LocalDateTime, tokenType: String, accessRights: Set[AccessRight], activeAccessRightId: Option[java.util.UUID])(implicit session: jdbc.Q.Session): OAuthToken =
+    def insert(accessToken: String, userId: Uuid, refreshToken: Option[String], macKey: String, uA: String, expiresIn: Option[Duration], refreshExpiresIn: Option[Duration], createdAt: LocalDateTime, lastAccessTime: LocalDateTime, tokenType: String, accessRights: Set[AccessRight], activeAccessRightId: Option[Uuid])(implicit session: jdbc.Q.Session): OAuthToken =
       insertInvoker insert OAuthToken(accessToken, userId, refreshToken, macKey, uA, expiresIn, refreshExpiresIn, createdAt, lastAccessTime, tokenType, accessRights, activeAccessRightId)
   }
 
   class Apps(tag: Tag) extends Table[App](tag, "apps") {
 
-    val id = column[java.util.UUID]("id", O.DBType("uuid"), O.AutoInc, O.NotNull)
+    val id = column[Uuid]("id", O.DBType("uuid"), O.AutoInc)
 
     val name = column[String]("name", O.NotNull)
 
     val scopes = column[List[String]]("scopes", O.NotNull, O.Default(List()))
 
-    def * = (name, scopes, id?) <> ({ t: (String, List[String], Option[java.util.UUID]) => t match { case (name, scopes, id) => App(name, scopes, id = id) } }, (app: App) => Option((app.name, app.scopes, app.id)))
+    def * = (name, scopes, id?) <> ({ t: (String, List[String], Option[Uuid]) => t match { case (name, scopes, id) => App(name, scopes, id = id) } }, (app: App) => Option((app.name, app.scopes, app.id)))
 
     val indexName = index("APP_NAME_INDEX", name, unique = true)
 
@@ -260,35 +232,35 @@ object `package` {
   val Apps = new TableQuery(new Apps(_)) {
 
     private val insertInvoker = {
-      val appsInserts =
-        this returning this.map(_.id) into { case (app, id) => App(app.name, app.scopes, app.accessRights, id = Some(id)) }
+      val inserts =
+        this returning this.map(_.id) into { case (newApp, id) => newApp copy (id = Some(id)) }
 
-      appsInserts.insertInvoker
+      inserts.insertInvoker
     }
 
     def insert(name: String, scopes: List[String])(implicit session: jdbc.Q.Session): App = insertInvoker insert App(name, scopes)
 
-    def delete(id: String)(implicit session: jdbc.Q.Session) =
+    def delete(id: Uuid)(implicit session: jdbc.Q.Session) =
       this
-        .filter(_.id === uuid(id))
+        .filter(_.id === id)
         .delete
   }
 
   class AccessRights(tag: Tag) extends Table[AccessRight](tag, "access_rights") {
 
-    val id = column[java.util.UUID]("id", O.DBType("uuid"), O.AutoInc, O.NotNull)
+    val id = column[Uuid]("id", O.DBType("uuid"), O.AutoInc)
 
     val alias = column[String]("alias", O.NotNull)
-    
+
     val displayName = column[String]("display_name", O.NotNull)
 
     val redirectUri = column[String]("redirect_uri", O.NotNull)
 
-    val appId = column[java.util.UUID]("app_id", O.NotNull, O.DBType("uuid"))
+    val appId = column[Uuid]("app_id", O.NotNull)
 
     val scopes = column[List[Scope]]("scopes", O.DBType("json"), O.NotNull, O.Default(List()))
-    
-    val grantOptions = column[List[java.util.UUID]]("grant_options", O.NotNull, O.Default(List()))
+
+    val grantOptions = column[List[Uuid]]("grant_options", O.NotNull, O.Default(List()))
 
     def * = (alias, displayName, redirectUri, appId, scopes, grantOptions, id?) <> (AccessRight.tupled, AccessRight.unapply)
 
@@ -303,29 +275,29 @@ object `package` {
 
     private val insertInvoker = {
       val accessRightsInserts =
-        this returning this.map(_.id) into { case (accessRight, id) => AccessRight(accessRight.alias, accessRight.displayName, accessRight.redirectUri, accessRight.appId, accessRight.scopes, accessRight.grantOptions, id = Some(id)) }
+        this returning this.map(_.id) into { case (newAccessRight, id) => newAccessRight copy (id = Some(id)) }
 
       accessRightsInserts.insertInvoker
     }
 
-    def insert(alias: String, displayName: String, redirectUri: String, appId: String, scopes: List[Scope], grantOptions: List[String] = Nil)(implicit session: jdbc.Q.Session): AccessRight = 
-      insertInvoker insert AccessRight(alias, displayName, redirectUri, uuid(appId), scopes, grantOptions map uuid)
+    def insert(alias: String, displayName: String, redirectUri: String, appId: Uuid, scopes: List[Scope], grantOptions: List[Uuid] = Nil)(implicit session: jdbc.Q.Session): AccessRight =
+      insertInvoker insert AccessRight(alias, displayName, redirectUri, appId, scopes, grantOptions)
 
-    def delete(id: String)(implicit session: jdbc.Q.Session) =
+    def delete(id: Uuid)(implicit session: jdbc.Q.Session) =
       this
-        .filter(_.id === uuid(id))
+        .filter(_.id === id)
         .delete
   }
 
   class UsersAccessRights(tag: Tag) extends Table[UserAccessRight](tag, "users_access_rights") {
 
-    val userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
+    val userId = column[Uuid]("user_id", O.NotNull)
 
-    val accessRightId = column[java.util.UUID]("access_right_id", O.NotNull, O.DBType("uuid"))
+    val accessRightId = column[Uuid]("access_right_id", O.NotNull)
 
     val grantedAt = column[LocalDateTime]("granted_at", O.NotNull)
 
-    val grantedBy = column[Option[java.util.UUID]]("granted_by", O.DBType("uuid"))
+    val grantedBy = column[Option[Uuid]]("granted_by")
 
     def * = (userId, accessRightId, grantedAt, grantedBy) <> (UserAccessRight.tupled, UserAccessRight.unapply)
 
@@ -355,17 +327,18 @@ object `package` {
 
     private val insertInvoker = {
       val labelsInserts =
-        this returning this.map(_.name) into { case (label, name) => Label(name, label.color) }
+        this returning this
 
       labelsInserts.insertInvoker
     }
 
-    def insert(name: String, color: String)(implicit session: jdbc.Q.Session): Label = insertInvoker insert Label(name, color)
+    def insert(name: String, color: String)(implicit session: jdbc.Q.Session): Label =
+      insertInvoker insert Label(name, color)
   }
 
   class UsersLabels(tag: Tag) extends Table[UserLabel](tag, "users_labels") {
 
-    val userId = column[java.util.UUID]("user_id", O.NotNull, O.DBType("uuid"))
+    val userId = column[Uuid]("user_id", O.NotNull)
 
     val label = column[String]("label", O.NotNull)
 

@@ -34,7 +34,7 @@ class UploadWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
 
     gridFS.save(
       Enumerator(data),
-      DefaultFileToSave(filename, contentType, metadata = BSONDocument(attributes map({ case (k, s) => (k, BSONString(s)) })) ++ ("upload_id" -> BSONString(id))))
+      DefaultFileToSave(filename, contentType, metadata = BSONDocument(attributes map ({ case (k, s) => (k, BSONString(s)) })) ++ ("upload_id" -> BSONString(id))))
   }
 
   def purgeUpload(id: String) = {
@@ -55,7 +55,7 @@ class UploadWorkers(helper: ReactiveMongoHelper) extends akka.actor.Actor with a
 
       for {
         bytes <- en run Iteratee.consume[Array[Byte]]()
-      } yield domain.Upload(f.filename, f.contentType, bytes, f.metadata.elements collect{ case (k, BSONString(s)) => (k, s)})
+      } yield domain.Upload(f.filename, f.contentType, bytes, f.metadata.elements collect { case (k, BSONString(s)) => (k, s) })
     }
   }
 
@@ -138,7 +138,7 @@ class Uploads(config: MongoDBSettings) extends akka.actor.Actor with akka.actor.
   }
 }
 
-object Uploads {  
+object Uploads {
 
   sealed trait Msg
 

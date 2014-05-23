@@ -43,7 +43,7 @@ trait OAuth2Component {
             val refresh = sRefreshToken
             val value = sAccessToken
             val clientId = OAUTH_CLIENT
-            override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm/*, "activeAccessRight" -> sActiveAccessRight.toString*/) // TODO: Add access right object here
+            override val extras = Map("secret" -> macKey, "issuedTime" -> sCreatedAt.toString, "algorithm" -> MACAlgorithm /*, "activeAccessRight" -> sActiveAccessRight.toString*/ ) // TODO: Add access right object here
           }
       } getOrElse (throw NotFoundException("could not refresh token"))
 
@@ -85,8 +85,10 @@ trait OAuth2Component {
 
         val accessToken = generateToken
 
+        val id = Uuid(owner.id)
+
         try oauthService.saveToken(
-          accessToken, Some(generateRefreshToken), macKey = generateMacKey, userAgent/*, client.id, client.redirectUri*/, owner.id, Some(java.time.Duration.ofSeconds(AccessTokenSessionLifeTime)), Some(java.time.Duration.ofSeconds(RefreshTokenSessionLifeTime)), Set(oauthService.getUserAccessRights(owner.id): _*), None) match {
+          accessToken, Some(generateRefreshToken), macKey = generateMacKey, userAgent /*, client.id, client.redirectUri*/ , id, Some(java.time.Duration.ofSeconds(AccessTokenSessionLifeTime)), Some(java.time.Duration.ofSeconds(RefreshTokenSessionLifeTime)), Set(oauthService.getUserAccessRights(id): _*), None) match {
             case domain.OAuthToken(sAccessToken, sOwnerId, sRefreshToken, macKey, _, sExpires, sRefreshExpiresIn, sCreatedAt, _, sTokenType, sAccessRights, _) =>
               new Token {
                 val tokenType = Some(sTokenType)

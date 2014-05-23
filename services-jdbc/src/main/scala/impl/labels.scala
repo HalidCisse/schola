@@ -20,14 +20,13 @@ trait LabelServicesComponentImpl extends LabelServicesComponent {
 }
 
 trait LabelServicesRepoComponentImpl extends LabelServicesRepoComponent {
+  this: jdbc.WithDatabase =>
 
   import schema._
   import domain._
   import jdbc.Q._
 
   private[this] val log = Logger("oadmin.LabelServicesRepoComponentImpl")
-
-  protected val db: Database
 
   protected val labelServiceRepo = new LabelServicesRepoImpl
 

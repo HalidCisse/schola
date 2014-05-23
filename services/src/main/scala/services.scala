@@ -9,7 +9,7 @@ trait Apps {
 
     def addApp(name: String, scopes: List[String]): domain.App
 
-    def removeApp(id: String)
+    def removeApp(id: Uuid)
   }
 }
 
@@ -22,7 +22,7 @@ trait AppsRepo {
 
     def addApp(name: String, scopes: List[String]): domain.App
 
-    def removeApp(id: String)
+    def removeApp(id: Uuid)
   }
 }
 
@@ -34,48 +34,49 @@ trait UserServicesComponent {
 
     def getUsersStats: domain.UsersStats
 
-    def getUsers(page: Int): List[domain.User]
+    def getUsers(implicit page: Page): List[domain.User]
 
-    def getUser(id: String): Option[domain.User]
+    def getUser(id: Uuid): Option[domain.User]
 
     def getUserByCIN(cin: String): Option[domain.User]
 
-    def removeUser(id: String): Boolean
+    def removeUser(id: Uuid): Boolean
 
-    def removeUsers(users: Set[String])
+    def removeUsers(users: Set[Uuid])
 
     def getPurgedUsers: List[domain.User]
 
-    def purgeUsers(users: Set[String])
+    def purgeUsers(users: Set[Uuid])
 
-    def undeleteUsers(users: Set[String])
+    def undeleteUsers(users: Set[Uuid])
 
-    def suspendUsers(users: Set[String])
+    def suspendUsers(users: Set[Uuid])
 
     def saveUser(
-      cin: String, 
-      username: String, 
-      password: String, 
-      givenName: String, 
-      familyName: String, 
-      createdBy: Option[String], 
-      gender: domain.Gender, 
-      homeAddress: Option[domain.AddressInfo], 
-      workAddress: Option[domain.AddressInfo], 
-      contacts: Option[domain.Contacts], 
-      suspended: Boolean, 
-      changePasswordAtNextLogin: Boolean, 
-      accessRights: List[String]): domain.User
+      cin: String,
+      username: String,
+      // password: String, 
+      givenName: String,
+      familyName: String,
+      jobTitle: String,
+      createdBy: Option[Uuid],
+      gender: domain.Gender,
+      homeAddress: Option[domain.AddressInfo],
+      workAddress: Option[domain.AddressInfo],
+      contacts: Option[domain.Contacts],
+      suspended: Boolean,
+      changePasswordAtNextLogin: Boolean,
+      accessRights: List[Uuid]): domain.User
 
-    def updateUser(id: String, spec: domain.UserSpec): Boolean
+    def updateUser(id: Uuid, spec: domain.UserSpec): Boolean
 
     def primaryEmailExists(email: String): Boolean
 
-    def labelUser(userId: String, labels: Set[String])
+    def labelUser(userId: Uuid, labels: Set[String])
 
-    def unLabelUser(userId: String, labels: Set[String])
+    def unLabelUser(userId: Uuid, labels: Set[String])
 
-    def getUserLabels(userId: String): List[String]
+    def getUserLabels(userId: Uuid): List[String]
 
     def createPasswdResetReq(username: String): Unit
 
@@ -83,7 +84,7 @@ trait UserServicesComponent {
 
     def resetPasswd(username: String, ky: String, newPasswd: String): Boolean
 
-    def getPage(userId: String): Int
+    def getPage(userId: String)(implicit page: Page): Int
   }
 }
 
@@ -95,48 +96,49 @@ trait UserServicesRepoComponent {
 
     def getUsersStats: domain.UsersStats
 
-    def getUsers(page: Int): List[domain.User]
+    def getUsers(implicit page: Page): List[domain.User]
 
-    def getUser(id: String): Option[domain.User]
+    def getUser(id: Uuid): Option[domain.User]
 
     def getUserByCIN(cin: String): Option[domain.User]
 
-    def removeUser(id: String): Boolean
+    def removeUser(id: Uuid): Boolean
 
-    def removeUsers(users: Set[String])
+    def removeUsers(users: Set[Uuid])
 
     def getPurgedUsers: List[domain.User]
 
-    def purgeUsers(users: Set[String])
+    def purgeUsers(users: Set[Uuid])
 
-    def undeleteUsers(users: Set[String])
+    def undeleteUsers(users: Set[Uuid])
 
-    def suspendUsers(users: Set[String])
+    def suspendUsers(users: Set[Uuid])
 
     def saveUser(
-      cin: String, 
-      username: String, 
-      password: String, 
-      givenName: String, 
-      familyName: String, 
-      createdBy: Option[String], 
-      gender: domain.Gender, 
-      homeAddress: Option[domain.AddressInfo], 
-      workAddress: Option[domain.AddressInfo], 
-      contacts: Option[domain.Contacts], 
-      suspended: Boolean, 
-      changePasswordAtNextLogin: Boolean, 
-      accessRights: List[String]): domain.User
+      cin: String,
+      username: String,
+      // password: String, 
+      givenName: String,
+      familyName: String,
+      jobTitle: String,
+      createdBy: Option[Uuid],
+      gender: domain.Gender,
+      homeAddress: Option[domain.AddressInfo],
+      workAddress: Option[domain.AddressInfo],
+      contacts: Option[domain.Contacts],
+      suspended: Boolean,
+      changePasswordAtNextLogin: Boolean,
+      accessRights: List[Uuid]): domain.User
 
-    def updateUser(id: String, spec: domain.UserSpec): Boolean
+    def updateUser(id: Uuid, spec: domain.UserSpec): Boolean
 
     def primaryEmailExists(email: String): Boolean
 
-    def labelUser(userId: String, labels: Set[String])
+    def labelUser(userId: Uuid, labels: Set[String])
 
-    def unLabelUser(userId: String, labels: Set[String])
+    def unLabelUser(userId: Uuid, labels: Set[String])
 
-    def getUserLabels(userId: String): List[String]
+    def getUserLabels(userId: Uuid): List[String]
 
     def createPasswdResetReq(username: String): Unit
 
@@ -144,7 +146,7 @@ trait UserServicesRepoComponent {
 
     def resetPasswd(username: String, ky: String, newPasswd: String): Boolean
 
-    def getPage(userId: String): Int
+    def getPage(userId: String)(implicit page: Page): Int
   }
 }
 
@@ -162,7 +164,7 @@ trait OAuthServicesComponent {
 
     def revokeToken(accessToken: String)
 
-    def getUserTokens(userId: String): List[domain.OAuthToken]
+    def getUserTokens(userId: Uuid): List[domain.OAuthToken]
 
     def getUserSession(params: Map[String, String]): Option[domain.Session]
 
@@ -171,19 +173,19 @@ trait OAuthServicesComponent {
     def authUser(username: String, password: String): Option[String]
 
     def saveToken(
-      accessToken: String, 
-      refreshToken: Option[String], 
-      macKey: String, 
-      uA: String, 
-      userId: String, 
-      expiresIn: Option[java.time.Duration], 
-      refreshExpiresIn: Option[java.time.Duration], 
+      accessToken: String,
+      refreshToken: Option[String],
+      macKey: String,
+      uA: String,
+      userId: Uuid,
+      expiresIn: Option[java.time.Duration],
+      refreshExpiresIn: Option[java.time.Duration],
       accessRights: Set[domain.AccessRight],
-      activeAccessRight: Option[String]): domain.OAuthToken
+      activeAccessRight: Option[Uuid]): domain.OAuthToken
 
-    def setUserAccessRight(accessToken: String, accessRightId: String)
+    def setUserAccessRight(accessToken: String, accessRightId: Uuid)
 
-    def getUserAccessRights(userId: String): List[domain.AccessRight]
+    def getUserAccessRights(userId: Uuid): List[domain.AccessRight]
   }
 }
 
@@ -201,28 +203,29 @@ trait OAuthServicesRepoComponent {
 
     def revokeToken(accessToken: String)
 
-    def getUserTokens(userId: String): List[domain.OAuthToken]
+    def getUserTokens(userId: Uuid): List[domain.OAuthToken]
 
     def getUserSession(params: Map[String, String]): Option[domain.Session]
 
-    // def getClient(id: String, secret: String): Option[OAuthClient]
+    // def getClient(id: String, secret: String): Option[domain.OAuthClient]
 
     def authUser(username: String, password: String): Option[String]
 
     def saveToken(
-      accessToken: String, 
-      refreshToken: Option[String], 
-      macKey: String, 
-      uA: String, 
-      userId: String, 
-      expiresIn: Option[java.time.Duration], 
-      refreshExpiresIn: Option[java.time.Duration], 
+      accessToken: String,
+      refreshToken: Option[String],
+      macKey: String,
+      uA: String,
+      userId: Uuid,
+      expiresIn: Option[java.time.Duration],
+      refreshExpiresIn: Option[java.time.Duration],
       accessRights: Set[domain.AccessRight],
-      activeAccessRight: Option[String]): domain.OAuthToken
+      activeAccessRight: Option[Uuid]): domain.OAuthToken
 
-    def setUserAccessRight(accessToken: String, accessRightId: String)
+    def setUserAccessRight(accessToken: String, accessRightId: Uuid)
 
-    def getUserAccessRights(userId: String): List[domain.AccessRight]
+    def getUserAccessRights(userId: Uuid): List[domain.AccessRight]
+
   }
 }
 

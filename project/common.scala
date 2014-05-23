@@ -8,32 +8,12 @@ object Common {
 
   val appVersion = "0.9.0"
 
-  val playVersion = "2.3.0-RC1"
-
-  def id(name: String) = "schola-%s" format name
-
-  def local(name: String) = LocalProject(id(name))
-
-  def specsDep(sv: String) =
-    sv.split("[.-]").toList match {
-      case "2" :: "9" :: "0" :: _ :: _ => "org.scala-tools.testing" %% "specs" % "1.6.8"
-      case "2" :: "9" :: _ => "org.scala-tools.testing" % "specs_2.9.1" % "1.6.9"
-      case _ => "org.scala-tools.testing" %% "specs" % "1.6.9"
-    }
-
-  def specs2Dep(sv: String) =
-    sv.split("[.-]").toList match {
-      case "2" :: "9" :: "1" :: "1" :: _ =>
-        "org.specs2" %% "specs2" % "1.12.4"
-      case "2" :: "9" :: _ => "org.specs2" %% "specs2" % "1.12.4.1"
-      case "2" :: "10" :: _ => "org.specs2" %% "specs2" % "1.13"
-      case _ => sys.error("Unsupported scala version")
-    }
+  val playVersion = "2.3.0-RC2"
 
   private def withExclusions(items: Seq[ModuleID]) = 
-    items.map(_.excludeAll(ExclusionRule(organization = "javax.mail"), ExclusionRule(organization = "jline", name = "jline")))
+    items.map(_.excludeAll(ExclusionRule(organization = "javax.mail"), ExclusionRule(organization = "jline")))
 
-  // val json4s = "org.json4s" %% "json4s-native" % "3.2.6"
+  val uTest = "com.lihaoyi" %% "utest" % "0.1.4" % "test"
 
   val dispatchVersion = "0.11.1"  
   def dispatchDeps =
@@ -41,12 +21,13 @@ object Common {
     // "net.databinder.dispatch" %% "dispatch-json4s-native" % dispatchVersion ::
 
   val unfilteredVersion = "0.8.0"
+  val unfilteredCore = "net.databinder" %% "unfiltered" % unfilteredVersion
   val oauth2Dep = "net.databinder" %% "unfiltered-oauth2" % unfilteredVersion
   val unfilteredMac = "net.databinder" %% "unfiltered-mac" % unfilteredVersion
   val unfilteredSpec = "net.databinder" %% "unfiltered-spec" % unfilteredVersion % "test"
   val unfilteredSpec2 = "net.databinder" %% "unfiltered-spec2" % unfilteredVersion % "test"
 
-  val akkaVersion = "2.3.2"
+  val akkaVersion = "2.3.3"
   def akkaDeps =
     "com.typesafe.akka" %% "akka-actor" % akkaVersion ::
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion :: Nil
@@ -73,20 +54,19 @@ object Common {
     "org.scala-lang" % "scala-reflect" % "2.11.0" ::    
     "org.apache.commons" % "commons-lang3" % "3.3.1" ::    
     "net.jpountz.lz4" % "lz4" % "1.2.0" :: 
-    "com.typesafe" % "config" % "1.2.0" ::    
+    "com.typesafe" % "config" % "1.2.1" ::    
     "org.bouncycastle" % "bcprov-jdk15on" % "1.50" ::
     // "org.clapper" %% "avsl" % "1.0.1" ::  
-    "ch.qos.logback" % "logback-classic" % "1.1.1" ::
-    "org.slf4j" % "slf4j-api" % "1.7.5" ::  
+    "ch.qos.logback" % "logback-classic" % "1.1.2" ::
+    "org.slf4j" % "slf4j-api" % "1.7.7" ::  
     "org.apache.commons" % "commons-email" % "1.3.2" ::
     "io.webcrank" %% "webcrank-password" % "0.4-SNAPSHOT" ::
-    "com.sun.mail" % "javax.mail" % "1.5.1" :: Nil    
+    // "io.github.nremond" %% "pbkdf2-scala" % "0.4"
+    "com.sun.mail" % "javax.mail" % "1.5.2" :: Nil    
   }
 
   val memcachedDeps = 
-    "net.spy" % "spymemcached" % "2.10.3" :: Nil
-
-  def integrationTestDeps(sv: String) = (specsDep(sv) :: dispatchDeps) map { _ % "test" }
+    "net.spy" % "spymemcached" % "2.11.2" :: Nil
 
   val settings = Seq(
 
@@ -94,7 +74,7 @@ object Common {
 
     version := appVersion,
 
-    scalaVersion := "2.11.0",
+    scalaVersion := "2.11.1",
 
     shellPrompt := buildShellPrompt,
 
@@ -108,7 +88,7 @@ object Common {
 
     incOptions := incOptions.value.withNameHashing(true),
 
-   offline := true,
+    offline := true,
 
     scalacOptions <++= scalaVersion.map(sv =>
       Seq("-Xcheckinit", "-encoding", "utf-8", "-deprecation", "-unchecked", "-language:_")),
@@ -123,6 +103,10 @@ object Common {
               // "https://oss.sonatype.org/service/local/staging/deploy/maven2"),
 
     ideaExcludeFolders := Seq(".idea", ".idea_modules"),
+
+    libraryDependencies += uTest,
+
+    testFrameworks += new TestFramework("utest.runner.JvmFramework"),
 
     publishArtifact in Test := false/*,
 

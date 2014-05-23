@@ -4,7 +4,7 @@
 
 # Users
 
-GET					/users												controllers.admin.Users.getUsers(page: Int ?= 0)
+GET					/users												controllers.admin.Users.getUsers
 
 POST				/users												controllers.admin.Users.addUser
 

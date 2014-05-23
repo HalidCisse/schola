@@ -14,8 +14,8 @@ object Crypto {
   val lineSeparator = System.getProperty("line.separator")
 
   def sign(message: String, key: Array[Byte]): String = {
-    val mac = Mac.getInstance("HmacSHA1")
-    mac.init(new SecretKeySpec(key, "HmacSHA1"))
+    val mac = Mac.getInstance("HmacSHA512")
+    mac.init(new SecretKeySpec(key, "HmacSHA512"))
     Hex.toHexString(mac.doFinal(message.getBytes("utf-8")))
   }
 
@@ -26,9 +26,9 @@ object Crypto {
 
     val rounds = 65536
 
-    val size = 256
+    val size = 512
 
-    val alg = "PBKDF2WithHMACSHA1"
+    val alg = "PBKDF2WithHmacSHA512"
 
     (password: String) => {
       val spec = new PBEKeySpec(password.toCharArray, utils.randomBytes(16), rounds, size)
@@ -78,6 +78,8 @@ object Crypto {
 
 object `package` {
 
+  import scala.concurrent.duration.Deadline
+
   @inline def tryo[T](thunk: => T) = try {
     thunk; true
   } catch {
@@ -106,17 +108,18 @@ object `package` {
     (bytes: Array[Byte]) => f.hash(bytes, 0, bytes.length, 0xCAFEBABE)
   }
 
-  @inline def timeF(thunk: => Any) = {
-    val start = System.currentTimeMillis
+  @inline def timedF(thunk: => Any) = {
+    val start = Deadline.now
     thunk
-    System.currentTimeMillis - start
+    val end = Deadline.now
+    end - start
   }
 
   @inline def If[T](cond: Boolean, t: => T, f: => T) = if (cond) t else f
 
   @inline def option[T](cond: => Boolean, value: => T): Option[T] = if (cond) Some(value) else None
 
-  def copyToClipboard(s: String) {
+  /*def copyToClipboard(s: String) {
     import java.awt.datatransfer.StringSelection
     import java.awt.Toolkit
 
@@ -124,5 +127,5 @@ object `package` {
     val clpbrd = Toolkit.getDefaultToolkit.getSystemClipboard
 
     clpbrd.setContents(stringSelection, null)
-  }
+  }*/
 }

@@ -4,6 +4,9 @@ import Keys._
 import play.Play.autoImport._, PlayKeys._
 // import play.Project._
 
+// import sbtassembly.Plugin._
+// import AssemblyKeys._ // put this at the top of the file
+
 import com.typesafe.sbt.SbtNativePackager._
 import com.typesafe.sbt.packager.Keys._
 
@@ -25,7 +28,11 @@ object ScholaBuild extends Build {
 
   lazy val util = project.settings(Common.settings: _*)
 
-  lazy val oauth2 = project.settings(Common.settings: _*).dependsOn(domain, `services-jdbc`, util)
+  lazy val oauth2 = 
+    project.settings(Common.settings: _*)
+           // .settings(assemblySettings: _*)
+           .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
+           .dependsOn(domain, `services-jdbc`, util)
 
   // Base
 
@@ -55,6 +62,8 @@ object ScholaBuild extends Build {
     project.enablePlugins(play.PlayScala)
            .settings(Common.settings: _*)
            // .settings(playScalaSettings: _*)
+           // .settings(assemblySettings: _*)
+           .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
            .settings(sourceDirectory := baseDirectory.value / "app")
            .aggregate(domain, `services-jdbc`, util, common, admin, schools)
            .dependsOn(domain, `services-jdbc`, util, common, admin, schools)
@@ -86,6 +95,8 @@ object ScholaBuild extends Build {
            .enablePlugins(play.PlayScala)
            .settings(Common.settings: _*)
            // .settings(playScalaSettings: _*)
+           // .settings(assemblySettings: _*)
+           .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
            .settings(playDefaultPort := 9999) 
            .settings(sourceDirectory := baseDirectory.value / "app")
            .settings(

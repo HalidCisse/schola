@@ -28,6 +28,7 @@ object Profile extends Controller with Helpers {
   val Password2 = "password2"
   val PrimaryEmail = "primaryEmail"
   val GivenName = "givenName"
+  val JobTitle = "jobTitle"
   val FamilyName = "familyName"
   val Gender = "gender"
   val HomeAddress = "homeAddress"
@@ -45,6 +46,7 @@ object Profile extends Controller with Helpers {
   val Email = "email"
   val PhoneNumber = "phoneNumber"
   val Fax = "fax"
+  val Site = "site"
 
   case class UserInfo(
     primaryEmail: String,
@@ -52,12 +54,13 @@ object Profile extends Controller with Helpers {
     newPassword: Option[String],
     givenName: String,
     familyName: String,
+    jobTitle: String,
     gender: Gender,
     homeAddress: Option[AddressInfo],
     workAddress: Option[AddressInfo],
     contacts: Option[Contacts])
 
-  implicit def UserToInfo(user: domain.Profile) = UserInfo(user.primaryEmail, None, None, user.givenName, user.familyName, user.gender, user.homeAddress, user.workAddress, user.contacts)
+  implicit def UserToInfo(user: domain.Profile) = UserInfo(user.primaryEmail, None, None, user.givenName, user.familyName, user.jobTitle, user.gender, user.homeAddress, user.workAddress, user.contacts)
 
   val form = Form[UserInfo](
     mapping(
@@ -68,6 +71,7 @@ object Profile extends Controller with Helpers {
         Password2 -> nonEmptyText).verifying("Passwords do not match", passwords => passwords._1 == passwords._2)),
       GivenName -> nonEmptyText,
       FamilyName -> nonEmptyText,
+      JobTitle -> nonEmptyText,
       Gender -> nonEmptyText.transform(domain.Gender.withName, (_: Gender).toString),
       HomeAddress -> mapping(
         City -> text,
@@ -90,11 +94,12 @@ object Profile extends Controller with Helpers {
         Work -> mapping(
           Email -> optional(email),
           PhoneNumber -> text,
-          Fax -> text)((email, phoneNumber, fax) => Option(ContactInfo(Option(email.getOrElse("")), Option(phoneNumber), Option(fax))))(contactInfoIn => Option(contactInfoIn.flatMap(_.email), contactInfoIn.flatMap(_.phoneNumber).getOrElse(""), contactInfoIn.flatMap(_.fax).getOrElse(""))))(domain.Contacts)(domain.Contacts.unapply)) {
+          Fax -> text)((email, phoneNumber, fax) => Option(ContactInfo(Option(email.getOrElse("")), Option(phoneNumber), Option(fax))))(contactInfoIn => Option(contactInfoIn.flatMap(_.email), contactInfoIn.flatMap(_.phoneNumber).getOrElse(""), contactInfoIn.flatMap(_.fax).getOrElse(""))),
+        Site -> optional(text))(domain.Contacts)(domain.Contacts.unapply)) {
 
-        (primaryEmail, password, newPasswords, givenName, familyName, gender, homeAddress, workAddress, contacts) => UserInfo(primaryEmail, password, newPasswords map (_._1), givenName, familyName, gender, homeAddress, workAddress, Option(contacts))
+        (primaryEmail, password, newPasswords, givenName, familyName, jobTitle, gender, homeAddress, workAddress, contacts) => UserInfo(primaryEmail, password, newPasswords map (_._1), givenName, familyName, jobTitle, gender, homeAddress, workAddress, Option(contacts))
 
-      } { (userInfo: UserInfo) => Some(userInfo.primaryEmail, Some(""), Some("", ""), userInfo.givenName, userInfo.familyName, userInfo.gender, userInfo.homeAddress, userInfo.workAddress, userInfo.contacts.getOrElse(domain.Contacts())) })
+      } { (userInfo: UserInfo) => Some(userInfo.primaryEmail, Some(""), Some("", ""), userInfo.givenName, userInfo.familyName, userInfo.jobTitle, userInfo.gender, userInfo.homeAddress, userInfo.workAddress, userInfo.contacts.getOrElse(domain.Contacts())) })
 
   def edit = Action.async {
     implicit request =>
@@ -112,7 +117,7 @@ object Profile extends Controller with Helpers {
               else Ok(views.html.editprofile(form.fill(session.user)))
 
           } recover {
-            case scala.util.control.NonFatal(_) =>
+            case NonFatal(_) =>
 
               Redirect(routes.LoginPage.index)
                 .discardingCookies(DiscardingCookie(SESSION_KEY))
@@ -147,6 +152,7 @@ object Profile extends Controller with Helpers {
                 newPassword,
                 givenName,
                 familyName,
+                jobTitle,
                 gender,
                 homeAddress,
                 workAddress,
@@ -160,6 +166,7 @@ object Profile extends Controller with Helpers {
                 newPassword,
                 givenName,
                 familyName,
+                jobTitle,
                 gender,
                 homeAddress,
                 workAddress,

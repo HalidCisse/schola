@@ -27,3 +27,5 @@ GET     /javascriptRoutes           controllers.Utils.javascriptRoutes
 ->      /admin                      admin.Routes
 
 ->      /schools                    schools.Routes
+
+->      /school                     school.Routes

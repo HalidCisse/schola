@@ -51,10 +51,10 @@ object Utils extends Controller with HttpHelpers {
       Ok
     }
 
-  def setApp(accessToken: String, app: String) = 
+  def setApp(accessToken: String, app: String) =
     Action {
-  
-      tryo { use[Façade].oauthService.setUserAccessRight(accessToken, app) }
+
+      tryo { use[Façade].oauthService.setUserAccessRight(accessToken, Uuid(app)) }
 
       Redirect("/")
     }

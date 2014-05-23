@@ -6,7 +6,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import com.typesafe.plugin._
 
-import ma.epsilon.schola._, http.HttpHelpers, domain._, conversions.json._, utils._
+import ma.epsilon.schola._, http.HttpHelpers, jdbc._, domain._, conversions.json._, utils._
 
 import ma.epsilon.schola.http.{ Façade, Secured }
 import play.api.libs.iteratee.{ Enumerator, Iteratee }
@@ -16,14 +16,14 @@ import scala.util.control.NonFatal
 
 object Users extends Controller with Secured with HttpHelpers {
 
-  def getUsers(page: Int) =
+  def getUsers =
     withAuth {
       _ =>
         implicit request: RequestHeader =>
 
           render {
             case Accepts.Json() =>
-              json[List[User]](use[Façade].userService.getUsers(page))
+              json[List[User]](use[Façade].userService.getUsers)
           }
     }
 
@@ -34,7 +34,7 @@ object Users extends Controller with Secured with HttpHelpers {
 
           render {
             case Accepts.Json() =>
-              use[Façade].userService.getUser(id) match {
+              use[Façade].userService.getUser(Uuid(id)) match {
                 case Some(user) => json[User](user)
                 case _          => NotFound
               }
@@ -73,16 +73,17 @@ object Users extends Controller with Secured with HttpHelpers {
           case class UserIn(
             cin: String,
             primaryEmail: String,
-            password: Option[String],
+            // password: Option[String],
             givenName: String,
             familyName: String,
+            jobTitle: String,
             gender: Gender,
             homeAddress: Option[AddressInfo],
             workAddress: Option[AddressInfo],
             contacts: Option[Contacts],
             active: Boolean,
             changePasswordAtNextLogin: Boolean,
-            accessRights: Option[List[String]])
+            accessRights: Option[List[Uuid]])
 
           implicit val addressInfoReads = (
             (__ \ "city").readNullable[String] ~
@@ -93,26 +94,27 @@ object Users extends Controller with Secured with HttpHelpers {
           implicit val userInReads = (
             (__ \ "cin").read[String] ~
             (__ \ "primaryEmail").read[String](email) ~
-            (__ \ "password").readNullable(minLength[String](ma.epsilon.schola.PasswordMinLength)) ~
+            // (__ \ "password").readNullable(minLength[String](ma.epsilon.schola.PasswordMinLength)) ~
             (__ \ "givenName").read[String] ~
             (__ \ "familyName").read[String] ~
+            (__ \ "jobTitle").read[String] ~
             (__ \ "gender").read[Gender] ~
             (__ \ "homeAddress").readNullable[AddressInfo] ~
             (__ \ "workAddress").readNullable[AddressInfo] ~
             (__ \ "contacts").readNullable[Contacts] ~
             (__ \ "active").read[Boolean] ~
             (__ \ "changePasswordAtNextLogin").read[Boolean] ~
-            (__ \ "accessRights").readNullable[List[String]])(UserIn)
+            (__ \ "accessRights").readNullable[List[Uuid]])(UserIn)
 
           request.body.validate[UserIn].map {
-            case UserIn(cin, primaryEmail, password, givenName, familyName, gender, homeAddress, workAddress, contacts, active, changePasswordAtNextLogin, accessRights) =>
+            case UserIn(cin, primaryEmail /*, password*/ , givenName, familyName, jobTitle, gender, homeAddress, workAddress, contacts, active, changePasswordAtNextLogin, accessRights) =>
 
               try
 
                 render {
                   case Accepts.Json() =>
                     json[User](
-                      use[Façade].userService.saveUser(cin, primaryEmail, password getOrElse randomString(4), givenName, familyName, Some(resourceOwner.id), gender, homeAddress, workAddress, contacts, suspended = !active, changePasswordAtNextLogin, accessRights getOrElse Nil))
+                      use[Façade].userService.saveUser(cin, primaryEmail /*, password getOrElse randomString(4)*/ , givenName, familyName, jobTitle, Some(Uuid(resourceOwner.id)), gender, homeAddress, workAddress, contacts, suspended = !active, changePasswordAtNextLogin, accessRights getOrElse Nil))
                 }
               catch {
 
@@ -137,17 +139,18 @@ object Users extends Controller with Secured with HttpHelpers {
           case class UserIn(
             cin: Option[String],
             primaryEmail: Option[String],
-            oldPassword: Option[String],
-            password: Option[String],
+            // oldPassword: Option[String],
+            // password: Option[String],
             givenName: Option[String],
             familyName: Option[String],
+            jobTitle: Option[String],
             gender: Option[Gender],
             homeAddress: Option[AddressInfo],
             workAddress: Option[AddressInfo],
             contacts: Option[Contacts],
             active: Option[Boolean],
             changePasswordAtNextLogin: Option[Boolean],
-            accessRights: Option[List[String]])
+            accessRights: Option[List[Uuid]])
 
           implicit val addressInfoReads = (
             (__ \ "city").readNullable[String] ~
@@ -158,35 +161,37 @@ object Users extends Controller with Secured with HttpHelpers {
           implicit val userInReads = (
             (__ \ "cin").readNullable[String] ~
             (__ \ "primaryEmail").readNullable[String](email) ~
-            (__ \ "oldPassword").readNullable[String] ~
-            (__ \ "password").readNullable(minLength[String](ma.epsilon.schola.PasswordMinLength)) ~
+            // (__ \ "oldPassword").readNullable[String] ~
+            // (__ \ "password").readNullable(minLength[String](ma.epsilon.schola.PasswordMinLength)) ~
             (__ \ "givenName").readNullable[String] ~
             (__ \ "familyName").readNullable[String] ~
+            (__ \ "jobTitle").readNullable[String] ~
             (__ \ "gender").readNullable[Gender] ~
             (__ \ "homeAddress").readNullable[AddressInfo] ~
             (__ \ "workAddress").readNullable[AddressInfo] ~
             (__ \ "contacts").readNullable[Contacts] ~
             (__ \ "active").readNullable[Boolean] ~
             (__ \ "changePasswordAtNextLogin").readNullable[Boolean] ~
-            (__ \ "accessRights").readNullable[List[String]])(UserIn)
+            (__ \ "accessRights").readNullable[List[Uuid]])(UserIn)
 
           request.body.validate[UserIn].map {
-            case UserIn(sCIN, sPrimaryEmail, sOldPassword, sPassword, sGivenName, sFamilyName, sGender, sHomeAddress, sWorkAddress, sContacts, sActive, changePasswordAtNextLogin, sAccessRights) =>
+            case UserIn(sCIN, sPrimaryEmail /*, sOldPassword, sPassword*/ , sGivenName, sFamilyName, sJobTitle, sGender, sHomeAddress, sWorkAddress, sContacts, sActive, changePasswordAtNextLogin, sAccessRights) =>
 
-              if (use[Façade].userService.updateUser(id, new DefaultUserSpec {
+              if (use[Façade].userService.updateUser(Uuid(id), new DefaultUserSpec {
 
                 override lazy val contacts =
                   UpdateSpecImpl[ContactsSpec](
                     set = sContacts collect {
-                      case Contacts(mobiles, home, work) =>
+                      case Contacts(mobiles, home, work, site) =>
                         Some(ContactsSpec(
 
-                          UpdateSpecImpl[MobileNumbersSpec](set = mobiles collect {
-                            case MobileNumbers(mobile1, mobile2) =>
-                              Some(MobileNumbersSpec(
-                                UpdateSpecImpl[String](set = mobile1 map Option[String]),
-                                UpdateSpecImpl[String](set = mobile2 map Option[String])))
-                          }),
+                          UpdateSpecImpl[MobileNumbersSpec](
+                            set = mobiles collect {
+                              case MobileNumbers(mobile1, mobile2) =>
+                                Some(MobileNumbersSpec(
+                                  UpdateSpecImpl[String](set = mobile1 map Option[String]),
+                                  UpdateSpecImpl[String](set = mobile2 map Option[String])))
+                            }),
 
                           UpdateSpecImpl[ContactInfoSpec](
                             set = home collect {
@@ -202,7 +207,9 @@ object Users extends Controller with Secured with HttpHelpers {
                                 UpdateSpecImpl[String](set = email map Option[String]),
                                 UpdateSpecImpl[String](set = fax map Option[String]),
                                 UpdateSpecImpl[String](set = phoneNumber map Option[String])))
-                            })))
+                            }),
+
+                          site = UpdateSpecImpl[String](set = None)))
                     })
 
                 override lazy val homeAddress =
@@ -235,22 +242,24 @@ object Users extends Controller with Secured with HttpHelpers {
 
                 override lazy val familyName = sFamilyName
 
+                override lazy val jobTitle = sJobTitle
+
                 override lazy val gender = sGender
 
                 override lazy val suspended = sActive map (!_)
 
-                override lazy val password = sPassword
+                // override lazy val password = sPassword
 
-                override lazy val oldPassword = sOldPassword
+                // override lazy val oldPassword = sOldPassword
 
-                override lazy val updatedBy = Some(resourceOwner.id)
+                override lazy val updatedBy = Some(Uuid(resourceOwner.id))
 
-                override lazy val accessRights = sAccessRights map (accessRights => Set(accessRights: _*))
+                override lazy val accessRights = sAccessRights map (accessRights => SetSpec.only(Set(accessRights: _*))) getOrElse SetSpec.empty[Uuid]
 
               }))
                 render {
                   case Accepts.Json() =>
-                    json[Option[User]](use[Façade].userService.getUser(id))
+                    json[Option[User]](use[Façade].userService.getUser(Uuid(id)))
 
                   case _ => Ok
                 }
@@ -267,7 +276,7 @@ object Users extends Controller with Secured with HttpHelpers {
       _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.removeUsers(users))
+          def result = tryo(use[Façade].userService.removeUsers(users map Uuid.apply))
 
           render {
             case Accepts.Json() =>
@@ -285,7 +294,7 @@ object Users extends Controller with Secured with HttpHelpers {
       _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.purgeUsers(users))
+          def result = tryo(use[Façade].userService.purgeUsers(users map Uuid.apply))
 
           render {
             case Accepts.Json() =>
@@ -325,7 +334,7 @@ object Users extends Controller with Secured with HttpHelpers {
       _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.suspendUsers(users))
+          def result = tryo(use[Façade].userService.suspendUsers(users map Uuid.apply))
 
           render {
             case Accepts.Json() =>
@@ -343,7 +352,7 @@ object Users extends Controller with Secured with HttpHelpers {
       _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.undeleteUsers(users))
+          def result = tryo(use[Façade].userService.undeleteUsers(users map Uuid.apply))
 
           render {
             case Accepts.Json() =>
@@ -381,7 +390,7 @@ object Users extends Controller with Secured with HttpHelpers {
 
           render {
             case Accepts.Json() =>
-              json[List[AccessRight]](use[Façade].oauthService.getUserAccessRights(id))
+              json[List[AccessRight]](use[Façade].oauthService.getUserAccessRights(Uuid(id)))
           }
     }
 
@@ -439,7 +448,7 @@ object Users extends Controller with Secured with HttpHelpers {
 
           render {
             case Accepts.Json() =>
-              json[List[String]](use[Façade].userService.getUserLabels(id))
+              json[List[String]](use[Façade].userService.getUserLabels(Uuid(id)))
           }
     }
 
@@ -448,7 +457,7 @@ object Users extends Controller with Secured with HttpHelpers {
       _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.labelUser(id, labels))
+          def result = tryo(use[Façade].userService.labelUser(Uuid(id), labels))
 
           render {
             case Accepts.Json() =>
@@ -466,7 +475,7 @@ object Users extends Controller with Secured with HttpHelpers {
       _ =>
         implicit request: RequestHeader =>
 
-          def result = tryo(use[Façade].userService.unLabelUser(id, labels))
+          def result = tryo(use[Façade].userService.unLabelUser(Uuid(id), labels))
 
           render {
             case Accepts.Json() =>

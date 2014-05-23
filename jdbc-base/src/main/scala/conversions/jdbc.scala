@@ -10,7 +10,9 @@ object `package` {
   import domain._
   import school.domain._
 
-  import play.api.libs.json.{Json, Format}
+  import school.conversions.json._
+
+  import play.api.libs.json.{ Json, Format }
   import json._
 
   def setTypeMapper[T: scala.reflect.ClassTag: Format] =
@@ -29,11 +31,13 @@ object `package` {
   def jsonTypeMapper[T: scala.reflect.ClassTag: Format] =
     MappedColumnType.base[T, String](
       ts => Json.stringify(Json.toJson(ts)),
-      s => Json.parse(s).as[T])  
+      s => Json.parse(s).as[T])
 
   implicit val contactsTypeMapper = jsonTypeMapper[Contacts]
   implicit val contactInfoTypeMapper = jsonTypeMapper[ContactInfo]
   implicit val addressInfoTypeMapper = jsonTypeMapper[AddressInfo]
-  implicit val dayOfWeekTypeMapper = jsonTypeMapper[java.time.DayOfWeek]
+  implicit val weekDaysTypeMapper = jsonTypeMapper[WeekDays]
   implicit val monthDayTypeMapper = jsonTypeMapper[java.time.MonthDay]
+  implicit val recurrenceTypeMapper = jsonTypeMapper[Recurrence]
+  implicit val moduleTypeTypeMapper = jsonTypeMapper[ModuleType]
 }

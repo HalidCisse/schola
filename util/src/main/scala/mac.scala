@@ -1,4 +1,5 @@
-package ma.epsilon.schola.utils
+package ma.epsilon.schola
+package utils
 
 import scala.util.control.Exception.allCatch
 
@@ -35,9 +36,10 @@ trait Signing {
 
   val HmacSha1 = "HmacSHA1"
   val HmacSha256 = "HmacSHA256"
+  val HmacSha512 = "HmacSHA512"
   val charset = "UTF8"
-  val MacAlgorithms = Map("hmac-sha-1" -> HmacSha1, "hmac-sha-256" -> HmacSha256)
-  private val JAlgorithms = Map(HmacSha1 -> "SHA-1", HmacSha256 -> "SHA-256")
+  val MacAlgorithms = Map("hmac-sha-1" -> HmacSha1, "hmac-sha-256" -> HmacSha256, "hmac-sha-512" -> HmacSha512)
+  private val JAlgorithms = Map(HmacSha1 -> "SHA-1", HmacSha256 -> "SHA-256", HmacSha512 -> "SHA-512")
 
   implicit def s2b(s: String) = s.getBytes(charset)
 
@@ -64,8 +66,8 @@ trait Signing {
     hash(body)(alg).fold({ Left(_) }, { h => Right(new String(encodeBase64(h), charset)) })
 
   /** @return signed request for a given key, request, and algorithm */
-  def sign(r: Req, nonce: String, ext: Option[String],
-           bodyHash: Option[String], key: String, alg: String): Either[String, String] =
+  def sign( /*r: HttpRequest[T]*/ r: Req, nonce: String, ext: Option[String],
+                                  bodyHash: Option[String], key: String, alg: String): Either[String, String] =
     requestString(r, alg, nonce, ext, bodyHash).fold({ Left(_) }, { rstr =>
       sign(key, rstr, alg)
     })
@@ -75,16 +77,27 @@ trait Signing {
     macHash(alg, key)(request)
 
   /** calculates the normalized the request string from a request */
-  def requestString(r: Req, alg: String,
-                    nonce: String, ext: Option[String], bodyHash: Option[String]): Either[String, String] =
+  def requestString[T]( /*r: HttpRequest[T]*/ r: Req, alg: String,
+                                              nonce: String, ext: Option[String], bodyHash: Option[String]): Either[String, String] =
     MacAlgorithms.get(alg) match {
       case None => Left("unsupported mac algorithm %s" format alg)
       case Some(macAlg) =>
         r match {
-          case HostPort(hostname, port) =>
+          case HostPort(hostname, port) /* & r*/ =>
+            /*bodyHash match {
+              case Some(bh) => // calculate bodyhash
+                 val body = Body.bytes(r)
+                 bodyhash(body)(macAlg).fold({ Left(_) }, { bhash =>
+                   Right(requestString(nonce, r.method, r.uri,
+                                    hostname, port,
+                                    bhash,
+                                    ext.getOrElse("")))
+                 })
+              case _ => // don't calculate bodyhash*/
             Right(requestString(nonce, r.method, r.uri,
               hostname, port, "", ext.getOrElse("")))
         }
+      // }
     }
 
   /** calculates the normalized request string from parts of a request */

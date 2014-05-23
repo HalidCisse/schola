@@ -1,23 +1,23 @@
 package ma.epsilon.schola
 
-import domain._
+/*import domain._
 
 object Types {
 
   import java.time.{LocalDateTime, Duration, Instant}
 
   type UserLike = {
-    val id: Option[java.util.UUID]
+    val id: Option[Uuid]
     val cin: String
     val primaryEmail: String
     val password: Option[String]
     val givenName: String
     val familyName: String
     val createdAt: LocalDateTime
-    val createdBy: Option[java.util.UUID]
+    val createdBy: Option[Uuid]
     val lastLoginTime: Option[LocalDateTime]
     val lastModifiedAt: Option[LocalDateTime]
-    val lastModifiedBy: Option[java.util.UUID]
+    val lastModifiedBy: Option[Uuid]
     val gender: domain.Gender
     val homeAddress: Option[domain.AddressInfo]
     val workAddress: Option[domain.AddressInfo]
@@ -30,15 +30,15 @@ object Types {
   }
 
   type ProfileLike = {
-    val id: java.util.UUID
+    val id: Uuid
     val cin: String
     val primaryEmail: String
     val givenName: String
     val familyName: String
     val createdAt: LocalDateTime
-    val createdBy: Option[java.util.UUID]
+    val createdBy: Option[Uuid]
     val lastModifiedAt: Option[LocalDateTime]
-    val lastModifiedBy: Option[java.util.UUID]
+    val lastModifiedBy: Option[Uuid]
     val gender: domain.Gender
     val homeAddress: Option[domain.AddressInfo]
     val workAddress: Option[domain.AddressInfo]
@@ -46,7 +46,7 @@ object Types {
   }
 
   type UserLabelLike = {
-    val userId: java.util.UUID
+    val userId: Uuid
     val label: String
   }
 
@@ -58,7 +58,7 @@ object Types {
 
   type TokenLike = {
     val accessToken: String
-    val userId: java.util.UUID
+    val userId: Uuid
     val refreshToken: Option[String]
     val macKey: String
     val uA: String
@@ -68,7 +68,7 @@ object Types {
     val lastAccessTime: LocalDateTime
     val tokenType: String
     val accessRights: Set[AccessRight]
-    val activeAccessRight: Option[java.util.UUID]
+    val activeAccessRight: Option[Uuid]
   }
 
   type ClientLike = {
@@ -101,3 +101,4 @@ object Types {
     val color: String
   }
 }
+*/ 

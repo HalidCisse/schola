@@ -7,31 +7,10 @@ object `package` {
 
   import domain._
 
-  import play.api.libs.json._
+  import play.api.libs.json._, Reads._, Writes._
+  import play.api.libs.functional.syntax._
 
-  import java.time.{LocalDateTime, LocalDate, LocalTime, Duration, DayOfWeek, Instant, MonthDay}
-
-  implicit val monthDayFormat = new Format[MonthDay] {
-
-    val df = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
-
-    def reads(js: JsValue): JsResult[MonthDay] = js match {
-      case JsString(s)   => JsSuccess(MonthDay.parse(s, df))
-      case _             => JsError("invalid.monthday")
-    }
-
-    def writes(monthDay: MonthDay): JsValue = JsString(monthDay.format(df))
-  }  
-
-  implicit val dayOfWeekFormat = new Format[DayOfWeek] {
-
-    def reads(js: JsValue): JsResult[DayOfWeek] = js match {
-      case JsNumber(dayOfWeek)   => JsSuccess(DayOfWeek.of(dayOfWeek.intValue))
-      case _                     => JsError("invalid.dayofweek")
-    }
-
-    def writes(dayOfWeek: DayOfWeek): JsValue = JsNumber(dayOfWeek.getValue)
-  }
+  import java.time.{ LocalDateTime, LocalDate, LocalTime, Duration, DayOfWeek, Instant, MonthDay }
 
   implicit object durationFormat extends Format[Duration] {
 
@@ -41,7 +20,19 @@ object `package` {
       case JsNumber(nanos) => JsSuccess(Duration.ofNanos(nanos.longValue))
       case _               => JsError(Seq(JsPath() -> Seq(ValidationError("error.expected.date"))))
     }
-  }  
+  }
+
+  implicit val monthDayFormat = new Format[MonthDay] {
+
+    val df = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
+
+    def reads(js: JsValue): JsResult[MonthDay] = js match {
+      case JsString(s) => JsSuccess(MonthDay.parse(s, df))
+      case _           => JsError("invalid.monthday")
+    }
+
+    def writes(monthDay: MonthDay): JsValue = JsString(monthDay.format(df))
+  }
 
   implicit object instantFormat extends Format[Instant] {
 
@@ -51,7 +42,7 @@ object `package` {
       case JsNumber(s) => JsSuccess(Instant.ofEpochSecond(s.longValue))
       case _           => JsError(Seq(JsPath() -> Seq(ValidationError("error.expected.date"))))
     }
-  }  
+  }
 
   implicit object localDateTimeFormat extends Format[LocalDateTime] {
 
@@ -101,7 +92,7 @@ object `package` {
 
     private def parseDate(input: String): Option[LocalTime] =
       scala.util.control.Exception.allCatch[LocalTime] opt (LocalTime.parse(input))
-  }  
+  }
 
   implicit val contactInfoFormat = Json.format[ContactInfo]
   implicit val addressInfoFormat = Json.format[AddressInfo]
@@ -120,16 +111,18 @@ object `package` {
     def writes(gender: Gender): JsValue = JsString(gender.toString)
   }
 
-  implicit val uuidFormat = new Format[java.util.UUID] {
+  implicit val uuidReads = new Reads[Uuid] {
 
-    def reads(js: JsValue): JsResult[java.util.UUID] = js match {
+    def reads(js: JsValue): JsResult[Uuid] = js match {
       case JsString(str) =>
-        try JsSuccess(java.util.UUID.fromString(str)) catch {
+        try JsSuccess(Uuid(str)) catch {
           case _: Exception => JsError(ValidationError("invalid.uuid"))
         }
     }
+  }
 
-    def writes(uuid: java.util.UUID): JsValue = JsString(uuid.toString)
+  implicit val uuidWrites = new Writes[Uuid] {
+    def writes(uuid: Uuid): JsValue = JsString(uuid.toString)
   }
 
   implicit val scopeFormat = Json.format[Scope]

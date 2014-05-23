@@ -244,14 +244,14 @@ class DefaultAuthSource(app: Application) extends AuthSource {
 
           case Some(
             domain.Session(_, _, issuedTime, expiresIn, _, _, _, _, _ /* TODO: authenticate Suspended token??? */ , _,
-              domain.Profile(userId, _, _, _, _, _, _, _, _, _, _, _, _), userAgent, accessRights, _)
+              domain.Profile(userId, _, _, _, _, _, _, _, _, _, _, _, _, _), userAgent, accessRights, _)
             ) if userAgent == uA =>
 
             expiresIn match {
               case Some(expirationTime) =>
 
                 // if (issuedTime + expirationTime * 1000 > System.currentTimeMillis)
-                if (issuedTime.plusSeconds(expirationTime.getSeconds) isAfter java.time.Instant.now)
+                if (issuedTime.plusSeconds(expirationTime.getSeconds) isAfter now)
                   Right(ResourceOwner(userId.toString), OAUTH_CLIENT, accessRights.flatMap(_.scopes.map(_.name)).toSeq)
                 else {
 

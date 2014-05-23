@@ -2,6 +2,47 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
+# School officer
+
+## GET             /schools                                    controllers.school.???
+## POST            /schools                                    controllers.school.???
+
+## GET             /school/:org                                controllers.school.???
+## PUT             /school/:org                                controllers.school.???
+## DELETE          /school/:org                                controllers.school.???
+
+## GET             /courses                                    controllers.course.???
+## PUT             /courses                                    controllers.course.???
+## DELETE          /course/:id                                 controllers.course.???
+
+## GET             /subjects                                   controllers.subject.???
+## PUT             /subjects                                   controllers.subject.???
+## DELETE          /subject/:id                                controllers.subject.???
+
+# Other
+
+## GET             /settings/:org                              controllers.school.???
+## PUT             /settings/:org                              controllers.school.???
+
+# Other :: Students
+
+## GET             /school/:org/admissions                     controllers.school.???
+## POST            /school/:org/admissions                     controllers.school.???
+## PUT             /school/:org/admission/:id                  controllers.school.???
+## DELETE          /school/:org/admission/:id                  controllers.school.???
+
+## GET             /school/:org/admission/:id                  controllers.school.???
+
+# Other :: Employees
+
+## GET             /school/:org/employees                      controllers.school.???
+## POST            /school/:org/employees                      controllers.school.???
+## PUT             /school/:org/employee/:id                   controllers.school.???
+## DELETE          /school/:org/employee/:id                   controllers.school.???
+
+## GET             /school/:org/employee/:id/classes           controllers.school.???
+## GET             /school/:org/employee/:id/events            controllers.school.???
+
 # Utils
 
 GET				/javascriptRoutes								controllers.school.Utils.javascriptRoutes

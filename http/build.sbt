@@ -25,6 +25,7 @@ libraryDependencies ++= Seq(
   // "group" % "artifact" % "version"
   // "com.typesafe.akka" %% "akka-actor" % "2.2.1",
   // "com.typesafe.akka" %% "akka-slf4j" % "2.2.1",
+  // "com.typesafe.play" %% "filters-helpers" % Common.playVersion,
   "com.typesafe" %% "play-plugins-util" % Common.playVersion,
   "commons-io" % "commons-io" % "2.4"
 )
@@ -36,3 +37,11 @@ description := "OAuth implementation based on Unfiltered OAuth2 module"
 packageSummary in Linux := description.value
 
 packageDescription in Linux := description.value
+
+libraryDependencies ~= { _ map {
+  case m if m.organization == "com.typesafe.play" =>
+    m.exclude("commons-logging", "commons-logging")
+     .exclude("com.typesafe.play", "sbt-link")
+     .exclude("jline", "jline")
+  case m => m
+}}
