@@ -1,6 +1,8 @@
 package ma.epsilon.schola
 package school
 
+/*Halid have been here
+
 import _root_.ma.epsilon.schola.domain._, school.domain._
 
 trait StudentServicesComponent {
